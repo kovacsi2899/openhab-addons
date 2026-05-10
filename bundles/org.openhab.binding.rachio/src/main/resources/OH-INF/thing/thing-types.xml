@@ -122,7 +122,8 @@
 	<channel-type id="dev_rainSensorTripped">
 		<item-type>Switch</item-type>
 		<label>Rain Sensor Tripped</label>
-		<description>>ON: The rain sensor is in tripped state</description>
+		<description>Indicates whether the rain sensor is currently tripped.</description>
+		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_latitude" advanced="true">
 		<item-type>Number</item-type>

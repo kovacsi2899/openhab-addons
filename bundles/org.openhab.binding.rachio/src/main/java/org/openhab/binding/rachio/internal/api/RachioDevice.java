@@ -108,7 +108,8 @@ public class RachioDevice extends RachioCloudDevice {
      */
     public boolean compare(@Nullable RachioDevice cdev) {
         if ((cdev == null) || !id.equalsIgnoreCase(cdev.id) || !status.equalsIgnoreCase(cdev.status) || (on != cdev.on)
-                || (paused != cdev.paused)) {
+                || (paused != cdev.paused) || (rainSensorTripped != cdev.rainSensorTripped)
+                || (rainDelay != cdev.rainDelay)) {
             logger.trace("Device data was updated");
             return false;
         }
@@ -124,9 +125,12 @@ public class RachioDevice extends RachioCloudDevice {
         if ((updatedData == null) || !id.equals(updatedData.id)) {
             return;
         }
+
         status = updatedData.status;
         on = updatedData.on;
         paused = updatedData.paused;
+        rainSensorTripped = updatedData.rainSensorTripped;
+        rainDelay = updatedData.rainDelay;
     }
 
     /**

@@ -214,9 +214,9 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME,
                     new DecimalType(new BigDecimal(d.getRunTime()).toString()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_DELAY,
-                    d.rainSensorTripped ? OnOffType.ON : OnOffType.OFF);
-            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_STRIPPED,
                     new DecimalType(new BigDecimal(d.rainDelay).toString()));
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_STRIPPED,
+                    d.rainSensorTripped ? OnOffType.ON : OnOffType.OFF);
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENT, new StringType(d.getEvent()));
             DateTimeType ts = d.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);
@@ -348,11 +348,11 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                     logger.info("{}: Device reporterd Rain Delay OFF.", thingId);
                     update = false; // details missing
                 } else if (event.subType.equals("RAIN_SENSOR_DETECTION_ON")) {
-                    logger.info("{}: Device reporterd a Rain Sensor ON.", thingId);
-                    update = false; // details missing
-                } else if (event.subType.equals("RAIN_SENSOR_DETECTION_ON")) {
-                    logger.info("{}: Device reporterd Rain Sensor OFF.", thingId);
-                    update = false; // details missing
+                    logger.info("{}: Device reported Rain Sensor ON.", thingId);
+                    d.rainSensorTripped = true;
+                } else if (event.subType.equals("RAIN_SENSOR_DETECTION_OFF")) {
+                    logger.info("{}: Device reported Rain Sensor OFF.", thingId);
+                    d.rainSensorTripped = false;
                 } else {
                     update = false; // details missing
                 }
