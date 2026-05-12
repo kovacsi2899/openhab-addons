@@ -224,5 +224,5 @@ OK **Compilation Successful** - All code compiles without errors
 - The new WebhookService uses different event payload structure
 - String-based event types are more descriptive than numeric IDs
 - The `externalId` field in new webhook format aids in event routing
-- Future HMAC-SHA256 signature validation may be added for enhanced security
+- WebhookService requests are validated with the HMAC-SHA256 `x-signature` header before payload parsing
 

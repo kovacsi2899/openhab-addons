@@ -94,6 +94,12 @@ Set the bridge `callbackUrl` to a public HTTPS URL that forwards to `/rachio/web
 - `WIND_SKIP_NOTIFICATION_EVENT` - High wind, watering skipped
 - `NO_SKIP_NOTIFICATION_EVENT` - Normal watering (no skip)
 
+### Rain Sensor Events
+- `RAIN_SENSOR_DETECTION_ON_EVENT` - Rain sensor tripped (if supported by the service)
+- `RAIN_SENSOR_DETECTION_OFF_EVENT` - Rain sensor cleared (if supported by the service)
+
+> Note: The binding dynamically queries `/webhook/listWebhookEventTypes` and only subscribes to rain sensor events if the new WebhookService advertises them. If the service does not expose rain sensor change events, `rainSensorTripped` is refreshed by normal polling.
+
 ### Additional Events (For Future Implementation)
 - `VALVE_RUN_START_EVENT` - Smart hose timer started (Valve service)
 - `VALVE_RUN_END_EVENT` - Smart hose timer stopped (Valve service)
@@ -173,32 +179,14 @@ Set the bridge `callbackUrl` to a public HTTPS URL that forwards to `/rachio/web
 - **429 Too Many Requests** - Rate limit exceeded
 - **500 Internal Server Error** - Server error
 
-## Future Security Enhancement: HMAC-SHA256 Signature Validation
+## Webhook Signature Validation
 
-### Implementation Notes
-The new WebhookService API supports HMAC-SHA256 signature validation for enhanced security. Future implementation should:
+The servlet verifies the `x-signature` header before parsing or routing an inbound event.
+The expected signature is recomputed with HMAC-SHA256 over the raw request body bytes using the configured Rachio API token.
+Requests with a missing or invalid signature are rejected with `401 Unauthorized`.
 
-1. **Extract Signature from Header**
-   ```java
-   String xSignature = request.getHeader("x-signature");
-   ```
-
-2. **Read Request Body**
-   ```java
-   String bodyString = readRequestBody(request);
-   ```
-
-3. **Compute Expected Signature**
-   ```java
-   String expectedSignature = computeHmacSha256(bodyString, apiKey);
-   ```
-
-4. **Validate Signature**
-   ```java
-   if (!xSignature.equals(expectedSignature)) {
-       throw new SecurityException("Invalid webhook signature");
-   }
-   ```
+Payload parsing uses the original JSON body directly for WebhookService events.
+Legacy malformed JSON support is isolated to a fallback path for stringified JSON objects, so broad global replacements are not applied to standard WebhookService payloads.
 
 ### Why Important
 - Prevents webhook spoofing
@@ -210,6 +198,7 @@ The new WebhookService API supports HMAC-SHA256 signature validation for enhance
 - [ ] Public HTTPS `callbackUrl` is configured
 - [ ] Webhook registration uses new endpoint when enabled
 - [ ] Webhook cleanup works correctly
+- [ ] Incoming events include a valid `x-signature` header
 - [ ] Events from new API are received and parsed
 - [ ] Existing thing and channel IDs remain unchanged
 - [ ] Event routing to device/zone handlers works

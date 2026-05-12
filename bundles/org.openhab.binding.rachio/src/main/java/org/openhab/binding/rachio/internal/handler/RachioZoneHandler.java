@@ -121,7 +121,10 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
          */
         String channel = channelUID.getId();
         logger.debug("Handle command {} for {}", command.toString(), channelUID.getAsString());
-        if ((cloudHandler == null) || (zone == null)) {
+        RachioBridgeHandler handler = cloudHandler;
+        RachioZone currentZone = zone;
+        RachioDevice currentDev = dev;
+        if ((handler == null) || (currentZone == null) || (currentDev == null)) {
             logger.debug("{}: Cloud handler or device not initialized!", thingId);
             return;
         }
@@ -143,29 +146,33 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
 
             if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_ENABLED)) {
                 if (command instanceof OnOffType) {
-                    if (command == OnOffType.ON) {
-                        logger.debug("Enabling zone '{} [{}]'", zone.name, zone.zoneNumber);
-                    }
+                    boolean enabled = command == OnOffType.ON;
+                    logger.info("{} zone '{} [{}]'", enabled ? "Enabling" : "Disabling", currentZone.name,
+                            currentZone.zoneNumber);
+                    handler.setZoneEnabled(currentZone.id, enabled);
+                    currentZone.setEnabled(enabled);
+                    updateChannel(CHANNEL_ZONE_ENABLED, currentZone.getEnabled());
+                    updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_RUN)) {
                 if (command == OnOffType.ON) {
-                    int runtime = zone.getStartRunTime();
-                    logger.debug("{}: Starting zone {} for {} secs", thingId, zone.name, runtime);
+                    int runtime = currentZone.getStartRunTime();
+                    logger.debug("{}: Starting zone {} for {} secs", thingId, currentZone.name, runtime);
                     if (runtime == 0) {
-                        runtime = cloudHandler.getDefaultRuntime();
-                        logger.debug("{}: Starting zone {} with default runtime ({} secs);", thingId, zone.name,
+                        runtime = handler.getDefaultRuntime();
+                        logger.debug("{}: Starting zone {} with default runtime ({} secs);", thingId, currentZone.name,
                                 runtime);
                     }
-                    cloudHandler.startZone(zone.id, runtime);
+                    handler.startZone(currentZone.id, runtime);
                 } else {
                     logger.debug("{}: Stop watering for the device", thingId);
-                    cloudHandler.stopWatering(dev.id);
+                    handler.stopWatering(currentDev.id);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_RUN_TIME)) {
                 if (command instanceof DecimalType) {
                     int runtime = ((DecimalType) command).intValue();
-                    logger.debug("{}: Zone {} will start for {} sec", thingId, zone.name, runtime);
-                    zone.setStartRunTime(runtime);
+                    logger.debug("{}: Zone {} will start for {} sec", thingId, currentZone.name, runtime);
+                    currentZone.setStartRunTime(runtime);
                 }
             }
         } catch (RachioApiException e) {

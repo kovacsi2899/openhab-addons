@@ -19,6 +19,7 @@ import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.rachio.internal.api.RachioApi;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
@@ -127,11 +128,14 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
             // process event parameters
             for (HashMap.Entry<String, RachioBridge> be : bridgeList.entrySet()) {
                 RachioBridge bridge = be.getValue();
-                if (bridge.cloudHandler != null) {
-                    RachioBridgeHandler cloudHandler = bridge.cloudHandler;
-                    if (cloudHandler.getExternalId().equals(event.externalId)) {
-                        return cloudHandler.webHookEvent(event);
-                    }
+                RachioBridgeHandler cloudHandler = bridge.cloudHandler;
+                if (cloudHandler == null) {
+                    continue;
+                }
+                @Nullable
+                String externalId = cloudHandler.getExternalId();
+                if (externalId != null && externalId.equals(event.externalId)) {
+                    return cloudHandler.webHookEvent(event);
                 }
             }
 
@@ -148,15 +152,41 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
         return false;
     }
 
+    public boolean isValidWebHookSignature(@Nullable String signature, byte[] requestBody) {
+        boolean validSignature = false;
+        boolean apiKeyAvailable = false;
+
+        for (HashMap.Entry<String, RachioBridge> be : bridgeList.entrySet()) {
+            RachioBridge bridge = be.getValue();
+            RachioBridgeHandler cloudHandler = bridge.cloudHandler;
+            if (cloudHandler == null) {
+                continue;
+            }
+            String apikey = cloudHandler.getApiKey();
+            if (apikey.isEmpty()) {
+                continue;
+            }
+            apiKeyAvailable = true;
+            validSignature |= RachioApi.isValidWebHookSignature(signature, requestBody, apikey);
+        }
+
+        if (!apiKeyAvailable) {
+            logger.warn("RachioCloud: Unable to validate webhook signature because no API key is configured");
+        }
+        return apiKeyAvailable && validSignature;
+    }
+
     @Nullable
     private RachioBridgeHandler createBridge(Bridge bridgeThing) {
         try {
             RachioBridge bridge = new RachioBridge();
-            bridge.uid = bridgeThing.getUID();
-            bridge.cloudHandler = new RachioBridgeHandler(bridgeThing);
-            bridge.cloudHandler.setConfiguration(bindingConfig);
-            bridgeList.put(bridge.uid.toString(), bridge);
-            return bridge.cloudHandler;
+            ThingUID bridgeUID = bridgeThing.getUID();
+            RachioBridgeHandler cloudHandler = new RachioBridgeHandler(bridgeThing);
+            bridge.uid = bridgeUID;
+            bridge.cloudHandler = cloudHandler;
+            cloudHandler.setConfiguration(bindingConfig);
+            bridgeList.put(bridgeUID.toString(), bridge);
+            return cloudHandler;
         } catch (RuntimeException e) {
             logger.warn("RachioFactory: Unable to create bridge thing: {}: ", e.getMessage());
         }

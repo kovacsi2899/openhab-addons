@@ -207,6 +207,26 @@ public class RachioEventGsonDTO {
             case EVENT_NO_SKIP:
                 normalizeScheduleStatus(eventPayload, "WEATHER_INTELLIGENCE_NO_SKIP");
                 break;
+            case EVENT_RAIN_SENSOR_DETECTION_ON:
+                type = "DEVICE_STATUS";
+                subType = "RAIN_SENSOR_DETECTION_ON";
+                category = "DEVICE";
+                break;
+            case EVENT_RAIN_SENSOR_DETECTION_OFF:
+                type = "DEVICE_STATUS";
+                subType = "RAIN_SENSOR_DETECTION_OFF";
+                category = "DEVICE";
+                break;
+            case EVENT_RAIN_DELAY_ON:
+                type = "DEVICE_STATUS";
+                subType = "RAIN_DELAY_ON";
+                category = "DEVICE";
+                break;
+            case EVENT_RAIN_DELAY_OFF:
+                type = "DEVICE_STATUS";
+                subType = "RAIN_DELAY_OFF";
+                category = "DEVICE";
+                break;
             default:
                 type = eventType;
                 subType = eventType;

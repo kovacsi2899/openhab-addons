@@ -78,6 +78,7 @@ public class RachioBindingConstants {
     public static final String CHANNEL_DEVICE_ACTIVE = "active";
     public static final String CHANNEL_DEVICE_ONLINE = "online";
     public static final String CHANNEL_DEVICE_PAUSED = "paused";
+    public static final String CHANNEL_DEVICE_PAUSE_TIME = "pauseTime";
     public static final String CHANNEL_DEVICE_RUN = "run";
     public static final String CHANNEL_DEVICE_RUN_ZONES = "runZones";
     public static final String CHANNEL_DEVICE_RUN_TIME = "runTime";
@@ -121,6 +122,8 @@ public class RachioBindingConstants {
     public static final String APIURL_DEV_PUT_OFF = "device/off"; // Disable device / all functions
     public static final String APIURL_DEV_PUT_STOP = "device/stop_water"; // stop watering (all zones)
     public static final String APIURL_DEV_PUT_RAIN_DELAY = "device/rain_delay"; // Rain delay device
+    public static final String APIURL_DEV_PUT_PAUSE_ZONE_RUN = "device/pause_zone_run"; // Pause active zone run
+    public static final String APIURL_DEV_PUT_RESUME_ZONE_RUN = "device/resume_zone_run"; // Resume active zone run
     public static final String APIURL_DEV_POST_WEBHOOK = "notification/webhook"; // deprecated
     public static final String APIURL_DEV_QUERY_WEBHOOK = "notification"; // deprecated
     public static final String APIURL_DEV_DELETE_WEBHOOK = "notification/webhook"; // deprecated
@@ -137,6 +140,8 @@ public class RachioBindingConstants {
 
     public static final String APIURL_ZONE_PUT_START = "zone/start"; // start a zone
     public static final String APIURL_ZONE_PUT_MULTIPLE_START = "zone/start_multiple"; // start multiple zones
+    public static final String APIURL_ZONE_PUT_ENABLE = "zone/enable"; // enable a zone
+    public static final String APIURL_ZONE_PUT_DISABLE = "zone/disable"; // disable a zone
 
     public static final String DEFAULT_IP_FILTER_LIST = "192.168.0.0/16;10.0.0.0/8;172.16.0.0/12";
 
@@ -164,6 +169,10 @@ public class RachioBindingConstants {
     public static final String EVENT_FREEZE_SKIP = "FREEZE_SKIP_NOTIFICATION_EVENT";
     public static final String EVENT_WIND_SKIP = "WIND_SKIP_NOTIFICATION_EVENT";
     public static final String EVENT_NO_SKIP = "NO_SKIP_NOTIFICATION_EVENT";
+    public static final String EVENT_RAIN_SENSOR_DETECTION_ON = "RAIN_SENSOR_DETECTION_ON_EVENT";
+    public static final String EVENT_RAIN_SENSOR_DETECTION_OFF = "RAIN_SENSOR_DETECTION_OFF_EVENT";
+    public static final String EVENT_RAIN_DELAY_ON = "RAIN_DELAY_ON_EVENT";
+    public static final String EVENT_RAIN_DELAY_OFF = "RAIN_DELAY_OFF_EVENT";
 
     public static final String SERVLET_WEBHOOK_PATH = "/rachio/webhook";
     public static final String SERVLET_WEBHOOK_APPLICATION_JSON = "application/json";

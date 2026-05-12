@@ -32,7 +32,10 @@
 			</parameter>
 			<parameter name="callbackUrl" type="text">
 				<label>Callback URL</label>
-				<description>Public HTTPS URL for Rachio webhook events, for example https://host.example.org/rachio/webhook.</description>
+				<description>Public HTTPS URL for Rachio webhook events. For openHAB Cloud / myopenHAB.org, use
+					https://username:password@home.myopenhab.org/rachio/webhook where username is your myopenHAB.org email address
+					(URL-encode @ as %40 if present). For direct reverse proxies, use https://yourhost.example.org/rachio/webhook.
+					Credentials are automatically encoded for Basic Auth.</description>
 				<required>false</required>
 			</parameter>
 			<parameter name="clearAllCallbacks" type="boolean">
@@ -57,6 +60,7 @@
 			<channel id="active" typeId="dev_active"/>
 			<channel id="online" typeId="dev_online"/>
 			<channel id="paused" typeId="dev_paused"/>
+			<channel id="pauseTime" typeId="dev_pauseTime"/>
 			<channel id="stop" typeId="dev_stop"/>
 			<channel id="run" typeId="dev_run"/>
 			<channel id="runZones" typeId="dev_runZones"/>
@@ -91,7 +95,12 @@
 	<channel-type id="dev_paused">
 		<item-type>Switch</item-type>
 		<label>Paused</label>
-		<description>OFF: Watering scheduled is enabled, ON: Watering schedule is paused</description>
+		<description>OFF: active watering run is not paused, ON: pause active watering run for pauseTime seconds</description>
+	</channel-type>
+	<channel-type id="dev_pauseTime">
+		<item-type>Number</item-type>
+		<label>Pause Time</label>
+		<description>Number of seconds to pause the active zone run when paused receives ON. Range is 0 to 3600 seconds.</description>
 	</channel-type>
 	<channel-type id="dev_stop">
 		<item-type>Switch</item-type>
@@ -171,7 +180,7 @@
 	<channel-type id="zone_enabled">
 		<item-type>Switch</item-type>
 		<label>Enabled</label>
-		<description>ON: Zone is enabled, OFF: zone is disabled)</description>
+		<description>ON: Zone is enabled, OFF: Zone is disabled. Sending ON/OFF enables or disables the zone.</description>
 	</channel-type>
 	<channel-type id="zone_run">
 		<item-type>Switch</item-type>

@@ -120,8 +120,9 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
         String channel = channelUID.getId();
         logger.debug("{}: Handle Command {} for channel {}", thingId, command, channel);
 
+        RachioBridgeHandler handler = cloudHandler;
         RachioDevice d = dev;
-        if ((cloudHandler == null) || (d == null)) {
+        if ((handler == null) || (d == null)) {
             logger.debug("{}: Cloud handler or device not initialized!", thingId);
             return;
         }
@@ -141,10 +142,6 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                 return;
             }
 
-            RachioBridgeHandler handler = cloudHandler;
-            if (handler == null) {
-                return;
-            }
             if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE)) {
                 if (command instanceof OnOffType) {
                     if (command == OnOffType.OFF) {
@@ -159,35 +156,57 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                 if (command instanceof DecimalType) {
                     int runtime = ((DecimalType) command).intValue();
                     logger.debug("Default Runtime for zones set to {} sec", runtime);
-                    dev.setRunTime(runtime);
+                    d.setRunTime(runtime);
+                } else {
+                    logger.debug("Command value is no DecimalType: {}", command);
+                }
+            } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME)) {
+                if (command instanceof DecimalType) {
+                    int duration = ((DecimalType) command).intValue();
+                    d.setPauseDuration(duration);
+                    logger.debug("Pause duration for active zone runs set to {} sec", d.getPauseDuration());
+                    updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME,
+                            new DecimalType(new BigDecimal(d.getPauseDuration()).toString()));
                 } else {
                     logger.debug("Command value is no DecimalType: {}", command);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RUN_ZONES)) {
                 if (command instanceof StringType) {
                     logger.debug("Run multiple zones: '{}' ('' = ALL)", command.toString());
-                    dev.setRunZones(command.toString());
+                    d.setRunZones(command.toString());
                 } else {
                     logger.debug("Command value is no StringType: {}", command);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RUN)) {
                 if (command == OnOffType.ON) {
-                    logger.debug("START watering zones '{}' ('' = ALL)", dev.getRunZones());
-                    handler.runMultipleZones(dev.getAllRunZonesJson(handler.getDefaultRuntime()));
+                    logger.debug("START watering zones '{}' ('' = ALL)", d.getRunZones());
+                    handler.runMultipleZones(d.getAllRunZonesJson(handler.getDefaultRuntime()));
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_STOP)) {
                 if (command == OnOffType.ON) {
-                    logger.info("STOP watering for device '{}'", dev.name);
-                    handler.stopWatering(dev.id);
+                    logger.info("STOP watering for device '{}'", d.name);
+                    handler.stopWatering(d.id);
                     updateState(RachioBindingConstants.CHANNEL_DEVICE_STOP, OnOffType.OFF);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RAIN_DELAY)) {
                 if (command instanceof DecimalType) {
                     logger.info("Start rain delay cycle for {} sec", command.toString());
-                    dev.setRainDelayTime(((DecimalType) command).intValue());
-                    handler.startRainDelay(dev.id, ((DecimalType) command).intValue());
+                    d.setRainDelayTime(((DecimalType) command).intValue());
+                    handler.startRainDelay(d.id, ((DecimalType) command).intValue());
                 } else {
                     logger.debug("Command value is no DecimalType: {}", command);
+                }
+            } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_PAUSED)) {
+                if (command == OnOffType.ON) {
+                    logger.info("Pause active zone run for device '{}' for {} sec", d.name, d.getPauseDuration());
+                    handler.pauseZoneRun(d.id, d.getPauseDuration());
+                    d.setPaused(true);
+                    updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, OnOffType.ON);
+                } else if (command == OnOffType.OFF) {
+                    logger.info("Resume active zone run for device '{}'", d.name);
+                    handler.resumeZoneRun(d.id);
+                    d.setPaused(false);
+                    updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, OnOffType.OFF);
                 }
             }
         } catch (RachioApiException e) {
@@ -210,6 +229,8 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ONLINE, d.getOnline());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE, d.getEnabled());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, d.getSleepMode());
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME,
+                    new DecimalType(new BigDecimal(d.getPauseDuration()).toString()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_ZONES, new StringType(d.getRunZones()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME,
                     new DecimalType(new BigDecimal(d.getRunTime()).toString()));

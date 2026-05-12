@@ -48,6 +48,7 @@ public class RachioDevice extends RachioCloudDevice {
     @Nullable
     public DateTimeType lastEventTime;
     public boolean paused = false;
+    public int pauseDuration = DEFAULT_ZONE_RUNTIME_SEC;
     public int rainDelay = 0;
 
     @Nullable
@@ -250,6 +251,18 @@ public class RachioDevice extends RachioCloudDevice {
 
     public void setSleepMode(String subType) {
         paused = subType.contains("ON") ? true : false;
+    }
+
+    public void setPaused(boolean paused) {
+        this.paused = paused;
+    }
+
+    public int getPauseDuration() {
+        return pauseDuration;
+    }
+
+    public void setPauseDuration(int duration) {
+        pauseDuration = Math.max(0, Math.min(3600, duration));
     }
 
     /**

@@ -327,6 +327,27 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
+     * Pause the active zone run for a device.
+     *
+     * @param deviceId Device (ID retrieved from initialization)
+     * @param duration Number of seconds to pause the active run
+     * @throws RachioApiException if the API call fails
+     */
+    public void pauseZoneRun(String deviceId, int duration) throws RachioApiException {
+        rachioApi.pauseZoneRun(deviceId, duration);
+    }
+
+    /**
+     * Resume the active zone run for a device.
+     *
+     * @param deviceId Device (ID retrieved from initialization)
+     * @throws RachioApiException if the API call fails
+     */
+    public void resumeZoneRun(String deviceId) throws RachioApiException {
+        rachioApi.resumeZoneRun(deviceId);
+    }
+
+    /**
      * Start watering for multiple zones.
      *
      * @param zoneListJson: Contains a list of { "id": n} with the zone ids to start
@@ -347,6 +368,21 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
         rachioApi.runZone(zoneId, runTime);
     }
 
+    /**
+     * Enable or disable a zone.
+     *
+     * @param zoneId Rachio Cloud Zone ID
+     * @param enabled true to enable, false to disable
+     * @throws RachioApiException if the API call fails
+     */
+    public void setZoneEnabled(String zoneId, boolean enabled) throws RachioApiException {
+        if (enabled) {
+            rachioApi.enableZone(zoneId);
+        } else {
+            rachioApi.disableZone(zoneId);
+        }
+    }
+
     //
     // ------ Read Thing config
     //
@@ -362,7 +398,8 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
             return apikey;
         }
         Configuration config = getThing().getConfiguration();
-        return (String) config.get(PARAM_APIKEY);
+        Object value = config.get(PARAM_APIKEY);
+        return value != null ? value.toString() : "";
     }
 
     /**

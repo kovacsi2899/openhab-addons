@@ -67,10 +67,35 @@ Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterv
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
-|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. The binding registers this URL with Rachio's webhook service for Smart Irrigation Controller events. The webhook service automatically signs events with the `x-signature` header.|
+|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. For openHAB Cloud / myopenHAB.org, use `https://username:password@home.myopenhab.org/rachio/webhook` where username is your myopenHAB.org email address (URL-encode @ as %40 if present, e.g., `user%40example.com`). For direct reverse proxies, use `https://yourhost.example.org/rachio/webhook`. Credentials are automatically encoded for Basic Auth. The webhook service automatically signs events with the `x-signature` header.|
 |clearAllCallbacks|The binding dynamically registers the callback. It also supports multiple applications registered to receive events, e.g. a 2nd OH device with the binding providing the same functionality. If for any reason your device setup changes (e.g. new ip address) you need to clear the registered URL once to avoid the "old URL" still receiving events. This also allows to move for a test setup to the regular setup.|
 
 The bridge thing doesn't have any channels.
+
+### openHAB Cloud / myopenHAB.org Configuration
+
+For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-cloud.html) or [myopenHAB.org](https://www.myopenhab.org/), configure the callbackUrl as follows:
+
+1. **Determine your myopenHAB.org credentials:**
+   - Username: Your myopenHAB.org email address
+   - Password: Your myopenHAB.org password
+
+2. **URL-encode special characters in username:**
+   - If your email contains `@`, encode it as `%40`
+   - Example: `user@example.com` becomes `user%40example.com`
+   - Other special characters like `+` should also be encoded if present
+
+3. **Set the callbackUrl:**
+   ```
+   callbackUrl="https://user%40example.com:password@home.myopenhab.org/rachio/webhook"
+   ```
+
+4. **Validation:**
+   - Test that `https://home.myopenhab.org/rachio/webhook` is reachable with Basic Auth
+   - Check openHAB logs for successful webhook registration
+   - Verify that Rachio events appear in openHAB without delays
+
+**Important:** The binding automatically handles URL encoding of credentials. Manual encoding is only required for the username portion when configuring the callbackUrl parameter.
 
 ### Device Thing - represents one Rachio Controller
 
@@ -79,7 +104,8 @@ The bridge thing doesn't have any channels.
 |name         |Device Name - name of the controller                                                                                   |
 |active       |ON: Device is active, OFF: Device is deactivated                                                                       |
 |online       |ON: Controller is connected to the cloud. OFF: Controller is offline, check Internet connection.                       |
-|paused       |OFF: Device is in normal run mode; ON: The device is in suspend mode, no schedule is executed                          |
+|paused       |ON: Pause the currently active zone run for `pauseTime` seconds; OFF: Resume the active zone run                       |
+|pauseTime    |Number of seconds to pause the active zone run when `paused` receives ON. Valid range is 0 to 3600 seconds.            |
 |stop         |ON: Stop watering for all zones (command), OFF: normal operation                                                       |
 |run          |ON: Start watering selected/all zones (defined in runZones)                                                            |
 |runZones     |Zones to run at a time - list, e.g: "1,3" = run zone 1 and 3; "" means: run all zones                                  |
@@ -102,7 +128,7 @@ The are no additional configuration options on the device level.
 |:------------|:----------------------------------------------------------------------------------------------------------------------|
 |number       |Zone number as assigned by the controller (zone 1..16)                                                                 |
 |name         |Name of the zone as configured in the App.                                                                             |
-|enabled      |ON: zone is enabled (ready to run), OFF: zone is disabled.                                                             |
+|enabled      |ON: zone is enabled (ready to run), OFF: zone is disabled. Sending ON/OFF enables or disables the zone.                |
 |run          |ON: The zone starts watering. If runTime is = 0 the defaultRuntime will be used. OFF: Zone stops watering.             |
 |runTime      |Number of seconds to run the zone when run receives ON command                                                         |
 |runTotal     |Total number of seconds the zone was watering (as returned by the cloud service).                                      |
@@ -142,6 +168,7 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Switch   RachioC04DAC_Active        "Active"             {channel="rachio:device:1:XXXXXXXXXXXX:active"}
     Switch   RachioC04DAC_Online        "Online"             {channel="rachio:device:1:XXXXXXXXXXXX:online"}
     Switch   RachioC04DAC_Paused        "Paused"             {channel="rachio:device:1:XXXXXXXXXXXX:paused"}
+    Number   RachioC04DAC_PauseTime     "Pause Time"         {channel="rachio:device:1:XXXXXXXXXXXX:pauseTime"}
     Switch   RachioC04DAC_Stop          "Stop Watering"      {channel="rachio:device:1:XXXXXXXXXXXX:stop"}
     Switch   RachioC04DAC_Run           "Run Multiple Zones" {channel="rachio:device:1:XXXXXXXXXXXX:run"}
     String   RachioC04DAC_RunZones      "Run Zone List"      {channel="rachio:device:1:XXXXXXXXXXXX:runZones"}
@@ -232,6 +259,9 @@ end
 
 The Rachio binding uses Rachio's current WebhookService API for receiving events. The new API provides improved reliability, better event types, and enhanced security features.
 
+Inbound WebhookService events are verified with the `x-signature` header before they are parsed or routed.
+The binding recomputes the HMAC-SHA256 signature over the raw HTTP request body with the configured Rachio API token and rejects unsigned or invalid requests.
+
 ### API Versions
 
 | Feature | Legacy API (NotificationService) | New API (WebhookService) |
@@ -299,6 +329,7 @@ The new API provides additional event types:
 - Verify webhook registration in logs: `log:set DEBUG org.openhab.binding.rachio`
 - Check that events are being generated (run a zone manually)
 - Verify the callback URL hasn't changed
+- Verify that the webhook request includes a valid `x-signature` header
 
 **Rate limiting:**
 - The new API has higher rate limits (3,500 vs 1,700 requests/day)

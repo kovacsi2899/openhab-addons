@@ -140,6 +140,10 @@ public class RachioZone extends RachioCloudZone {
         return enabled ? OnOffType.ON : OnOffType.OFF;
     }
 
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
     public void setStartRunTime(int runtime) {
         startRunTime = runtime;
     }

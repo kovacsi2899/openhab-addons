@@ -17,6 +17,10 @@ import static org.openhab.binding.rachio.internal.RachioUtils.*;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
@@ -26,6 +30,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -54,7 +61,9 @@ import com.google.gson.JsonParser;
 public class RachioApi {
     private final Logger logger = LoggerFactory.getLogger(RachioApi.class);
     private static final String MD5_HASH_ALGORITHM = "MD5";
+    private static final String HMAC_SHA256_ALGORITHM = "HmacSHA256";
     private static final String UTF8_CHAR_SET = "UTF-8";
+    private static final int WEBHOOK_SIGNATURE_LENGTH_BYTES = 32;
 
     protected String apikey = "";
     protected String personId = "";
@@ -181,6 +190,17 @@ public class RachioApi {
                 "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + delay + " }");
     }
 
+    public void pauseZoneRun(String deviceId, int duration) throws RachioApiException {
+        logger.debug("Pause active zone run for device '{}' for {} sec.", deviceId, duration);
+        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_PAUSE_ZONE_RUN,
+                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + duration + " }");
+    }
+
+    public void resumeZoneRun(String deviceId) throws RachioApiException {
+        logger.debug("Resume active zone run for device '{}'.", deviceId);
+        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_RESUME_ZONE_RUN, "{ \"id\" : \"" + deviceId + "\" }");
+    }
+
     public void runMultilpeZones(String zoneListJson) throws RachioApiException {
         logger.debug("Start multiple zones '{}'.", zoneListJson);
         httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_MULTIPLE_START, zoneListJson);
@@ -192,43 +212,178 @@ public class RachioApi {
                 "{ \"id\" : \"" + zoneId + "\", \"duration\" : " + duration + " }");
     }
 
+    public void enableZone(String zoneId) throws RachioApiException {
+        logger.debug("Enable zone '{}'.", zoneId);
+        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_ENABLE, "{ \"id\" : \"" + zoneId + "\" }");
+    }
+
+    public void disableZone(String zoneId) throws RachioApiException {
+        logger.debug("Disable zone '{}'.", zoneId);
+        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_DISABLE, "{ \"id\" : \"" + zoneId + "\" }");
+    }
+
     public void getDeviceInfo(String deviceId) throws RachioApiException {
         httpApi.httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId, null);
     }
 
     public void registerWebHook(String deviceId, String callbackUrl, @Nullable String externalId,
             Boolean clearAllCallbacks) throws RachioApiException {
-        logger.debug("Register webhook, url={}, externalId={}, clearAllCallbacks={}", callbackUrl, externalId,
+        logger.debug("Register webhook for device '{}', externalId={}, clearAllCallbacks={}", deviceId, externalId,
                 clearAllCallbacks);
 
-        String url = callbackUrl;
+        String encodedUrl;
         try {
-            if (url.contains(":") && url.contains("@") && !url.contains("%")) { // includes userid+password
-                // make sure special chars are url encoded
-                String user = substringBetween(url, "//", ":");
-                String password = substringBetween(substringAfter(url, "//"), ":", "@");
-                url = substringBefore(url, "//") + "//" + urlEncode(user) + ":" + urlEncode(password) + "@"
-                        + substringAfterLast(url, "@");
-            }
+            encodedUrl = encodeCallbackUrl(callbackUrl);
+        } catch (RachioApiException e) {
+            logger.warn("Failed to encode callback URL for device '{}': {}", deviceId, e.getMessage());
+            throw e;
+        }
 
+        logger.debug("Register WebHook for controller '{}'", deviceId);
+        try {
             String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
                     WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId)).resultString;
             logger.debug("Registered webhooks for controller '{}': {}", deviceId, json);
-            deleteExistingWebHooks(json, deviceId, url, externalId, clearAllCallbacks);
+            deleteExistingWebHooks(json, deviceId, encodedUrl, externalId, clearAllCallbacks);
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
         }
 
-        logger.debug("Register WebHook, callback url = '{}'", url);
         Map<String, Object> jsonData = Map.of("resourceId", Map.of("irrigationControllerId", deviceId), "externalId",
-                externalId != null ? externalId : "", "url", url, "eventTypes", getIrrigationControllerEventTypes());
+                externalId != null ? externalId : "", "url", encodedUrl, "eventTypes",
+                getIrrigationControllerEventTypes());
         httpApi.httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData));
     }
 
+    /**
+     * Encodes the callback URL to ensure proper URL encoding of user credentials.
+     * Uses RFC 3986 compliant encoding for the userinfo portion only.
+     *
+     * @param callbackUrl the raw callback URL
+     * @return the URL with properly encoded userinfo
+     * @throws RachioApiException if the URL is malformed
+     */
+    private String encodeCallbackUrl(String callbackUrl) throws RachioApiException {
+        try {
+            URI uri = new URI(callbackUrl);
+
+            // If userinfo exists, encode it properly
+            if (uri.getUserInfo() != null) {
+                String encodedUserInfo = encodeUserInfo(uri.getUserInfo());
+
+                // Reconstruct URI with encoded userinfo
+                uri = new URI(uri.getScheme(), encodedUserInfo, uri.getHost(), uri.getPort(), uri.getPath(),
+                        uri.getQuery(), uri.getFragment());
+            }
+
+            return uri.toASCIIString();
+        } catch (URISyntaxException e) {
+            throw new RachioApiException("Invalid callback URL format: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Encodes userinfo (username:password) according to RFC 3986.
+     * Only encodes characters that are not unreserved in the userinfo context.
+     *
+     * @param userInfo the raw userinfo string
+     * @return the properly encoded userinfo
+     */
+    private String encodeUserInfo(String userInfo) {
+        // Split on LAST colon to handle passwords containing colons
+        int lastColon = userInfo.lastIndexOf(':');
+        if (lastColon > 0) {
+            String username = userInfo.substring(0, lastColon);
+            String password = userInfo.substring(lastColon + 1);
+            return encodeURIComponent(username) + ":" + encodeURIComponent(password);
+        }
+        // Username only (no password)
+        return encodeURIComponent(userInfo);
+    }
+
+    /**
+     * Encodes a URI component according to RFC 3986.
+     * Unreserved characters (A-Z, a-z, 0-9, -, ., _, ~) are not encoded.
+     * All other characters are percent-encoded.
+     *
+     * @param component the component to encode
+     * @return the encoded component
+     */
+    private String encodeURIComponent(String component) {
+        // RFC 3986 unreserved characters: A-Z a-z 0-9 - . _ ~
+        // Encode everything else as %XX
+        StringBuilder result = new StringBuilder();
+        for (char c : component.toCharArray()) {
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.'
+                    || c == '_' || c == '~') {
+                result.append(c);
+            } else {
+                result.append('%').append(String.format("%02X", (int) c));
+            }
+        }
+        return result.toString();
+    }
+
     private List<String> getIrrigationControllerEventTypes() {
-        return List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_DEVICE_ZONE_RUN_STOPPED, EVENT_DEVICE_ZONE_RUN_COMPLETED,
-                EVENT_DEVICE_ZONE_RUN_PAUSED, EVENT_SCHEDULE_STARTED, EVENT_SCHEDULE_STOPPED, EVENT_SCHEDULE_COMPLETED,
-                EVENT_RAIN_SKIP, EVENT_CLIMATE_SKIP, EVENT_FREEZE_SKIP, EVENT_WIND_SKIP, EVENT_NO_SKIP);
+        List<String> eventTypes = new ArrayList<>(List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_DEVICE_ZONE_RUN_STOPPED,
+                EVENT_DEVICE_ZONE_RUN_COMPLETED, EVENT_DEVICE_ZONE_RUN_PAUSED, EVENT_SCHEDULE_STARTED,
+                EVENT_SCHEDULE_STOPPED, EVENT_SCHEDULE_COMPLETED, EVENT_RAIN_SKIP, EVENT_CLIMATE_SKIP,
+                EVENT_FREEZE_SKIP, EVENT_WIND_SKIP, EVENT_NO_SKIP));
+
+        List<String> supportedEventTypes = getSupportedWebhookEventTypes();
+        if (supportedEventTypes.contains(EVENT_RAIN_SENSOR_DETECTION_ON)) {
+            eventTypes.add(EVENT_RAIN_SENSOR_DETECTION_ON);
+        }
+        if (supportedEventTypes.contains(EVENT_RAIN_SENSOR_DETECTION_OFF)) {
+            eventTypes.add(EVENT_RAIN_SENSOR_DETECTION_OFF);
+        }
+        if (supportedEventTypes.contains(EVENT_RAIN_DELAY_ON)) {
+            eventTypes.add(EVENT_RAIN_DELAY_ON);
+        }
+        if (supportedEventTypes.contains(EVENT_RAIN_DELAY_OFF)) {
+            eventTypes.add(EVENT_RAIN_DELAY_OFF);
+        }
+
+        return eventTypes;
+    }
+
+    private List<String> getSupportedWebhookEventTypes() {
+        try {
+            String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null).resultString;
+            return parseWebhookEventTypeList(json);
+        } catch (RachioApiException e) {
+            logger.debug("Unable to query supported webhook event types: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private List<String> parseWebhookEventTypeList(String json) {
+        Gson gson = new Gson();
+        JsonElement root = JsonParser.parseString(json);
+        JsonArray entries;
+        if (root.isJsonArray()) {
+            entries = root.getAsJsonArray();
+        } else if (root.isJsonObject()) {
+            JsonElement eventTypes = root.getAsJsonObject().get("eventTypes");
+            if ((eventTypes == null) || !eventTypes.isJsonArray()) {
+                eventTypes = root.getAsJsonObject().get("data");
+            }
+            if ((eventTypes == null) || !eventTypes.isJsonArray()) {
+                return new ArrayList<>();
+            }
+            entries = eventTypes.getAsJsonArray();
+        } else {
+            return new ArrayList<>();
+        }
+
+        List<String> supportedTypes = new ArrayList<>();
+        for (JsonElement entry : entries) {
+            if (entry == null || !entry.isJsonPrimitive()) {
+                continue;
+            }
+            supportedTypes.add(entry.getAsString());
+        }
+        return supportedTypes;
     }
 
     private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl, @Nullable String externalId,
@@ -239,15 +394,16 @@ public class RachioApi {
                     whe.externalId, whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
             if (deleteAll) {
                 try {
-                    logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true", whe.id,
-                            deviceId);
+                    logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true",
+                            whe.id, deviceId);
                     httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
             } else if (Objects.equals(whe.url, callbackUrl) || Objects.equals(whe.externalId, externalId)) {
                 try {
-                    logger.debug("Delete duplicate webhook '{}' for controller '{}' because it matches this binding instance",
+                    logger.debug(
+                            "Delete duplicate webhook '{}' for controller '{}' because it matches this binding instance",
                             whe.id, deviceId);
                     httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
                 } catch (RachioApiException e) {
@@ -364,6 +520,46 @@ public class RachioApi {
             // logger.warn("Unexpected exception while generating MD5: {} ({})", e.getMessage(), e.getClass());
             return "";
         }
+    }
+
+    public static boolean isValidWebHookSignature(@Nullable String signature, byte[] requestBody, String apikey) {
+        if (signature == null || apikey.isEmpty()) {
+            return false;
+        }
+
+        byte[] signatureBytes = decodeWebHookSignature(signature);
+        if (signatureBytes.length == 0) {
+            return false;
+        }
+
+        try {
+            Mac mac = Mac.getInstance(HMAC_SHA256_ALGORITHM);
+            mac.init(new SecretKeySpec(apikey.getBytes(StandardCharsets.UTF_8), HMAC_SHA256_ALGORITHM));
+            return MessageDigest.isEqual(mac.doFinal(requestBody), signatureBytes);
+        } catch (GeneralSecurityException e) {
+            return false;
+        }
+    }
+
+    private static byte[] decodeWebHookSignature(String signature) {
+        String hexSignature = signature.trim();
+        if (hexSignature.regionMatches(true, 0, "sha256=", 0, 7)) {
+            hexSignature = hexSignature.substring(7);
+        }
+        if (hexSignature.length() != WEBHOOK_SIGNATURE_LENGTH_BYTES * 2) {
+            return new byte[0];
+        }
+
+        byte[] bytes = new byte[WEBHOOK_SIGNATURE_LENGTH_BYTES];
+        for (int i = 0; i < hexSignature.length(); i += 2) {
+            int high = Character.digit(hexSignature.charAt(i), 16);
+            int low = Character.digit(hexSignature.charAt(i + 1), 16);
+            if (high < 0 || low < 0) {
+                return new byte[0];
+            }
+            bytes[i / 2] = (byte) ((high << 4) + low);
+        }
+        return bytes;
     }
 
     @SuppressWarnings("rawtypes")
