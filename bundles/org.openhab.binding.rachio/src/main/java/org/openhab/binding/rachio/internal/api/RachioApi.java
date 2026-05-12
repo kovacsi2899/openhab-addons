@@ -25,6 +25,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -198,7 +199,7 @@ public class RachioApi {
     public void registerWebHook(String deviceId, String callbackUrl, @Nullable String externalId,
             Boolean clearAllCallbacks) throws RachioApiException {
         logger.debug("Register webhook, url={}, externalId={}, clearAllCallbacks={}", callbackUrl, externalId,
-                clearAllCallbacks.toString());
+                clearAllCallbacks);
 
         String url = callbackUrl;
         try {
@@ -232,16 +233,29 @@ public class RachioApi {
 
     private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl, @Nullable String externalId,
             Boolean clearAllCallbacks) {
+        boolean deleteAll = Boolean.TRUE.equals(clearAllCallbacks);
         for (RachioApiWebHookEntry whe : parseWebHookList(json)) {
-            logger.debug("WebHook: id='{}', url='{}', externalId='{}'", whe.id, whe.url, whe.externalId);
-            if (clearAllCallbacks || whe.url.equals(callbackUrl) || whe.externalId.equals(externalId)
-                    || whe.resourceId.irrigationControllerId.equals(deviceId)) {
+            logger.debug("WebHook: id='{}', url='{}', externalId='{}', controllerId='{}'", whe.id, whe.url,
+                    whe.externalId, whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
+            if (deleteAll) {
                 try {
-                    logger.debug("Delete existing webhook '{}'", whe.id);
+                    logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true", whe.id,
+                            deviceId);
                     httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
+            } else if (Objects.equals(whe.url, callbackUrl) || Objects.equals(whe.externalId, externalId)) {
+                try {
+                    logger.debug("Delete duplicate webhook '{}' for controller '{}' because it matches this binding instance",
+                            whe.id, deviceId);
+                    httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
+                } catch (RachioApiException e) {
+                    logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
+                }
+            } else {
+                logger.debug("Retain existing webhook '{}' for controller '{}'; not owned by this binding instance",
+                        whe.id, deviceId);
             }
         }
     }
