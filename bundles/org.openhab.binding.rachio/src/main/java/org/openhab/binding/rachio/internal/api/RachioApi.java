@@ -23,6 +23,7 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -39,6 +40,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 /**
  * The {@link RachioApi} implements the interface to the Rachio cloud service (using http).
@@ -131,7 +135,7 @@ public class RachioApi {
         return null;
     }
 
-    private Boolean initializePersonId() throws RachioApiException, RachioApiException {
+    private Boolean initializePersonId() throws RachioApiException {
         if (!personId.isEmpty()) {
             logger.trace("Using cached personId ('{}').", personId);
             return true;
@@ -173,7 +177,7 @@ public class RachioApi {
     public void rainDelay(String deviceId, Integer delay) throws RachioApiException {
         logger.debug("Start dain relay for device '{}'.", deviceId);
         httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_RAIN_DELAY,
-                "{ \"id\" : \"" + deviceId + "\", \"durartion\" : " + delay + " }");
+                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + delay + " }");
     }
 
     public void runMultilpeZones(String zoneListJson) throws RachioApiException {
@@ -193,11 +197,9 @@ public class RachioApi {
 
     public void registerWebHook(String deviceId, String callbackUrl, @Nullable String externalId,
             Boolean clearAllCallbacks) throws RachioApiException {
-        // first check/delete existing webhooks
         logger.debug("Register webhook, url={}, externalId={}, clearAllCallbacks={}", callbackUrl, externalId,
                 clearAllCallbacks.toString());
 
-        String json = "";
         String url = callbackUrl;
         try {
             if (url.contains(":") && url.contains("@") && !url.contains("%")) { // includes userid+password
@@ -208,42 +210,76 @@ public class RachioApi {
                         + substringAfterLast(url, "@");
             }
 
-            json = httpApi.httpGet(APIURL_BASE + APIURL_DEV_QUERY_WEBHOOK + "/" + deviceId + "/webhook",
-                    null).resultString; // throws
-            logger.debug("Registered webhooks for device '{}': {}", deviceId, json);
-            logger.trace("Registered WebHooks - JSON='{}'", json);
-            json = "{\"webhooks\":" + json + "}";
-            Gson gson = new Gson();
-            RachioApiWebHookList list = gson.fromJson(json, RachioApiWebHookList.class);
-            for (int i = 0; i < list.webhooks.size(); i++) {
-                RachioApiWebHookEntry whe = list.webhooks.get(i);
-                logger.debug("WebHook #{}: id='{}', url='{}', externalId='{}'", i, whe.id, whe.url, whe.externalId);
-                if (clearAllCallbacks || whe.url.equals(url)) {
-                    logger.debug("The callback url '{}' is already registered -> delete", callbackUrl);
-                    httpApi.httpDelete(APIURL_BASE + APIURL_DEV_DELETE_WEBHOOK + "/" + whe.id, null);
-                }
-            }
+            String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
+                    WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId)).resultString;
+            logger.debug("Registered webhooks for controller '{}': {}", deviceId, json);
+            deleteExistingWebHooks(json, deviceId, url, externalId, clearAllCallbacks);
         } catch (RuntimeException e) {
-            logger.debug("Deleting WebHook(s); failed: {}, JSON='{}'", e.getMessage(), json);
+            logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
         }
 
-        // Build json, example:
-        // {
-        // "device":{"id":"2a5e7d3c-c140-4e2e-91a1-a212a518adc5"},
-        // "externalId" : "external company ID",
-        // "url":"https://www.mydomain.com/another_webhook",
-        // "eventTypes":[{"id":"1"},{"id":"2"}]
-        // }
-        //
         logger.debug("Register WebHook, callback url = '{}'", url);
-        String jsonData = "{ " + "\"device\":{\"id\":\"" + deviceId + "\"}, " + "\"externalId\" : \"" + externalId
-                + "\", " + "\"url\" : \"" + url + "\", " + "\"eventTypes\" : [" + "{\"id\" : \"" + WHE_DEVICE_STATUS
-                + "\"}, " + "{\"id\" : \"" + WHE_RAIN_DELAY + "\"}, " + "{\"id\" : \"" + WEATHER_INTELLIGENCE + "\"}, "
-                + "{\"id\" : \"" + WHE_WATER_BUDGET + "\"}, " + "{\"id\" : \"" + WHE_ZONE_DELTA + "\"}, "
-                + "{\"id\" : \"" + WHE_SCHEDULE_STATUS + "\"}, " + "{\"id\" : \"" + WHE_ZONE_STATUS + "\"}, "
-                + "{\"id\" : \"" + WHE_RAIN_SENSOR_DETECTION + "\"}, " + "{\"id\" : \"" + WHE_DELTA + "\"} " + "]"
-                + "}";
-        httpApi.httpPost(APIURL_BASE + APIURL_DEV_POST_WEBHOOK, jsonData);
+        Map<String, Object> jsonData = Map.of("resourceId", Map.of("irrigationControllerId", deviceId), "externalId",
+                externalId != null ? externalId : "", "url", url, "eventTypes", getIrrigationControllerEventTypes());
+        httpApi.httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData));
+    }
+
+    private List<String> getIrrigationControllerEventTypes() {
+        return List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_DEVICE_ZONE_RUN_STOPPED, EVENT_DEVICE_ZONE_RUN_COMPLETED,
+                EVENT_DEVICE_ZONE_RUN_PAUSED, EVENT_SCHEDULE_STARTED, EVENT_SCHEDULE_STOPPED, EVENT_SCHEDULE_COMPLETED,
+                EVENT_RAIN_SKIP, EVENT_CLIMATE_SKIP, EVENT_FREEZE_SKIP, EVENT_WIND_SKIP, EVENT_NO_SKIP);
+    }
+
+    private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl, @Nullable String externalId,
+            Boolean clearAllCallbacks) {
+        for (RachioApiWebHookEntry whe : parseWebHookList(json)) {
+            logger.debug("WebHook: id='{}', url='{}', externalId='{}'", whe.id, whe.url, whe.externalId);
+            if (clearAllCallbacks || whe.url.equals(callbackUrl) || whe.externalId.equals(externalId)
+                    || whe.resourceId.irrigationControllerId.equals(deviceId)) {
+                try {
+                    logger.debug("Delete existing webhook '{}'", whe.id);
+                    httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
+                } catch (RachioApiException e) {
+                    logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
+                }
+            }
+        }
+    }
+
+    private List<RachioApiWebHookEntry> parseWebHookList(String json) {
+        Gson gson = new Gson();
+        JsonElement root = JsonParser.parseString(json);
+        JsonArray entries;
+        if (root.isJsonArray()) {
+            entries = root.getAsJsonArray();
+        } else if (root.isJsonObject()) {
+            JsonElement webhooks = root.getAsJsonObject().get("webhooks");
+            if ((webhooks == null) || !webhooks.isJsonArray()) {
+                webhooks = root.getAsJsonObject().get("data");
+            }
+            if ((webhooks == null) || !webhooks.isJsonArray()) {
+                @Nullable
+                RachioApiWebHookList list = gson.fromJson(root, RachioApiWebHookList.class);
+                return list != null ? list.webhooks : new ArrayList<>();
+            }
+            entries = webhooks.getAsJsonArray();
+        } else {
+            return new ArrayList<>();
+        }
+
+        List<RachioApiWebHookEntry> webhooks = new ArrayList<>();
+        for (@Nullable
+        JsonElement entry : entries) {
+            if (entry == null) {
+                continue;
+            }
+            @Nullable
+            RachioApiWebHookEntry webhook = gson.fromJson(entry, RachioApiWebHookEntry.class);
+            if (webhook != null) {
+                webhooks.add(webhook);
+            }
+        }
+        return webhooks;
     }
 
     private Boolean initializeDevices(ThingUID BridgeUID) throws RachioApiException {

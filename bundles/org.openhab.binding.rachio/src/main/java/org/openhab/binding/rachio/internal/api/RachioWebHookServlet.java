@@ -116,6 +116,7 @@ public class RachioWebHookServlet extends HttpServlet {
             logger.trace("RachioWebHook: Data='{}'", data);
             RachioEventGsonDTO event = gson.fromJson(data, RachioEventGsonDTO.class);
             if (event != null) {
+                event.normalize();
                 logger.trace("RachioEvent {}.{} for device '{}': {}", event.category, event.type, event.deviceId,
                         event.summary);
 

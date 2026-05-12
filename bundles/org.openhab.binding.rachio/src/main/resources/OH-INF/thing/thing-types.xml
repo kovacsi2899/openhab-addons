@@ -32,8 +32,7 @@
 			</parameter>
 			<parameter name="callbackUrl" type="text">
 				<label>Callback URL</label>
-				<description>https://username:password@home.myopenhab.org/rachio/webhook using the username and password for your
-					myopenhab.org account.</description>
+				<description>Public HTTPS URL for Rachio webhook events, for example https://host.example.org/rachio/webhook.</description>
 				<required>false</required>
 			</parameter>
 			<parameter name="clearAllCallbacks" type="boolean">

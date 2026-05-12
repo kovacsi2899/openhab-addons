@@ -42,10 +42,17 @@ public class RachioApiGsonDTO {
         public String id = "";
         public String url = "";
         public String externalId = "";
+        public RachioApiWebHookResourceId resourceId = new RachioApiWebHookResourceId();
     }
 
     public static class RachioApiWebHookList {
         public ArrayList<RachioApiWebHookEntry> webhooks = new ArrayList<>();
+    }
+
+    public static class RachioApiWebHookResourceId {
+        public String irrigationControllerId = "";
+        public String valveId = "";
+        public String lightingControllerId = "";
     }
 
     public static class RachioEventProperty {

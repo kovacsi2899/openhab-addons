@@ -111,6 +111,7 @@ public class RachioBindingConstants {
 
     // --------------- Rachio Cloud API
     public static final String APIURL_BASE = "https://api.rach.io/1/public/";
+    public static final String APIURL_CLOUD_REST_BASE = "https://cloud-rest.rach.io";
 
     public static final String APIURL_GET_PERSON = "person/info"; // obtain personId
     public static final String APIURL_GET_PERSONID = "person"; // obtain personId
@@ -120,31 +121,26 @@ public class RachioBindingConstants {
     public static final String APIURL_DEV_PUT_OFF = "device/off"; // Disable device / all functions
     public static final String APIURL_DEV_PUT_STOP = "device/stop_water"; // stop watering (all zones)
     public static final String APIURL_DEV_PUT_RAIN_DELAY = "device/rain_delay"; // Rain delay device
-    public static final String APIURL_DEV_POST_WEBHOOK = "notification/webhook"; // Register WebHook for Device
-    public static final String APIURL_DEV_QUERY_WEBHOOK = "notification"; // completes to
-                                                                          // /public/notification/:deviceId/webhook
-    public static final String APIURL_DEV_DELETE_WEBHOOK = "notification/webhook";
+    public static final String APIURL_DEV_POST_WEBHOOK = "notification/webhook"; // deprecated
+    public static final String APIURL_DEV_QUERY_WEBHOOK = "notification"; // deprecated
+    public static final String APIURL_DEV_DELETE_WEBHOOK = "notification/webhook"; // deprecated
+
+    // New WebhookService endpoints (cloud-rest.rach.io)
+    public static final String WEBHOOK_QUERY_CONTROLLER_ID = "resource_id.irrigation_controller_id";
+    public static final String WEBHOOK_CREATE = "/webhook/createWebhook";
+    public static final String WEBHOOK_GET = "/webhook/getWebhook/";
+    public static final String WEBHOOK_LIST = "/webhook/listWebhooks";
+    public static final String WEBHOOK_UPDATE = "/webhook/updateWebhook";
+    public static final String WEBHOOK_DELETE = "/webhook/deleteWebhook/";
+    public static final String WEBHOOK_DELETE_ALL = "/webhook/deleteAllWebhooks";
+    public static final String WEBHOOK_LIST_EVENT_TYPES = "/webhook/listWebhookEventTypes";
 
     public static final String APIURL_ZONE_PUT_START = "zone/start"; // start a zone
     public static final String APIURL_ZONE_PUT_MULTIPLE_START = "zone/start_multiple"; // start multiple zones
 
     public static final String DEFAULT_IP_FILTER_LIST = "192.168.0.0/16;10.0.0.0/8;172.16.0.0/12";
 
-    // private static final String APIURL_NOT_GET_LIST = "notification/webhook_event_type"; // get list of available
-
-    // notification types
-    // WebHook event types
-    /*
-     * id:5, type=DEVICE_STATUS
-     * id:6, type=RAIN_DELAY
-     * id:7, type=WEATHER_INTELLIGENCE
-     * id:8, type=WATER_BUDGET
-     * id:9, type=SCHEDULE_STATUS
-     * id:10, type=ZONE_STATUS
-     * id:11, type=RAIN_SENSOR_DETECTION
-     * id:12, type=ZONE_DELTA
-     * id:14, type=DELTA
-     */
+    // WebHook event types (old numeric IDs - deprecated)
     public static final String WHE_DEVICE_STATUS = "5"; // "Device status event has occurred"
     public static final String WHE_RAIN_DELAY = "6"; // "A rain delay event has occurred"
     public static final String WEATHER_INTELLIGENCE = "7"; // A weather intelligence event has has occurred
@@ -154,6 +150,20 @@ public class RachioBindingConstants {
     public static final String WHE_RAIN_SENSOR_DETECTION = "11"; // physical rain sensor event has coccurred
     public static final String WHE_ZONE_DELTA = "12"; // A physical rain sensor event has occurred
     public static final String WHE_DELTA = "14"; // "An entity has been inserted, updated, or deleted"
+
+    // New Webhook event types (string-based)
+    public static final String EVENT_DEVICE_ZONE_RUN_STARTED = "DEVICE_ZONE_RUN_STARTED_EVENT";
+    public static final String EVENT_DEVICE_ZONE_RUN_STOPPED = "DEVICE_ZONE_RUN_STOPPED_EVENT";
+    public static final String EVENT_DEVICE_ZONE_RUN_COMPLETED = "DEVICE_ZONE_RUN_COMPLETED_EVENT";
+    public static final String EVENT_DEVICE_ZONE_RUN_PAUSED = "DEVICE_ZONE_RUN_PAUSED_EVENT";
+    public static final String EVENT_SCHEDULE_STARTED = "SCHEDULE_STARTED_EVENT";
+    public static final String EVENT_SCHEDULE_STOPPED = "SCHEDULE_STOPPED_EVENT";
+    public static final String EVENT_SCHEDULE_COMPLETED = "SCHEDULE_COMPLETED_EVENT";
+    public static final String EVENT_RAIN_SKIP = "RAIN_SKIP_NOTIFICATION_EVENT";
+    public static final String EVENT_CLIMATE_SKIP = "CLIMATE_SKIP_NOTIFICATION_EVENT";
+    public static final String EVENT_FREEZE_SKIP = "FREEZE_SKIP_NOTIFICATION_EVENT";
+    public static final String EVENT_WIND_SKIP = "WIND_SKIP_NOTIFICATION_EVENT";
+    public static final String EVENT_NO_SKIP = "NO_SKIP_NOTIFICATION_EVENT";
 
     public static final String SERVLET_WEBHOOK_PATH = "/rachio/webhook";
     public static final String SERVLET_WEBHOOK_APPLICATION_JSON = "application/json";

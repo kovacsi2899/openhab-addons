@@ -7,8 +7,7 @@ You need to get an API key before the binding can discover your devices.
 Go to [Rachio Web App](https://rachio.com->login), click on Account Settings in the left navigation.
 At the bottom you'll find a link "Get API key".
 
-To receive events from the Rachio cloud service e.g. start/stop zones & skip watering, you need to have connected your OpenHAB installation to myopenhab.org (install the addon). 
-This is used to proxy events from Rachio Cloud back to your openHAB instance.
+To receive events from the Rachio cloud service e.g. start/stop zones & skip watering, configure a public HTTPS callback URL that can reach your openHAB instance.
 
 The device setup is read from the Rachio online service, when a Rachio Cloud Connector thing is configured, and therefore it shares the same items as the Smartphone and Web Apps, so there is no special setup required.
 In fact all Apps (including this binding) control the same device.
@@ -45,7 +44,7 @@ All devices are connected to this thing, all zones to the corresponding device.
 - Select Rachio Cloud Connector thing
 - Enter at least the api key, other settings are optional
 
-To receive events from the Rachio Cloud service set the callbackUrl to `https://username:password@home.myopenhab.org/rachio/webhook` where username & password are your myopenhab.org credentials (you can create a separate user account in myopenhab.org if you like). The binding will url encode special characters like the @ symbol as %40 in your before submitting the url.
+To receive events from the Rachio Cloud service set the callbackUrl to a public HTTPS URL that forwards to `/rachio/webhook`, for example `https://host.example.org/rachio/webhook`.
 - save
 
 Now the binding is able to connect to the cloud and start discovery devices and zones.
@@ -55,7 +54,7 @@ Now the binding is able to connect to the cloud and start discovery devices and 
 Create conf/things/rachio.things and fill in the parameters:
 
 ```
-Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterval=180, defaultRuntime=120, callbackUrl="https://username:password@home.myopenhab.org/rachio/webhook", clearAllCallbacks=true  ]
+Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterval=180, defaultRuntime=120, callbackUrl="https://host.example.org/rachio/webhook", clearAllCallbacks=true  ]
 {
 }
 ```
@@ -64,11 +63,11 @@ Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterv
 |:----------------|:---------------------------------------------------------------------------------------------------------------------------|
 |apikey           |This is a token required to access the Rachio Cloud account. See Discovery on information how to get that code.|
 |pollingInterval  |Specifies the delay between two status polls. Usually something like 10 minutes should be enough to have a regular status update when the interfaces is configured. If you don't want/can use events a smaller delay might be interesting to get quicker responses on running zones etc.|
-|                 |Important: Please make sure to use an interval > 90sec. Rachio has a reshhold for the number of API calls per day: 1700.  This means if you are accessing the API for more than once in a minute your account gets blocked for the rest of the day.|
+|                 |Important: Please make sure to use an interval > 90sec. Rachio has a reshhold for the number of API calls per day: 3500.  This means if you are accessing the API for more than once in a minute your account gets blocked for the rest of the day.|
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
-|callbackUrl      | https://username:password@home.myopenhab.org/rachio/webhook where username and password should be set to your MyOpenHab username and password (url encode the @ symbol to %40 in your username) <br/>The Rachio Cloud sends events when activity occurs e.g. zone turns off. To recieve these events you must have your openHAB connected to MyOpenHAB.org which enables proxying the events to your local openHAB instance.<br/> You must enable notifications in Rachio. To do this go to the Rachio Web App-&gt;Accounts Settings-&gt;Notifications <br/>|
+|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. The binding registers this URL with Rachio's webhook service for Smart Irrigation Controller events. The webhook service automatically signs events with the `x-signature` header.|
 |clearAllCallbacks|The binding dynamically registers the callback. It also supports multiple applications registered to receive events, e.g. a 2nd OH device with the binding providing the same functionality. If for any reason your device setup changes (e.g. new ip address) you need to clear the registered URL once to avoid the "old URL" still receiving events. This also allows to move for a test setup to the regular setup.|
 
 The bridge thing doesn't have any channels.
@@ -226,3 +225,87 @@ then
    
 end
 ```
+
+## API Migration - New Rachio WebhookService
+
+### Overview
+
+The Rachio binding uses Rachio's current WebhookService API for receiving events. The new API provides improved reliability, better event types, and enhanced security features.
+
+### API Versions
+
+| Feature | Legacy API (NotificationService) | New API (WebhookService) |
+|---------|----------------------------------|---------------------------|
+| **Base URL** | `https://api.rach.io/1/public/` | `https://cloud-rest.rach.io/` |
+| **Status** | Deprecated | Current (Recommended) |
+| **Event Format** | Numeric IDs (5, 6, 7, 8...) | String types (DEVICE_ZONE_RUN_STARTED_EVENT...) |
+| **Signature Validation** | Basic Auth in URL | HMAC-SHA256 in x-signature header |
+| **Rate Limit** | 1,700 requests/day | 3,500 requests/day |
+
+### Migration Guide
+
+#### Step 1: Configure a Public Callback URL
+
+Add a public HTTPS callback URL to your bridge configuration:
+
+**Using .things file:**
+```
+Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", callbackUrl="https://host.example.org/rachio/webhook" ]
+{
+}
+```
+
+**Using openHAB UI:**
+Navigate to the Rachio Cloud Connector thing settings and set the callback URL.
+
+#### Step 2: Verify Webhook Registration
+
+Check the openHAB logs to verify successful webhook registration:
+
+```
+DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Register WebHook with new API, url=https://your-domain.com/rachio/webhook
+DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Webhook successfully registered with new WebhookService API
+```
+
+#### Step 3: Monitor Events
+
+Events from the new API will be received and processed automatically. Both APIs support the same event channels on device and zone things.
+
+### New Supported Event Types
+
+The new API provides additional event types:
+
+- `DEVICE_ZONE_RUN_STARTED_EVENT` - Zone watering started
+- `DEVICE_ZONE_RUN_COMPLETED_EVENT` - Zone watering completed
+- `DEVICE_ZONE_RUN_STOPPED_EVENT` - Zone watering stopped (new)
+- `DEVICE_ZONE_RUN_PAUSED_EVENT` - Zone watering paused (new)
+- `SCHEDULE_STARTED_EVENT` - Schedule started
+- `SCHEDULE_COMPLETED_EVENT` - Schedule completed
+- `SCHEDULE_STOPPED_EVENT` - Schedule stopped (new)
+- `RAIN_SKIP_NOTIFICATION_EVENT` - Rain detected, watering skipped
+- `CLIMATE_SKIP_NOTIFICATION_EVENT` - Climate skip applied
+- `FREEZE_SKIP_NOTIFICATION_EVENT` - Freeze detected, watering skipped
+- `WIND_SKIP_NOTIFICATION_EVENT` - High wind, watering skipped
+- `NO_SKIP_NOTIFICATION_EVENT` - Normal watering (no skip)
+
+### Troubleshooting
+
+**Webhook registration fails:**
+- Check that `callbackUrl` is a valid public HTTPS URL
+- Verify the URL is accessible from Rachio's servers
+- Check firewall and port forwarding rules
+
+**Events not received:**
+- Verify webhook registration in logs: `log:set DEBUG org.openhab.binding.rachio`
+- Check that events are being generated (run a zone manually)
+- Verify the callback URL hasn't changed
+
+**Rate limiting:**
+- The new API has higher rate limits (3,500 vs 1,700 requests/day)
+- Adjust `pollingInterval` if needed (recommended: > 90 seconds)
+
+### Documentation
+
+For detailed information about the new WebhookService API implementation, see:
+- [API Migration Summary](API_MIGRATION_SUMMARY.md) - Comprehensive technical reference
+- [WebhookService Guide](WEBHOOK_SERVICE_GUIDE.md) - Implementation details and examples

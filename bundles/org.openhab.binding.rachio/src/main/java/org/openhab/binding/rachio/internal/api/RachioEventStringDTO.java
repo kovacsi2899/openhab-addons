@@ -14,6 +14,7 @@ package org.openhab.binding.rachio.internal.api;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioZoneStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 
 import com.google.gson.Gson;
@@ -70,9 +71,10 @@ public class RachioEventStringDTO {
             zoneName = event.zoneName;
             zoneNumber = event.zoneNumber;
             zoneRunState = event.zoneRunState;
-            scheduleType = event.zoneRunStatus.scheduleType;
-            startTime = event.zoneRunStatus.startTime;
-            endTime = event.zoneRunStatus.endTime;
+            RachioZoneStatus runStatus = event.zoneRunStatus;
+            scheduleType = runStatus != null ? runStatus.scheduleType : "";
+            startTime = runStatus != null ? runStatus.startTime : "";
+            endTime = runStatus != null ? runStatus.endTime : "";
             duration = event.duration;
         }
     }

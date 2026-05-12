@@ -19,12 +19,12 @@ import static org.openhab.binding.rachio.internal.RachioUtils.getString;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
-
-import javax.ws.rs.HttpMethod;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -40,6 +40,10 @@ import org.slf4j.LoggerFactory;
 @NonNullByDefault
 public class RachioHttp {
     private final Logger logger = LoggerFactory.getLogger(RachioHttp.class);
+    private static final String HTTP_METHOD_DELETE = "DELETE";
+    private static final String HTTP_METHOD_GET = "GET";
+    private static final String HTTP_METHOD_POST = "POST";
+    private static final String HTTP_METHOD_PUT = "PUT";
 
     private int apiCalls = 0;
     private String apikey = "";
@@ -66,7 +70,7 @@ public class RachioHttp {
      * @throws Exception
      */
     public RachioApiResult httpGet(String url, @Nullable String urlParameters) throws RachioApiException {
-        return httpRequest(HttpMethod.GET, url, urlParameters, null);
+        return httpRequest(HTTP_METHOD_GET, url, urlParameters, null);
     }
 
     /**
@@ -78,7 +82,7 @@ public class RachioHttp {
      * @throws Exception
      */
     public RachioApiResult httpPut(String url, String putData) throws RachioApiException {
-        return httpRequest(HttpMethod.PUT, url, null, putData);
+        return httpRequest(HTTP_METHOD_PUT, url, null, putData);
     }
 
     /**
@@ -90,7 +94,7 @@ public class RachioHttp {
      * @throws Exception
      */
     public RachioApiResult httpPost(String url, String postData) throws RachioApiException {
-        return httpRequest(HttpMethod.POST, url, null, postData);
+        return httpRequest(HTTP_METHOD_POST, url, null, postData);
     }
 
     /**
@@ -102,7 +106,7 @@ public class RachioHttp {
      * @throws Exception if something went wrong (e.g. unable to connect)
      */
     public RachioApiResult httpDelete(String url, @Nullable String urlParameters) throws RachioApiException {
-        return httpRequest(HttpMethod.DELETE, url, urlParameters, null);
+        return httpRequest(HTTP_METHOD_DELETE, url, urlParameters, null);
     }
 
     /**
@@ -141,14 +145,13 @@ public class RachioHttp {
             request.setRequestProperty("Content-Type", SERVLET_WEBHOOK_APPLICATION_JSON);
             logger.trace("RachioHttp[Call #{}]: Call Rachio cloud service: {} '{}')", apiCalls,
                     request.getRequestMethod(), result.url);
-            if (method.equals(HttpMethod.PUT) || method.equals(HttpMethod.POST)) {
+            if (method.equals(HTTP_METHOD_PUT) || method.equals(HTTP_METHOD_POST)) {
                 request.setDoOutput(true);
                 DataOutputStream wr = new DataOutputStream(request.getOutputStream());
-                wr.writeBytes(reqDatas);
+                wr.write(reqDatas != null ? reqDatas.getBytes(StandardCharsets.UTF_8) : new byte[0]);
                 wr.flush();
                 wr.close();
             }
-            BufferedReader in = new BufferedReader(new InputStreamReader(request.getInputStream()));
             StringBuilder response = new StringBuilder();
 
             result.responseCode = request.getResponseCode();
@@ -163,20 +166,18 @@ public class RachioHttp {
                 }
             }
 
-            if ((result.responseCode != HTTP_OK)
-                    && ((result.responseCode != HTTP_NO_CONTENT) || (!result.requestMethod.equals(HttpMethod.PUT)
-                            && !result.requestMethod.equals(HttpMethod.DELETE)))) {
+            if ((result.responseCode < HTTP_OK) || (result.responseCode >= HTTP_MULT_CHOICE)) {
+                result.resultString = readResponse(request.getErrorStream());
                 String message = MessageFormat.format(
-                        "RachioHttp: Error sending HTTP {0} request to {2} - http response code={2}",
-                        request.getRequestMethod(), url, result.responseCode);
+                        "RachioHttp: Error sending HTTP {0} request to {1} - http response code={2}, response={3}",
+                        request.getRequestMethod(), url, result.responseCode, result.resultString);
                 throw new RachioApiException(message, result);
             }
 
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                response.append(inputLine);
+            InputStream responseStream = request.getInputStream();
+            if (responseStream != null) {
+                response.append(readResponse(responseStream));
             }
-            in.close();
 
             result.resultString = response.toString();
             logger.trace("RachioHttp: {} {} - Response='{}'", request.getRequestMethod(), url, result.resultString);
@@ -189,5 +190,19 @@ public class RachioHttp {
             }
             throw new RachioApiException(result.resultString, result, e);
         }
+    }
+
+    private String readResponse(@Nullable InputStream stream) throws IOException {
+        if (stream == null) {
+            return "";
+        }
+        StringBuilder response = new StringBuilder();
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+            }
+        }
+        return response.toString();
     }
 }

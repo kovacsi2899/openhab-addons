@@ -39,6 +39,9 @@ public class RachioConfiguration {
     public Boolean clearAllCallbacks = false;
 
     public void updateConfig(@Nullable Map<String, @Nullable Object> config) {
+        if (config == null) {
+            return;
+        }
         for (HashMap.@Nullable Entry<String, @Nullable Object> ce : config.entrySet()) {
             String key = ce.getKey();
             if (key.equalsIgnoreCase("component.name") || key.equalsIgnoreCase("component.id")) {

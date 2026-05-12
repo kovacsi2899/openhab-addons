@@ -209,10 +209,11 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
             String evt = event.subType.isEmpty() ? event.type : event.subType;
             zone.setEvent(evt, getTimestamp()); // and funnel all zone events to the device
             if (event.type.equals("ZONE_STATUS")) {
-                if (event.zoneRunStatus.state.equals("ZONE_STARTED")) {
+                String state = event.zoneRunStatus != null ? event.zoneRunStatus.state : event.subType;
+                if (state.equals("ZONE_STARTED")) {
                     logger.info("{}: Zone {} STARTED watering ({}).", thingId, zoneName, event.timestamp);
                     updateChannel(CHANNEL_ZONE_RUN, OnOffType.ON);
-                } else if (event.subType.equals("ZONE_STOPPED") || event.subType.equals("ZONE_COMPLETED")) {
+                } else if (state.equals("ZONE_STOPPED") || state.equals("ZONE_COMPLETED")) {
                     logger.info(
                             "{}: Zoned {} STOPPED watering (timestamp={}, current={}, duration={}sec/{}min, flowVolume={}).",
                             thingId, zoneName, event.timestamp, event.zoneCurrent, event.duration,
@@ -220,7 +221,7 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
                     updateChannel(CHANNEL_ZONE_RUN, OnOffType.OFF);
                 } else {
                     logger.info("{}: Event for zone {}: {} (status={}, duration = {}sec)", thingId, event.zoneName,
-                            event.summary, event.zoneRunStatus.state, event.duration);
+                            event.summary, state, event.duration);
                 }
                 update = true;
             } else if (event.subType.equals("ZONE_DELTA")) {

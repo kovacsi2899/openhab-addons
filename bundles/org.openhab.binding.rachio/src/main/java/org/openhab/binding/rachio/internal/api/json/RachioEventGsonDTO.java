@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.rachio.internal.api.json;
 
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
+
 import java.util.HashMap;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -28,6 +30,9 @@ import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCl
  */
 @NonNullByDefault
 public class RachioEventGsonDTO {
+    public String eventId = "";
+    public String resourceId = "";
+    public String resourceType = "";
     public String externalId = "";
     public String routingId = "";
     public String connectId = "";
@@ -122,6 +127,8 @@ public class RachioEventGsonDTO {
     public Integer flowVolume = 0;
     @Nullable
     public RachioZoneStatus zoneRunStatus;
+    @Nullable
+    public RachioWebhookPayload payload;
 
     // SCHEDULE_STATUS
     public String scheduleName = "";
@@ -143,5 +150,136 @@ public class RachioEventGsonDTO {
     public HashMap<String, RachioEventProperty> deltaProperties;
 
     public RachioEventGsonDTO() {
+    }
+
+    public void normalize() {
+        if (isLegacyEvent() || resourceType.isEmpty()) {
+            return;
+        }
+
+        if ("IRRIGATION_CONTROLLER".equals(resourceType)) {
+            deviceId = resourceId;
+        }
+
+        if (timestamp.isEmpty()) {
+            timestamp = createDate > 0 ? Long.toString(createDate) : "";
+        }
+
+        RachioWebhookPayload eventPayload = payload;
+        if (eventPayload == null) {
+            return;
+        }
+
+        summary = eventType;
+        startTime = eventPayload.startTime;
+        endTime = eventPayload.endTime;
+        duration = eventPayload.getDurationSeconds();
+        durationInMinutes = duration / 60;
+
+        switch (eventType) {
+            case EVENT_DEVICE_ZONE_RUN_STARTED:
+                normalizeZoneStatus(eventPayload, "ZONE_STARTED");
+                break;
+            case EVENT_DEVICE_ZONE_RUN_STOPPED:
+                normalizeZoneStatus(eventPayload, "ZONE_STOPPED");
+                break;
+            case EVENT_DEVICE_ZONE_RUN_COMPLETED:
+                normalizeZoneStatus(eventPayload, "ZONE_COMPLETED");
+                break;
+            case EVENT_DEVICE_ZONE_RUN_PAUSED:
+                normalizeZoneStatus(eventPayload, "ZONE_CYCLING");
+                break;
+            case EVENT_SCHEDULE_STARTED:
+                normalizeScheduleStatus(eventPayload, "SCHEDULE_STARTED");
+                break;
+            case EVENT_SCHEDULE_STOPPED:
+                normalizeScheduleStatus(eventPayload, "SCHEDULE_STOPPED");
+                break;
+            case EVENT_SCHEDULE_COMPLETED:
+                normalizeScheduleStatus(eventPayload, "SCHEDULE_COMPLETED");
+                break;
+            case EVENT_RAIN_SKIP:
+            case EVENT_CLIMATE_SKIP:
+            case EVENT_FREEZE_SKIP:
+            case EVENT_WIND_SKIP:
+                normalizeScheduleStatus(eventPayload, "WEATHER_INTELLIGENCE_SKIP");
+                break;
+            case EVENT_NO_SKIP:
+                normalizeScheduleStatus(eventPayload, "WEATHER_INTELLIGENCE_NO_SKIP");
+                break;
+            default:
+                type = eventType;
+                subType = eventType;
+                category = resourceType;
+                break;
+        }
+    }
+
+    private boolean isLegacyEvent() {
+        return !type.isEmpty() || !subType.isEmpty() || !deviceId.isEmpty();
+    }
+
+    private void normalizeZoneStatus(RachioWebhookPayload eventPayload, String state) {
+        type = "ZONE_STATUS";
+        subType = state;
+        category = "ZONE";
+        zoneNumber = eventPayload.getZoneNumber();
+        zoneName = eventPayload.zoneName;
+        zoneRunState = state;
+        flowVolume = eventPayload.getFlowVolumeGallons();
+
+        RachioZoneStatus status = new RachioZoneStatus();
+        status.duration = duration;
+        status.zoneNumber = zoneNumber;
+        status.state = state;
+        status.scheduleType = eventPayload.runType;
+        status.startTime = startTime;
+        status.endTime = endTime;
+        zoneRunStatus = status;
+    }
+
+    private void normalizeScheduleStatus(RachioWebhookPayload eventPayload, String status) {
+        type = "SCHEDULE_STATUS";
+        subType = status;
+        category = "SCHEDULE";
+        scheduleId = eventPayload.scheduleId;
+        scheduleName = eventPayload.scheduleName;
+        scheduleType = eventPayload.runType;
+        if (!eventPayload.plannedRunStartTime.isEmpty()) {
+            startTime = eventPayload.plannedRunStartTime;
+        }
+    }
+
+    public static class RachioWebhookPayload {
+        public String durationSeconds = "";
+        public String endTime = "";
+        public String flowVolumeG = "";
+        public String plannedRunStartTime = "";
+        public String runType = "";
+        public String scheduleId = "";
+        public String scheduleName = "";
+        public String startTime = "";
+        public String zoneName = "";
+        public String zoneNumber = "";
+
+        public int getDurationSeconds() {
+            return parseInt(durationSeconds);
+        }
+
+        public int getFlowVolumeGallons() {
+            return parseInt(flowVolumeG);
+        }
+
+        public int getZoneNumber() {
+            return parseInt(zoneNumber);
+        }
+
+        private static int parseInt(String value) {
+            try {
+                return value.isEmpty() ? 0 : Double.valueOf(value).intValue();
+            } catch (RuntimeException e) {
+                return 0;
+            }
+        }
     }
 }

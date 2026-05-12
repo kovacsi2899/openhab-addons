@@ -362,8 +362,12 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                         event.durationInMinutes);
                 updateChannel(CHANNEL_SCHED_NAME, new StringType(event.scheduleName));
                 updateChannel(CHANNEL_SCHED_INFO, new StringType(event.summary));
-                updateChannel(CHANNEL_SCHED_START, new DateTimeType(event.startTime));
-                updateChannel(CHANNEL_SCHED_END, new DateTimeType(event.endTime));
+                if (!event.startTime.isEmpty()) {
+                    updateChannel(CHANNEL_SCHED_START, new DateTimeType(event.startTime));
+                }
+                if (!event.endTime.isEmpty()) {
+                    updateChannel(CHANNEL_SCHED_END, new DateTimeType(event.endTime));
+                }
             } else {
                 update = false; // unknown event
             }

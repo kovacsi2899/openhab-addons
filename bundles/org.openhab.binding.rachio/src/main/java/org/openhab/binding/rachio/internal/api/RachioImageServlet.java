@@ -25,7 +25,6 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.HttpMethod;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -50,6 +49,7 @@ import org.slf4j.LoggerFactory;
 @Component(service = HttpServlet.class, configurationPolicy = ConfigurationPolicy.OPTIONAL, immediate = true)
 public class RachioImageServlet extends HttpServlet {
     private static final long serialVersionUID = 8706067059503685993L;
+    private static final String HTTP_METHOD_GET = "GET";
     private final Logger logger = LoggerFactory.getLogger(RachioImageServlet.class);
 
     private final HttpService httpService;
@@ -96,7 +96,7 @@ public class RachioImageServlet extends HttpServlet {
             String path = request.getRequestURI().substring(0, SERVLET_IMAGE_PATH.length());
             logger.trace("RachioImage: Reqeust from {}:{}{} ({}:{}, {})", ipAddress, request.getRemotePort(), path,
                     request.getRemoteHost(), request.getServerPort(), request.getProtocol());
-            if (!request.getMethod().equalsIgnoreCase(HttpMethod.GET)) {
+            if (!request.getMethod().equalsIgnoreCase(HTTP_METHOD_GET)) {
                 logger.warn("RachioImage: Unexpected method='{}'", request.getMethod());
             }
             if (!path.equalsIgnoreCase(SERVLET_IMAGE_PATH)) {
