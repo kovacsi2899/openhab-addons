@@ -57,6 +57,7 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
     private final Logger logger = LoggerFactory.getLogger(RachioZoneHandler.class);
     private String thingId = "";
     private Map<String, State> channelData = new HashMap<>();
+    private OnOffType zoneRunState = OnOffType.OFF;
     @Nullable
     private RachioBridgeHandler cloudHandler;
     @Nullable
@@ -219,13 +220,15 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
                 String state = event.zoneRunStatus != null ? event.zoneRunStatus.state : event.subType;
                 if (state.equals("ZONE_STARTED")) {
                     logger.info("{}: Zone {} STARTED watering ({}).", thingId, zoneName, event.timestamp);
-                    updateChannel(CHANNEL_ZONE_RUN, OnOffType.ON);
+                    zoneRunState = OnOffType.ON;
+                    updateChannel(CHANNEL_ZONE_RUN, zoneRunState);
                 } else if (state.equals("ZONE_STOPPED") || state.equals("ZONE_COMPLETED")) {
                     logger.info(
                             "{}: Zoned {} STOPPED watering (timestamp={}, current={}, duration={}sec/{}min, flowVolume={}).",
                             thingId, zoneName, event.timestamp, event.zoneCurrent, event.duration,
                             event.durationInMinutes, event.flowVolume);
-                    updateChannel(CHANNEL_ZONE_RUN, OnOffType.OFF);
+                    zoneRunState = OnOffType.OFF;
+                    updateChannel(CHANNEL_ZONE_RUN, zoneRunState);
                 } else {
                     logger.info("{}: Event for zone {}: {} (status={}, duration = {}sec)", thingId, event.zoneName,
                             event.summary, state, event.duration);
@@ -256,7 +259,7 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
             updateChannel(CHANNEL_ZONE_NAME, new StringType(z.name));
             updateChannel(CHANNEL_ZONE_NUMBER, new DecimalType(new BigDecimal(z.zoneNumber).toString()));
             updateChannel(CHANNEL_ZONE_ENABLED, z.getEnabled());
-            updateChannel(CHANNEL_ZONE_RUN, OnOffType.OFF);
+            updateChannel(CHANNEL_ZONE_RUN, zoneRunState);
             updateChannel(CHANNEL_ZONE_RUN_TIME, new DecimalType(new BigDecimal(z.getStartRunTime()).toString()));
             updateChannel(CHANNEL_ZONE_RUN_TOTAL, new DecimalType(new BigDecimal(z.runtime).toString()));
             updateChannel(CHANNEL_ZONE_IMAGEURL, new StringType(z.imageUrl));
