@@ -330,11 +330,38 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
             } else if (event.subType.equals("ZONE_DELTA")) {
                 zone = d.getZoneById(event.zoneId);
             }
+
+            boolean zoneUpdated = false;
             if (zone != null) {
                 RachioZoneHandler handler = zone.getThingHandler();
                 if (handler != null) {
-                    return handler.webhookEvent(event);
+                    zoneUpdated = handler.webhookEvent(event);
                 }
+            }
+
+            boolean devicePauseChanged = false;
+            if (etype.equals("ZONE_STATUS")) {
+                String state = event.zoneRunStatus != null ? event.zoneRunStatus.state : event.subType;
+                if ("ZONE_CYCLING".equals(state)) {
+                    if (!d.paused) {
+                        logger.info("{}: Device detected external pause for zone {}.", thingId,
+                                zone != null ? zone.name : event.zoneName);
+                        d.setPaused(true);
+                        devicePauseChanged = true;
+                    }
+                } else if ("ZONE_STARTED".equals(state) || "ZONE_STOPPED".equals(state)
+                        || "ZONE_COMPLETED".equals(state) || "ZONE_CYCLING_COMPLETED".equals(state)) {
+                    if (d.paused) {
+                        logger.info("{}: Device detected external resume for zone {}.", thingId,
+                                zone != null ? zone.name : event.zoneName);
+                        d.setPaused(false);
+                        devicePauseChanged = true;
+                    }
+                }
+            }
+
+            if (zoneUpdated && !devicePauseChanged) {
+                return true;
             }
 
             String evt = event.subType.isEmpty() ? event.type : event.subType;
@@ -350,11 +377,15 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                 // RAIN_SENSOR_DETECTION_ON, RAIN_SENSOR_DETECTION_OFF, RAIN_DELAY_ON, RAIN_DELAY_OFF
                 logger.debug("Device {} ('{}') changed to status '{}'.", d.name, d.id, event.subType);
                 if (event.subType.equals("COLD_REBOOT")) {
-                    logger.info("{}: Device {}  was restarted, ip={}/{}, gw={}, dns={}/{}, wifi rssi={}.", thingId,
-                            d.name, d.network.ip, d.network.nm, d.network.gw, d.network.dns1, d.network.dns2,
-                            d.network.rssi);
                     if (event.network != null) {
                         dev.setNetwork(event.network);
+                    }
+                    if (d.network != null) {
+                        String networkDetails = String.format("ip=%s/%s, gw=%s, dns=%s/%s, wifi rssi=%s", d.network.ip,
+                                d.network.nm, d.network.gw, d.network.dns1, d.network.dns2, d.network.rssi);
+                        logger.info("{}: Device {} was restarted, {}.", thingId, d.name, networkDetails);
+                    } else {
+                        logger.info("{}: Device {} was restarted (network information unavailable).", thingId, d.name);
                     }
                 } else if (event.subType.equals("ONLINE")) {
                     logger.info("{}: Device is ONLINE.", thingId);

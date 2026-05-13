@@ -189,9 +189,9 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Number   RachioZone1_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTime"}
     Number   RachioZone1_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTotal"}
     String   RachioZone1_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-1:imageUrl"}
-    String   RachioZone1_lastEvent      "Last Event"      {channel="rachio:device:1:XXXXXXXXXXXX:lastEvent"}
-    DateTime RachioZone1_lastEventTime  "Last Event Time" {channel="rachio:device:1:XXXXXXXXXXXX:lastEventTime"}
-    DateTime RachioZone1_lastUpdate     "Last Update"     {channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate"}
+    String   RachioZone1_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEvent"}
+    DateTime RachioZone1_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEventTime"}
+    DateTime RachioZone1_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastUpdate"}
 
     // Zone2
     String   RachioZone2_Name           "Zone Name"       {channel="rachio:zone:1:XXXXXXXXXXXX-2:name"}
@@ -201,9 +201,9 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Number   RachioZone2_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTime"}
     Number   RachioZone2_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTotal"}
     String   RachioZone2_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-2:imageUrl"}
-    String   RachioC04DAC_lastEvent     "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent"}
-    DateTime RachioC04DAC_lastEventTime "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime"}
-    DateTime RachioC04DAC_lastUpdate    LastUpdate"       {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate"}
+    String   RachioZone2_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent"}
+    DateTime RachioZone2_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime"}
+    DateTime RachioZone2_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate"}
 ```
 
 ### Rule Example
