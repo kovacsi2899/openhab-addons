@@ -63,7 +63,7 @@ Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterv
 |:----------------|:---------------------------------------------------------------------------------------------------------------------------|
 |apikey           |This is a token required to access the Rachio Cloud account. See Discovery on information how to get that code.|
 |pollingInterval  |Specifies the delay between two status polls. Usually something like 10 minutes should be enough to have a regular status update when the interfaces is configured. If you don't want/can use events a smaller delay might be interesting to get quicker responses on running zones etc.|
-|                 |Important: Please make sure to use an interval > 90sec. Rachio has a reshhold for the number of API calls per day: 3500.  This means if you are accessing the API for more than once in a minute your account gets blocked for the rest of the day.|
+|                 |Important: Please make sure to use an interval > 90sec. Rachio allows 3,500 API requests per day, and the limit resets at midnight UTC. This means if you are accessing the API too frequently your account can get blocked until the next reset.|
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
@@ -272,7 +272,7 @@ The binding recomputes the HMAC-SHA256 signature over the raw HTTP request body 
 | **Status** | Deprecated | Current (Recommended) |
 | **Event Format** | Numeric IDs (5, 6, 7, 8...) | String types (DEVICE_ZONE_RUN_STARTED_EVENT...) |
 | **Signature Validation** | Basic Auth in URL | HMAC-SHA256 in x-signature header |
-| **Rate Limit** | 1,700 requests/day | 3,500 requests/day |
+| **Rate Limit** | Deprecated API limit | 3,500 requests/day, resetting at midnight UTC |
 
 ### Migration Guide
 
@@ -334,7 +334,7 @@ The new API provides additional event types:
 - Verify that the webhook request includes a valid `x-signature` header
 
 **Rate limiting:**
-- The new API has higher rate limits (3,500 vs 1,700 requests/day)
+- Rachio allows 3,500 API requests per day, resetting at midnight UTC
 - Adjust `pollingInterval` if needed (recommended: > 90 seconds)
 
 ### Documentation

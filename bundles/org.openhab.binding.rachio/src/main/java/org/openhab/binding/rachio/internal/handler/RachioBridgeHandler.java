@@ -230,7 +230,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                     }
 
                     HashMap<String, RachioZone> zoneList = dev.getZones();
-                    HashMap<String, RachioZone> checkZoneList = dev.getZones();
+                    HashMap<String, RachioZone> checkZoneList = checkDev.getZones();
                     for (HashMap.Entry<String, RachioZone> ze : checkZoneList.entrySet()) {
                         RachioZone checkZone = ze.getValue();
                         RachioZone zone = zoneList.get(checkZone.id);
@@ -240,9 +240,10 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                             if (!zone.compare(checkZone)) {
                                 logger.trace("RachioCloud: Update status for zone {}", zone.name);
                                 if (zone.getThingHandler() != null) {
-                                    zone.getThingHandler().onThingStateChangedl(checkDev, null);
+                                    zone.getThingHandler().onThingStateChangedl(null, checkZone);
                                 } else {
-                                    rachioStatusListeners.stream().forEach(l -> l.onThingStateChangedl(checkDev, null));
+                                    rachioStatusListeners.stream()
+                                            .forEach(l -> l.onThingStateChangedl(null, checkZone));
                                 }
                             } else {
                                 logger.trace("RachioCloud: Zone {} was not updated.", checkZone.id);
@@ -269,7 +270,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
-     * Create a new SleepIQ cloud service connection. If a connection already exists, it will be lost.
+     * Create a new Rachio cloud service connection. If a connection already exists, it will be replaced.
      *
      * @throws RachioApiException if there is an error while authenticating to the service
      */
@@ -319,7 +320,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
      * Start rain delay cycle.
      *
      * @param deviceId: Device (ID retrieved from initialization)
-     * @param delayTime: Number of seconds for rain delay sycle
+     * @param delayTime: Number of seconds for the rain delay cycle
      * @return true: successful, failed (check http error code)
      */
     public void startRainDelay(String deviceId, int delayTime) throws RachioApiException {
@@ -480,11 +481,11 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
-     * Register a webhook at Rachio Cloud for the given deviceID. The webhook triggers our servlet to popolate device &
-     * zones events.
+     * Register a webhook at Rachio Cloud for the given device ID. The webhook triggers our servlet to process device
+     * and zone events.
      *
      * @param deviceId: Matching device ID (as retrieved from device initialization)
-     * @return trtue: successful, false: failed (check http error code)
+     * @return true: successful, false: failed (check http error code)
      */
     public void registerWebHook(String deviceId) throws RachioApiException {
         if (getCallbackUrl().isEmpty()) {
@@ -530,8 +531,8 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
-     * Start or stop a background polling job to look for bed status updates based on whether or not there are any
-     * listeners to notify.
+     * Start or stop a background polling job to look for Rachio device and zone status updates based on whether or not
+     * there are any listeners to notify.
      */
     private synchronized void updateListenerManagement() {
         ScheduledFuture<?> job = pollingJob;
@@ -545,7 +546,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
-     * Register the given listener to receive device status updates.
+     * Register the given listener to receive Rachio device and zone status updates.
      *
      * @param listener the listener to register
      */
@@ -555,7 +556,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     }
 
     /**
-     * Unregister the given listener from further device status updates.
+     * Unregister the given listener from further Rachio device and zone status updates.
      *
      * @param listener the listener to unregister
      * @return <code>true</code> if listener was previously registered and is now unregistered; <code>false</code>
@@ -585,14 +586,6 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
         return configStatusMessages;
     }
 
-    /**
-     * Update the given properties with attributes of the given bed. If no properties are given, a new map will be
-     * created.
-     *
-     * @param bed the source of data
-     * @param properties the properties to update (this may be <code>null</code>)
-     * @return the given map (or a new map if no map was given) with updated/set properties from the supplied bed
-     */
     private void updateProperties() {
         updateProperties(rachioApi.fillProperties());
     }
