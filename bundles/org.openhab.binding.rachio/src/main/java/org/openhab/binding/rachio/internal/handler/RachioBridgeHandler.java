@@ -250,6 +250,13 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                             }
                         }
                     }
+                    // Sync the zoneList with the new state
+                    zoneList.keySet().retainAll(checkZoneList.keySet());
+                    for (HashMap.Entry<String, RachioZone> entry : checkZoneList.entrySet()) {
+                        if (!zoneList.containsKey(entry.getKey())) {
+                            zoneList.put(entry.getKey(), entry.getValue());
+                        }
+                    }
                 }
             }
         } catch (RachioApiException e) {
