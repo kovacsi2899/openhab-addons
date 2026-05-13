@@ -14,6 +14,8 @@ package org.openhab.binding.rachio.internal.api.json;
 
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -232,6 +234,35 @@ public class RachioEventGsonDTO {
                 subType = eventType;
                 category = resourceType;
                 break;
+        }
+    }
+
+    /**
+     * @return rain delay seconds remaining from webhook timing data, or -1 when the event payload does not carry enough
+     *         information to calculate it
+     */
+    public int getRainDelaySecondsRemaining() {
+        int secondsUntilEnd = getSecondsUntil(endTime);
+        if (secondsUntilEnd >= 0) {
+            return secondsUntilEnd;
+        }
+
+        RachioWebhookPayload eventPayload = payload;
+        if ((eventPayload != null) && !eventPayload.durationSeconds.isEmpty()) {
+            return Math.max(0, eventPayload.getDurationSeconds());
+        }
+        return -1;
+    }
+
+    private static int getSecondsUntil(String timestamp) {
+        if (timestamp.isEmpty()) {
+            return -1;
+        }
+        try {
+            long remainingMillis = Instant.parse(timestamp).toEpochMilli() - System.currentTimeMillis();
+            return remainingMillis <= 0 ? 0 : (int) Math.min(Integer.MAX_VALUE, (remainingMillis + 999) / 1000);
+        } catch (DateTimeParseException e) {
+            return -1;
         }
     }
 

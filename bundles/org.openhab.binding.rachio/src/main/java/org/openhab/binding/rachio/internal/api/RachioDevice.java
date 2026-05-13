@@ -50,6 +50,7 @@ public class RachioDevice extends RachioCloudDevice {
     public boolean paused = false;
     public int pauseDuration = DEFAULT_ZONE_RUNTIME_SEC;
     public int rainDelay = 0;
+    private boolean sleepMode = false;
 
     @Nullable
     public ThingUID bridgeUID;
@@ -66,6 +67,7 @@ public class RachioDevice extends RachioCloudDevice {
     public RachioDevice(RachioCloudDevice device) {
         try {
             RachioApi.copyMatchingFields(device, this);
+            updateRainDelayFromExpirationDate();
             logger.trace("Adding ddevice '{}' (id='{}', model='{}', on={}, status={}, deleted={})", device.name,
                     device.id, device.model, device.on, device.status, device.deleted);
             if (!device.deleted) {
@@ -109,8 +111,8 @@ public class RachioDevice extends RachioCloudDevice {
      */
     public boolean compare(@Nullable RachioDevice cdev) {
         if ((cdev == null) || !id.equalsIgnoreCase(cdev.id) || !status.equalsIgnoreCase(cdev.status) || (on != cdev.on)
-                || (paused != cdev.paused) || (rainSensorTripped != cdev.rainSensorTripped)
-                || (rainDelay != cdev.rainDelay)) {
+                || (rainSensorTripped != cdev.rainSensorTripped)
+                || (rainDelayExpirationDate != cdev.rainDelayExpirationDate)) {
             logger.trace("Device data was updated");
             return false;
         }
@@ -129,9 +131,9 @@ public class RachioDevice extends RachioCloudDevice {
 
         status = updatedData.status;
         on = updatedData.on;
-        paused = updatedData.paused;
         rainSensorTripped = updatedData.rainSensorTripped;
-        rainDelay = updatedData.rainDelay;
+        rainDelayExpirationDate = updatedData.rainDelayExpirationDate;
+        updateRainDelayFromExpirationDate();
     }
 
     /**
@@ -246,11 +248,15 @@ public class RachioDevice extends RachioCloudDevice {
      * @return ON=running, OFF=standby
      */
     public OnOffType getSleepMode() {
-        return paused ? OnOffType.ON : OnOffType.OFF;
+        return sleepMode ? OnOffType.ON : OnOffType.OFF;
     }
 
     public void setSleepMode(String subType) {
-        paused = subType.contains("ON") ? true : false;
+        sleepMode = subType.contains("ON") ? true : false;
+    }
+
+    public OnOffType getPaused() {
+        return paused ? OnOffType.ON : OnOffType.OFF;
     }
 
     public void setPaused(boolean paused) {
@@ -272,6 +278,20 @@ public class RachioDevice extends RachioCloudDevice {
      */
     public void setRainDelayTime(int newDelay) {
         rainDelay = newDelay;
+    }
+
+    private void updateRainDelayFromExpirationDate() {
+        if (rainDelayExpirationDate <= 0) {
+            rainDelay = 0;
+            return;
+        }
+
+        long remainingMillis = rainDelayExpirationDate - System.currentTimeMillis();
+        if (remainingMillis <= 0) {
+            rainDelay = 0;
+            return;
+        }
+        rainDelay = (int) Math.min(Integer.MAX_VALUE, (remainingMillis + 999) / 1000);
     }
 
     /**

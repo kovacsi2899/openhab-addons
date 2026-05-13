@@ -79,6 +79,7 @@ public class RachioBindingConstants {
     public static final String CHANNEL_DEVICE_ONLINE = "online";
     public static final String CHANNEL_DEVICE_PAUSED = "paused";
     public static final String CHANNEL_DEVICE_PAUSE_TIME = "pauseTime";
+    public static final String CHANNEL_DEVICE_SLEEP_MODE = "sleepMode";
     public static final String CHANNEL_DEVICE_RUN = "run";
     public static final String CHANNEL_DEVICE_RUN_ZONES = "runZones";
     public static final String CHANNEL_DEVICE_RUN_TIME = "runTime";

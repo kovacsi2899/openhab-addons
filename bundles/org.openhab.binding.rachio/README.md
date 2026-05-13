@@ -106,6 +106,7 @@ For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-
 |online       |ON: Controller is connected to the cloud. OFF: Controller is offline, check Internet connection.                       |
 |paused       |ON: Pause the currently active zone run for `pauseTime` seconds; OFF: Resume the active zone run                       |
 |pauseTime    |Number of seconds to pause the active zone run when `paused` receives ON. Valid range is 0 to 3600 seconds.            |
+|sleepMode    |ON: Rachio device sleep mode is active, OFF: Rachio device sleep mode is not active (read-only webhook state).         |
 |stop         |ON: Stop watering for all zones (command), OFF: normal operation                                                       |
 |run          |ON: Start watering selected/all zones (defined in runZones)                                                            |
 |runZones     |Zones to run at a time - list, e.g: "1,3" = run zone 1 and 3; "" means: run all zones                                  |
@@ -169,6 +170,7 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Switch   RachioC04DAC_Online        "Online"             {channel="rachio:device:1:XXXXXXXXXXXX:online"}
     Switch   RachioC04DAC_Paused        "Paused"             {channel="rachio:device:1:XXXXXXXXXXXX:paused"}
     Number   RachioC04DAC_PauseTime     "Pause Time"         {channel="rachio:device:1:XXXXXXXXXXXX:pauseTime"}
+    Switch   RachioC04DAC_SleepMode     "Sleep Mode"         {channel="rachio:device:1:XXXXXXXXXXXX:sleepMode"}
     Switch   RachioC04DAC_Stop          "Stop Watering"      {channel="rachio:device:1:XXXXXXXXXXXX:stop"}
     Switch   RachioC04DAC_Run           "Run Multiple Zones" {channel="rachio:device:1:XXXXXXXXXXXX:run"}
     String   RachioC04DAC_RunZones      "Run Zone List"      {channel="rachio:device:1:XXXXXXXXXXXX:runZones"}

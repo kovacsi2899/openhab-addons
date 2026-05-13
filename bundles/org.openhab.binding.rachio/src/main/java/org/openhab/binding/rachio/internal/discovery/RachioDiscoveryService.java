@@ -144,7 +144,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                 logger.debug(" Rachio device discovered: '{}' (id {}), S/N={}, MAC={}", dev.name, dev.id,
                         dev.serialNumber, dev.macAddress);
                 logger.debug("  latitude={}, longitude={}", dev.latitude, dev.longitude);
-                logger.debug("   device status={}, paused/sleep={}, on={}", dev.status, dev.getSleepMode(),
+                logger.debug("   device status={}, sleepMode={}, on={}", dev.status, dev.getSleepMode(),
                         dev.getEnabled());
                 Map<String, Object> properties = new HashMap<>(dev.fillProperties());
                 DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(devThingUID).withProperties(properties)

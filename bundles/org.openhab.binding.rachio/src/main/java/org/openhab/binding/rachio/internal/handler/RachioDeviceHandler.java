@@ -228,9 +228,10 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_NAME, new StringType(d.getThingName()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ONLINE, d.getOnline());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE, d.getEnabled());
-            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, d.getSleepMode());
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, d.getPaused());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME,
                     new DecimalType(new BigDecimal(d.getPauseDuration()).toString()));
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_SLEEP_MODE, d.getSleepMode());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_ZONES, new StringType(d.getRunZones()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME,
                     new DecimalType(new BigDecimal(d.getRunTime()).toString()));
@@ -338,7 +339,12 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
 
             String evt = event.subType.isEmpty() ? event.type : event.subType;
             dev.setEvent(evt, getTimestamp()); // and funnel all zone events to the device
-            if (etype.equals("DEVICE_STATUS")) {
+            if (event.subType.equals("RAIN_DELAY_ON")) {
+                handleRainDelayOnEvent(event, d);
+            } else if (event.subType.equals("RAIN_DELAY_OFF")) {
+                logger.info("{}: Device reported Rain Delay OFF.", thingId);
+                d.setRainDelayTime(0);
+            } else if (etype.equals("DEVICE_STATUS")) {
                 // sub types:
                 // COLD_REBOOT, ONLINE, OFFLINE, OFFLINE_NOTIFICATION, SLEEP_MODE_ON, SLEEP_MODE_OFF, BROWNOUT_VALVE
                 // RAIN_SENSOR_DETECTION_ON, RAIN_SENSOR_DETECTION_OFF, RAIN_DELAY_ON, RAIN_DELAY_OFF
@@ -362,12 +368,6 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
                 } else if (event.subType.equals("SLEEP_MODE_OFF")) {
                     logger.info("{}: Device was resumed (exit from sleep mode).", thingId);
                     dev.setSleepMode(event.subType);
-                } else if (event.subType.equals("RAIN_DELAY_ON")) {
-                    logger.info("{}: Device reporterd Rain Delay ON.", thingId);
-                    update = false; // details missing
-                } else if (event.subType.equals("RAIN_DELAY_OFF")) {
-                    logger.info("{}: Device reporterd Rain Delay OFF.", thingId);
-                    update = false; // details missing
                 } else if (event.subType.equals("RAIN_SENSOR_DETECTION_ON")) {
                     logger.info("{}: Device reported Rain Sensor ON.", thingId);
                     d.rainSensorTripped = true;
@@ -405,6 +405,27 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
             logger.debug("{}: Unable to process event {}.{} - {}", thingId, event.type, event.subType, event.summary,
                     e);
             return false;
+        }
+    }
+
+    private void handleRainDelayOnEvent(RachioEventGsonDTO event, RachioDevice device) {
+        int rainDelaySeconds = event.getRainDelaySecondsRemaining();
+        if (rainDelaySeconds >= 0) {
+            logger.info("{}: Device reported Rain Delay ON for {} sec.", thingId, rainDelaySeconds);
+            device.setRainDelayTime(rainDelaySeconds);
+        } else {
+            logger.info("{}: Device reported Rain Delay ON without duration details; refreshing device state.",
+                    thingId);
+            refreshRainDelayState();
+        }
+    }
+
+    private void refreshRainDelayState() {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler != null) {
+            handler.refreshDeviceStatus();
+        } else {
+            logger.debug("{}: Unable to refresh rain delay state because cloud handler is not initialized.", thingId);
         }
     }
 

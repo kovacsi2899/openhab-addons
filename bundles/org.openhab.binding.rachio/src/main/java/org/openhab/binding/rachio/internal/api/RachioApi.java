@@ -235,7 +235,7 @@ public class RachioApi {
         try {
             encodedUrl = encodeCallbackUrl(callbackUrl);
         } catch (RachioApiException e) {
-            logger.warn("Failed to encode callback URL for device '{}': {}", deviceId, e.getMessage());
+            logger.warn("Failed to encode callback URL for device '{}'; callback URL is malformed", deviceId);
             throw e;
         }
 
@@ -243,7 +243,6 @@ public class RachioApi {
         try {
             String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
                     WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId)).resultString;
-            logger.debug("Registered webhooks for controller '{}': {}", deviceId, json);
             deleteExistingWebHooks(json, deviceId, encodedUrl, externalId, clearAllCallbacks);
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
@@ -278,7 +277,24 @@ public class RachioApi {
 
             return uri.toASCIIString();
         } catch (URISyntaxException e) {
-            throw new RachioApiException("Invalid callback URL format: " + e.getMessage(), e);
+            throw new RachioApiException("Invalid callback URL format: " + e.getReason());
+        }
+    }
+
+    private String sanitizeCallbackUrl(@Nullable String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        try {
+            URI uri = new URI(url);
+            if (uri.getRawUserInfo() == null) {
+                return uri.toASCIIString();
+            }
+            URI sanitizedUri = new URI(uri.getScheme(), "***:***", uri.getHost(), uri.getPort(), uri.getPath(),
+                    uri.getQuery(), uri.getFragment());
+            return sanitizedUri.toASCIIString();
+        } catch (RuntimeException | URISyntaxException e) {
+            return "<redacted-callback-url>";
         }
     }
 
@@ -290,11 +306,11 @@ public class RachioApi {
      * @return the properly encoded userinfo
      */
     private String encodeUserInfo(String userInfo) {
-        // Split on LAST colon to handle passwords containing colons
-        int lastColon = userInfo.lastIndexOf(':');
-        if (lastColon > 0) {
-            String username = userInfo.substring(0, lastColon);
-            String password = userInfo.substring(lastColon + 1);
+        // Basic Auth user-info uses the first colon as separator; later colons are part of the password.
+        int firstColon = userInfo.indexOf(':');
+        if (firstColon > 0) {
+            String username = userInfo.substring(0, firstColon);
+            String password = userInfo.substring(firstColon + 1);
             return encodeURIComponent(username) + ":" + encodeURIComponent(password);
         }
         // Username only (no password)
@@ -389,9 +405,12 @@ public class RachioApi {
     private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl, @Nullable String externalId,
             Boolean clearAllCallbacks) {
         boolean deleteAll = Boolean.TRUE.equals(clearAllCallbacks);
-        for (RachioApiWebHookEntry whe : parseWebHookList(json)) {
-            logger.debug("WebHook: id='{}', url='{}', externalId='{}', controllerId='{}'", whe.id, whe.url,
-                    whe.externalId, whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
+        List<RachioApiWebHookEntry> webhooks = parseWebHookList(json);
+        logger.debug("Registered webhook count for controller '{}': {}", deviceId, webhooks.size());
+        for (RachioApiWebHookEntry whe : webhooks) {
+            logger.debug("WebHook: id='{}', url='{}', externalId='{}', controllerId='{}'", whe.id,
+                    sanitizeCallbackUrl(whe.url), whe.externalId,
+                    whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
             if (deleteAll) {
                 try {
                     logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true",
