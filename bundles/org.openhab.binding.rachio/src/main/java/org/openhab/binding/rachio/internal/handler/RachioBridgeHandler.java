@@ -36,6 +36,7 @@ import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.discovery.RachioDiscoveryService;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
 import org.openhab.core.thing.Bridge;
@@ -68,7 +69,13 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     @Nullable
     private ScheduledFuture<?> pollingJob;
     private boolean jobPending = false;
-    private int skipCalls = 0;
+
+    public enum RefreshReason {
+        SCHEDULED_POLL,
+        WEBHOOK_RECONCILIATION,
+        INITIALIZATION,
+        MANUAL;
+    }
 
     /**
      * Thing Handler for the Bridge thing. Handles the cloud connection and links devices+zones to a bridge.
@@ -99,7 +106,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
             thingConfig.updateConfig(getConfig().getProperties());
 
             logger.debug("RachioCloud: Connecting to Rachio Cloud");
-            createCloudConnection(rachioApi);
+            createCloudConnection(rachioApi, RefreshReason.INITIALIZATION);
             updateProperties();
 
             // Pass BridgeUID to device, RachioDeviceHandler will fill DeviceUID
@@ -167,8 +174,16 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
      * in addition webhooks are used to get events (if callbackUrl is configured)
      */
     public void refreshDeviceStatus() {
+        refreshDeviceStatus(RefreshReason.MANUAL);
+    }
+
+    /**
+     * Update device status (poll Rachio Cloud)
+     * in addition webhooks are used to get events (if callbackUrl is configured)
+     */
+    public void refreshDeviceStatus(RefreshReason refreshReason) {
         String errorMessage = "";
-        logger.trace("RachioCloud: refreshDeviceStatus");
+        logger.trace("RachioCloud: refreshDeviceStatus ({})", refreshReason);
 
         try {
             synchronized (this) {
@@ -186,7 +201,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
             }
 
             RachioApi checkApi = new RachioApi(personId);
-            createCloudConnection(checkApi);
+            createCloudConnection(checkApi, refreshReason);
             if (checkApi.getLastApiResult().isRateLimitBlocked()) {
                 String errorCritical = "";
                 errorCritical = MessageFormat.format(
@@ -197,14 +212,6 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, errorCritical); // shutdown
                                                                                                          // bridge+devices+zones
                 return;
-            }
-            if (checkApi.getLastApiResult().isRateLimitWarning()) {
-                skipCalls++;
-                if (skipCalls % RACHIO_RATE_SKIP_CALLS > 0) {
-                    logger.info("RachioCloud: API limit is getting critical -> skip update ({} / {})", skipCalls,
-                            RACHIO_RATE_SKIP_CALLS);
-                    return;
-                }
             }
             if (this.getThing().getStatus() != ThingStatus.ONLINE) {
                 logger.debug("RachioCloud: Bridge is ONLINE");
@@ -281,15 +288,28 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
      *
      * @throws RachioApiException if there is an error while authenticating to the service
      */
-    private void createCloudConnection(RachioApi api) throws RachioApiException, UnknownHostException {
+    private void createCloudConnection(RachioApi api, RefreshReason refreshReason)
+            throws RachioApiException, UnknownHostException {
         if (thingConfig.apikey.isEmpty()) {
             throw new RachioApiException(
                     "RachioCloud: Unable to connect to Rachio Cloud: apikey not set, check services/rachio.cfg!");
         }
 
         // initialiaze API access, may throw an exception
-        api.initialize(thingConfig.apikey, this.getThing().getUID());
+        api.initialize(thingConfig.apikey, this.getThing().getUID(), getPriority(refreshReason));
         personId = api.getPersonId();
+    }
+
+    private PRIORITY getPriority(RefreshReason refreshReason) {
+        switch (refreshReason) {
+            case SCHEDULED_POLL:
+                return PRIORITY.LOW;
+            case WEBHOOK_RECONCILIATION:
+            case INITIALIZATION:
+            case MANUAL:
+            default:
+                return PRIORITY.MED;
+        }
     }
 
     /**
@@ -600,7 +620,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
     private Runnable pollingRunnable = new Runnable() {
         @Override
         public void run() {
-            refreshDeviceStatus();
+            refreshDeviceStatus(RefreshReason.SCHEDULED_POLL);
         }
     };
 

@@ -454,7 +454,7 @@ public class RachioDeviceHandler extends BaseThingHandler implements RachioStatu
     private void refreshRainDelayState() {
         RachioBridgeHandler handler = cloudHandler;
         if (handler != null) {
-            handler.refreshDeviceStatus();
+            handler.refreshDeviceStatus(RachioBridgeHandler.RefreshReason.WEBHOOK_RECONCILIATION);
         } else {
             logger.debug("{}: Unable to refresh rain delay state because cloud handler is not initialized.", thingId);
         }

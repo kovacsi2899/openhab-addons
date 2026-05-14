@@ -45,6 +45,9 @@ import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWe
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudPersonId;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingUID;
 import org.slf4j.Logger;
@@ -54,8 +57,6 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
-import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
-import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 
 /**
  * The {@link RachioApi} implements the interface to the Rachio cloud service (using http).
@@ -98,53 +99,72 @@ public class RachioApi {
     }
 
     private void throttleIfNeeded(PRIORITY priority) throws RachioApiException {
-        if (priority == PRIORITY.HI) {
-            return;
-        }
-        if (rateLimitManager.shouldThrottle(priority)) {
-            String message = MessageFormat.format("RachioApi: Throttling {0} priority REST call to preserve the rate limit budget",
-                    priority);
+        try {
+            rateLimitManager.tryThrottle(priority);
+        } catch (RateLimitThrottleException e) {
+            String message = MessageFormat.format("RachioApi: {0}", e.toString());
             throw new RachioApiException(message, lastApiResult);
         }
     }
 
-    private void updateRateLimit(RachioApiResult result) {
+    private void updateRateLimit(@Nullable RachioApiResult result) {
         if (result == null) {
             return;
         }
         rateLimitManager.updateRateLimit(result.rateLimit, result.rateRemaining, result.rateReset);
     }
 
-    private RachioApiResult httpGet(String url, @Nullable String params, PRIORITY priority) throws RachioApiException {
-        throttleIfNeeded(priority);
-        RachioApiResult result = httpApi.httpGet(url, params);
+    private RachioApiResult recordApiResult(RachioApiResult result) {
         updateRateLimit(result);
         lastApiResult = result;
         return result;
+    }
+
+    private void recordApiException(RachioApiException e) {
+        RachioApiResult result = e.getApiResult();
+        updateRateLimit(result);
+        lastApiResult = result;
+    }
+
+    private RachioApiResult httpGet(String url, @Nullable String params, PRIORITY priority) throws RachioApiException {
+        throttleIfNeeded(priority);
+        try {
+            return recordApiResult(httpApi.httpGet(url, params));
+        } catch (RachioApiException e) {
+            recordApiException(e);
+            throw e;
+        }
     }
 
     private RachioApiResult httpPut(String url, String data, PRIORITY priority) throws RachioApiException {
         throttleIfNeeded(priority);
-        RachioApiResult result = httpApi.httpPut(url, data);
-        updateRateLimit(result);
-        lastApiResult = result;
-        return result;
+        try {
+            return recordApiResult(httpApi.httpPut(url, data));
+        } catch (RachioApiException e) {
+            recordApiException(e);
+            throw e;
+        }
     }
 
     private RachioApiResult httpPost(String url, String data, PRIORITY priority) throws RachioApiException {
         throttleIfNeeded(priority);
-        RachioApiResult result = httpApi.httpPost(url, data);
-        updateRateLimit(result);
-        lastApiResult = result;
-        return result;
+        try {
+            return recordApiResult(httpApi.httpPost(url, data));
+        } catch (RachioApiException e) {
+            recordApiException(e);
+            throw e;
+        }
     }
 
-    private RachioApiResult httpDelete(String url, @Nullable String params, PRIORITY priority) throws RachioApiException {
+    private RachioApiResult httpDelete(String url, @Nullable String params, PRIORITY priority)
+            throws RachioApiException {
         throttleIfNeeded(priority);
-        RachioApiResult result = httpApi.httpDelete(url, params);
-        updateRateLimit(result);
-        lastApiResult = result;
-        return result;
+        try {
+            return recordApiResult(httpApi.httpDelete(url, params));
+        } catch (RachioApiException e) {
+            recordApiException(e);
+            throw e;
+        }
     }
 
     public String getPersonId() {
@@ -174,12 +194,16 @@ public class RachioApi {
     }
 
     public void initialize(String apikey, ThingUID bridgeUID) throws RachioApiException {
+        initialize(apikey, bridgeUID, PRIORITY.MED);
+    }
+
+    public void initialize(String apikey, ThingUID bridgeUID, PRIORITY priority) throws RachioApiException {
         this.apikey = apikey;
         this.bridgeUID = bridgeUID;
-        this.rateLimitManager = rateLimitManagers.computeIfAbsent(apikey,
-                key -> new ClientRateLimitManager(10, Duration.ofSeconds(30)));
+        this.rateLimitManager = Objects.requireNonNull(rateLimitManagers.computeIfAbsent(apikey,
+                key -> new ClientRateLimitManager(10, Duration.ofSeconds(30))));
         httpApi = new RachioHttp(this.apikey);
-        if (!initializePersonId() || !initializeDevices(bridgeUID) || !initializeZones()) {
+        if (!initializePersonId(priority) || !initializeDevices(bridgeUID, priority) || !initializeZones()) {
             throw new RachioApiException("API initialization failed!");
         }
     }
@@ -222,13 +246,13 @@ public class RachioApi {
         return null;
     }
 
-    private Boolean initializePersonId() throws RachioApiException {
+    private Boolean initializePersonId(PRIORITY priority) throws RachioApiException {
         if (!personId.isEmpty()) {
             logger.trace("Using cached personId ('{}').", personId);
             return true;
         }
 
-        lastApiResult = httpGet(APIURL_BASE + APIURL_GET_PERSON, null, PRIORITY.MED);
+        lastApiResult = httpGet(APIURL_BASE + APIURL_GET_PERSON, null, priority);
         Gson gson = new Gson();
         RachioCloudPersonId pid = gson.fromJson(lastApiResult.resultString, RachioCloudPersonId.class);
         personId = pid.id;
@@ -285,8 +309,8 @@ public class RachioApi {
 
     public void runZone(String zoneId, int duration) throws RachioApiException {
         logger.debug("Start zone '{}' for {} sec.", zoneId, duration);
-        httpPut(APIURL_BASE + APIURL_ZONE_PUT_START,
-                "{ \"id\" : \"" + zoneId + "\", \"duration\" : " + duration + " }", PRIORITY.HI);
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_START, "{ \"id\" : \"" + zoneId + "\", \"duration\" : " + duration + " }",
+                PRIORITY.HI);
     }
 
     public void enableZone(String zoneId) throws RachioApiException {
@@ -560,13 +584,13 @@ public class RachioApi {
         return webhooks;
     }
 
-    private Boolean initializeDevices(ThingUID BridgeUID) throws RachioApiException {
+    private Boolean initializeDevices(ThingUID BridgeUID, PRIORITY priority) throws RachioApiException {
         String json = "";
         if (httpApi == null) {
             logger.debug("RachioApi.initializeDevices: httpAPI not initialized");
             return false;
         }
-        json = httpGet(APIURL_BASE + APIURL_GET_PERSONID + "/" + personId, null, PRIORITY.MED).resultString;
+        json = httpGet(APIURL_BASE + APIURL_GET_PERSONID + "/" + personId, null, priority).resultString;
         logger.trace("Initialize from JSON='{}'", json);
 
         Gson gson = new Gson();

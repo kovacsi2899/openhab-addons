@@ -21,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link RachioApiResult} help to supervise the API rate limits. Rachio blocks API access for accounts exceeding
- * the limit of 1700 calls per day.
+ * The {@link RachioApiResult} helps to supervise the API rate limits. Rachio enforces a daily public API request limit.
+ * See the official Rachio rate-limit documentation for the current quota and reset behavior.
  *
  * @author Markus Michels - Initial contribution
  */

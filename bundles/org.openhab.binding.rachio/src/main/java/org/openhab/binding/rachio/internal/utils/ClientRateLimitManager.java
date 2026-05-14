@@ -12,18 +12,23 @@
  */
 package org.openhab.binding.rachio.internal.utils;
 
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * {@link ClientRateLimitManager} maintains a running average of recent API calls and provides
  * throttling guidance based on rate limit headers.
  *
- * @author GitHub Copilot
+ * @author Jeff James - Initial rate limit management concept
+ * @author Kovacs Istvan - Adaptation and integration into the openHAB 5.1+ Rachio binding
  */
 @NonNullByDefault
 public class ClientRateLimitManager {
@@ -50,10 +55,14 @@ public class ClientRateLimitManager {
         this.buckets = new int[numBuckets];
     }
 
-    public void updateRateLimit(int rateLimitCap, int rateRemaining, String rateReset) {
-        this.rateLimitCap = rateLimitCap;
-        this.rateRemaining = rateRemaining;
-        this.rateResetTime = parseRateReset(rateReset);
+    public void updateRateLimit(int rateLimitCap, int rateRemaining, @Nullable String rateReset) {
+        if (rateLimitCap > 0) {
+            this.rateLimitCap = rateLimitCap;
+            this.rateRemaining = rateRemaining;
+        }
+        if (rateReset != null && !rateReset.isBlank()) {
+            this.rateResetTime = parseRateReset(rateReset);
+        }
         logRequest();
     }
 
@@ -67,7 +76,8 @@ public class ClientRateLimitManager {
     }
 
     public void tryThrottle(PRIORITY priority) throws RateLimitThrottleException {
-        if (priority == PRIORITY.HI || rateResetTime == Instant.MAX) {
+        if (priority == PRIORITY.HI || rateResetTime == Instant.MAX
+                || System.currentTimeMillis() >= rateResetTime.toEpochMilli()) {
             return;
         }
 
@@ -172,19 +182,26 @@ public class ClientRateLimitManager {
         return rateRemaining / (remainingMillis / 1000.0);
     }
 
-    private Instant parseRateReset(String rateReset) {
+    private Instant parseRateReset(@Nullable String rateReset) {
         if (rateReset == null || rateReset.isBlank()) {
             return Instant.MAX;
         }
 
+        String resetTime = rateReset.trim();
         try {
-            return Instant.ofEpochSecond(Long.parseLong(rateReset));
-        } catch (NumberFormatException e) {
+            return Instant.ofEpochSecond(Long.parseLong(resetTime));
+        } catch (DateTimeException | NumberFormatException e) {
             // ignore and try ISO format
         }
 
         try {
-            return Instant.parse(rateReset);
+            return Instant.parse(resetTime);
+        } catch (DateTimeParseException e) {
+            // ignore and try RFC 1123 format
+        }
+
+        try {
+            return ZonedDateTime.parse(resetTime, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
         } catch (DateTimeParseException e) {
             return Instant.MAX;
         }
@@ -206,7 +223,8 @@ public class ClientRateLimitManager {
 
         @Override
         public String toString() {
-            return String.format("Throttling REST API call with priority %s (budgeted rate: %.3f, running average rate: %.3f)",
+            return String.format(
+                    "Throttling REST API call with priority %s (budgeted rate: %.3f, running average rate: %.3f)",
                     priority.toString(), budgetRate, currentRate);
         }
     }

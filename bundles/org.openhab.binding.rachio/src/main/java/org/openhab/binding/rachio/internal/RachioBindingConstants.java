@@ -190,7 +190,6 @@ public class RachioBindingConstants {
     public static final int RACHIO_RATE_LIMIT_WARNING = 200; // slow down polling
     public static final int RACHIO_RATE_LIMIT_CRITICAL = 100; // stop polling
     public static final int RACHIO_RATE_LIMIT_BLOCK = 20; // block api access
-    public static final int RACHIO_RATE_SKIP_CALLS = 5;
 
     public static final String AWS_IPADDR_DOWNLOAD_URL = "https://ip-ranges.amazonaws.com/ip-ranges.json";
     public static final String AWS_IPADDR_REGION_FILTER = "us-";
