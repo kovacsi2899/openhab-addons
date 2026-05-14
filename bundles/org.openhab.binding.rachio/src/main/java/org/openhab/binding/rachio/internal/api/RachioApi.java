@@ -25,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -70,9 +71,10 @@ public class RachioApi {
     protected String userName = "";
     protected String fullName = "";
     protected String email = "";
+    @Nullable
+    protected ThingUID bridgeUID = null;
 
     protected RachioApiResult lastApiResult = new RachioApiResult();
-    protected static final Integer EXTERNAL_ID_SALT = (int) (Math.random() * 50 + 1);
 
     private HashMap<String, RachioDevice> deviceList = new HashMap<String, RachioDevice>();
     private RachioHttp httpApi = new RachioHttp("");
@@ -94,13 +96,30 @@ public class RachioApi {
     }
 
     public String getExternalId() {
-        // return a salted ash of the apikey
-        String hash = "OH_" + getMD5Hash(apikey) + "_" + EXTERNAL_ID_SALT.toString();
-        return getMD5Hash(hash);
+        if (apikey.isEmpty() || bridgeUID == null) {
+            return "";
+        }
+        String apikeyHash = getMD5Hash(apikey);
+        String rawValue = "OH_RACHIO_EXTERNALID_" + bridgeUID.toString() + "_" + apikeyHash;
+        return getMD5Hash(rawValue);
+    }
+
+    public List<String> getLegacyExternalIds() {
+        if (apikey.isEmpty()) {
+            return List.of();
+        }
+        List<String> legacyIds = new ArrayList<>();
+        String apikeyHash = getMD5Hash(apikey);
+        for (int legacySalt = 1; legacySalt <= 50; legacySalt++) {
+            String hash = "OH_" + apikeyHash + "_" + legacySalt;
+            legacyIds.add(getMD5Hash(hash));
+        }
+        return legacyIds;
     }
 
     public void initialize(String apikey, ThingUID bridgeUID) throws RachioApiException {
         this.apikey = apikey;
+        this.bridgeUID = bridgeUID;
         httpApi = new RachioHttp(this.apikey);
         if (!initializePersonId() || !initializeDevices(bridgeUID) || !initializeZones()) {
             throw new RachioApiException("API initialization failed!");
@@ -243,7 +262,7 @@ public class RachioApi {
         try {
             String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
                     WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId)).resultString;
-            deleteExistingWebHooks(json, deviceId, encodedUrl, externalId, clearAllCallbacks);
+            deleteExistingWebHooks(json, deviceId, encodedUrl, getKnownExternalIds(externalId), clearAllCallbacks);
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
         }
@@ -340,6 +359,17 @@ public class RachioApi {
         return result.toString();
     }
 
+    private Collection<String> getKnownExternalIds(@Nullable String externalId) {
+        if (externalId == null) {
+            externalId = "";
+        }
+        List<String> knownExternalIds = new ArrayList<>(getLegacyExternalIds());
+        if (!externalId.isBlank() && !knownExternalIds.contains(externalId)) {
+            knownExternalIds.add(externalId);
+        }
+        return knownExternalIds;
+    }
+
     private List<String> getIrrigationControllerEventTypes() {
         List<String> eventTypes = new ArrayList<>(List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_DEVICE_ZONE_RUN_STOPPED,
                 EVENT_DEVICE_ZONE_RUN_COMPLETED, EVENT_DEVICE_ZONE_RUN_PAUSED, EVENT_SCHEDULE_STARTED,
@@ -402,8 +432,8 @@ public class RachioApi {
         return supportedTypes;
     }
 
-    private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl, @Nullable String externalId,
-            Boolean clearAllCallbacks) {
+    private void deleteExistingWebHooks(String json, String deviceId, String callbackUrl,
+            Collection<String> externalIds, Boolean clearAllCallbacks) {
         boolean deleteAll = Boolean.TRUE.equals(clearAllCallbacks);
         List<RachioApiWebHookEntry> webhooks = parseWebHookList(json);
         logger.debug("Registered webhook count for controller '{}': {}", deviceId, webhooks.size());
@@ -411,6 +441,7 @@ public class RachioApi {
             logger.debug("WebHook: id='{}', url='{}', externalId='{}', controllerId='{}'", whe.id,
                     sanitizeCallbackUrl(whe.url), whe.externalId,
                     whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
+            boolean matchesExternalId = externalIds.stream().anyMatch(id -> Objects.equals(whe.externalId, id));
             if (deleteAll) {
                 try {
                     logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true",
@@ -419,7 +450,7 @@ public class RachioApi {
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
-            } else if (Objects.equals(whe.url, callbackUrl) || Objects.equals(whe.externalId, externalId)) {
+            } else if (Objects.equals(whe.url, callbackUrl) || matchesExternalId) {
                 try {
                     logger.debug(
                             "Delete duplicate webhook '{}' for controller '{}' because it matches this binding instance",
