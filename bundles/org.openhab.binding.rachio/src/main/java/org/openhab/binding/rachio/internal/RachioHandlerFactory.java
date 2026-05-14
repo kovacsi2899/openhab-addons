@@ -21,6 +21,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApi;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.binding.rachio.internal.handler.AbstractRachioBridgeHandler;
+import org.openhab.binding.rachio.internal.handler.AbstractRachioThingHandler;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
 import org.openhab.binding.rachio.internal.handler.RachioZoneHandler;
@@ -87,9 +89,9 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
             if (SUPPORTED_BRIDGE_THING_TYPES_UIDS.contains(thingTypeUID)) {
                 return createBridge((Bridge) thing);
             } else if (SUPPORTED_ZONE_THING_TYPES_UIDS.contains(thingTypeUID)) {
-                return new RachioZoneHandler(thing);
+                return createZone(thing);
             } else if (SUPPORTED_DEVICE_THING_TYPES_UIDS.contains(thingTypeUID)) {
-                return new RachioDeviceHandler(thing);
+                return createDevice(thing);
             }
         } catch (RuntimeException e) {
             logger.debug("RachioHandlerFactory:Exception while creating Rachio Thing handler: {}", e.toString());
@@ -101,18 +103,15 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
 
     @Override
     protected void removeHandler(final ThingHandler thingHandler) {
-        logger.debug("Removing Rachio Cloud handler");
-        if (thingHandler instanceof RachioBridgeHandler) {
-            RachioBridgeHandler bridgeHandler = (RachioBridgeHandler) thingHandler;
+        logger.debug("Removing Rachio handler");
+        if (thingHandler instanceof AbstractRachioBridgeHandler bridgeHandler) {
             bridgeHandler.shutdown();
         }
-        if (thingHandler instanceof RachioDeviceHandler) {
-            RachioDeviceHandler deviceHandler = (RachioDeviceHandler) thingHandler;
-            deviceHandler.shutdown();
+        if (thingHandler instanceof RachioBridgeHandler bridgeHandler) {
+            bridgeList.remove(bridgeHandler.getThing().getUID().toString());
         }
-        if (thingHandler instanceof RachioZoneHandler) {
-            RachioZoneHandler zoneHandler = (RachioZoneHandler) thingHandler;
-            zoneHandler.shutdown();
+        if (thingHandler instanceof AbstractRachioThingHandler rachioThingHandler) {
+            rachioThingHandler.shutdown();
         }
     }
 
@@ -191,5 +190,13 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
             logger.warn("RachioFactory: Unable to create bridge thing: {}: ", e.getMessage());
         }
         return null;
+    }
+
+    private RachioDeviceHandler createDevice(Thing thing) {
+        return new RachioDeviceHandler(thing);
+    }
+
+    private RachioZoneHandler createZone(Thing thing) {
+        return new RachioZoneHandler(thing);
     }
 }

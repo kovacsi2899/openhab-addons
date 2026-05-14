@@ -16,7 +16,6 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -30,17 +29,12 @@ import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
-import org.openhab.core.thing.ThingStatusInfo;
-import org.openhab.core.thing.binding.BaseThingHandler;
-import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
-import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,15 +47,9 @@ import org.slf4j.LoggerFactory;
  */
 
 @NonNullByDefault
-public class RachioZoneHandler extends BaseThingHandler implements RachioStatusListener {
+public class RachioZoneHandler extends AbstractRachioThingHandler {
     private final Logger logger = LoggerFactory.getLogger(RachioZoneHandler.class);
-    private String thingId = "";
-    private Map<String, State> channelData = new HashMap<>();
     private OnOffType zoneRunState = OnOffType.OFF;
-    @Nullable
-    private RachioBridgeHandler cloudHandler;
-    @Nullable
-    Bridge bridge;
     @Nullable
     private RachioDevice dev;
     @Nullable
@@ -76,17 +64,16 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
         logger.debug("Initializing zone '{}'", this.getThing().getUID().toString());
 
         try {
-            // initialize class objects
-            bridge = getBridge();
-            if (bridge != null) {
-                ThingHandler handler = bridge.getHandler();
-                if ((handler != null) && (handler instanceof RachioBridgeHandler)) {
-                    cloudHandler = (RachioBridgeHandler) handler;
-                    zone = cloudHandler.getZoneByUID(this.getThing().getUID());
-                    if (zone != null) {
-                        zone.setThingHandler(this);
-                        dev = ((RachioBridgeHandler) handler).getDevByUID(zone.getDevUID());
-                        thingId = dev.name + "[" + zone.zoneNumber + "]";
+            if (initializeCloudHandler()) {
+                RachioBridgeHandler handler = cloudHandler;
+                zone = handler != null ? handler.getZoneByUID(this.getThing().getUID()) : null;
+                RachioZone z = zone;
+                if (z != null && handler != null) {
+                    z.setThingHandler(this);
+                    dev = handler.getDevByUID(z.getDevUID());
+                    RachioDevice d = dev;
+                    if (d != null) {
+                        thingId = d.name + "[" + z.zoneNumber + "]";
                     }
                 }
             }
@@ -96,14 +83,15 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
             }
 
             // listen to bridge events
-            cloudHandler.registerStatusListener(this);
-            if (bridge.getStatus() != ThingStatus.ONLINE) {
+            RachioBridgeHandler handler = cloudHandler;
+            if (handler != null) {
+                handler.registerStatusListener(this);
+            }
+            if (!isBridgeOnline()) {
                 logger.debug("{}: Bridge is offline!", thingId);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             } else {
-                updateProperties();
-                postChannelData();
-                updateStatus(dev.getStatus());
+                goOnline();
                 return;
             }
         } catch (RuntimeException e) {
@@ -133,14 +121,9 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
         String errorMessage = "";
         try {
             if (command == RefreshType.REFRESH) {
-                if (channelData.containsKey(channel)) {
-                    State state = channelData.get(channel);
-                    if (state != null) {
-                        updateState(channel, state);
-                        logger.debug("{}: Return cached data for channel {}: {}", thingId, channel, state);
-                    }
-                } else {
-                    postChannelData();
+                if (handleRefreshCommand(channel)) {
+                    logger.debug("{}: Return cached data for channel {}: {}", thingId, channel,
+                            channelData.get(channel));
                 }
                 return;
             }
@@ -253,7 +236,8 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
         return update;
     }
 
-    public void postChannelData() {
+    @Override
+    protected void postChannelData() {
         RachioZone z = zone;
         if (z != null) {
             updateChannel(CHANNEL_ZONE_NAME, new StringType(z.name));
@@ -269,41 +253,14 @@ public class RachioZoneHandler extends BaseThingHandler implements RachioStatusL
         }
     }
 
-    private boolean updateChannel(String channelName, State newValue) {
-        State currentValue = channelData.get(channelName);
-        if ((currentValue != null) && currentValue.equals(newValue)) {
-            // no update required
-            return false;
-        }
-
-        if (currentValue == null) {
-            // new value -> update
-            channelData.put(channelName, newValue);
-        } else {
-            // value changed -> update
-            channelData.replace(channelName, newValue);
-        }
-
-        updateState(channelName, newValue);
-        return true;
-    }
-
     @Override
-    public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
-        super.bridgeStatusChanged(bridgeStatusInfo);
-
-        logger.trace("{}: Bridge Status changed to {}", thingId, bridgeStatusInfo.getStatus());
-        if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
-            updateProperties();
-            updateStatus(dev.getStatus());
-            postChannelData();
-        } else {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
+    protected void goOnline() {
+        updateProperties();
+        RachioDevice d = dev;
+        if (d != null) {
+            updateStatus(d.getStatus());
         }
-    }
-
-    public void shutdown() {
-        updateStatus(ThingStatus.OFFLINE);
+        postChannelData();
     }
 
     private void updateProperties() {

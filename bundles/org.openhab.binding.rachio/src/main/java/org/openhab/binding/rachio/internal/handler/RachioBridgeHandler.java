@@ -21,11 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -44,7 +40,6 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
-import org.openhab.core.thing.binding.ConfigStatusBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.types.Command;
 import org.slf4j.Logger;
@@ -58,17 +53,12 @@ import org.slf4j.LoggerFactory;
  * @author Markus Michels - initial contribution
  */
 @NonNullByDefault
-public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
+public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     private final Logger logger = LoggerFactory.getLogger(RachioBridgeHandler.class);
-    private final List<RachioStatusListener> rachioStatusListeners = new CopyOnWriteArrayList<>();
     private final RachioApi rachioApi;
     private RachioConfiguration bindingConfig = new RachioConfiguration();
     private RachioConfiguration thingConfig = new RachioConfiguration();
     private String personId = "";
-
-    @Nullable
-    private ScheduledFuture<?> pollingJob;
-    private boolean jobPending = false;
 
     public enum RefreshReason {
         SCHEDULED_POLL,
@@ -186,12 +176,9 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
         logger.trace("RachioCloud: refreshDeviceStatus ({})", refreshReason);
 
         try {
-            synchronized (this) {
-                if (jobPending) {
-                    logger.debug("RachioCloud: Already checking");
-                    return;
-                }
-                jobPending = true;
+            if (!beginRefresh()) {
+                logger.debug("RachioCloud: Already checking");
+                return;
             }
 
             HashMap<String, RachioDevice> deviceList = getDevices();
@@ -230,7 +217,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                         if (dev.getThingHandler() != null) {
                             dev.getThingHandler().onThingStateChangedl(checkDev, null);
                         } else {
-                            rachioStatusListeners.stream().forEach(l -> l.onThingStateChangedl(checkDev, null));
+                            notifyThingStateChanged(checkDev, null);
                         }
                     } else {
                         logger.trace("RachioCloud: Device {} was not updaterd", checkDev.id);
@@ -249,8 +236,7 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
                                 if (zone.getThingHandler() != null) {
                                     zone.getThingHandler().onThingStateChangedl(null, checkZone);
                                 } else {
-                                    rachioStatusListeners.stream()
-                                            .forEach(l -> l.onThingStateChangedl(null, checkZone));
+                                    notifyThingStateChanged(null, checkZone);
                                 }
                             } else {
                                 logger.trace("RachioCloud: Zone {} was not updated.", checkZone.id);
@@ -274,13 +260,14 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
             if (!errorMessage.isEmpty()) {
                 logger.debug("RachioBridge: {}", errorMessage);
             }
-            jobPending = false;
+            endRefresh();
         }
     }
 
+    @Override
     public void shutdown() {
         logger.info("RachioCloud: Shutting down");
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
+        super.shutdown();
     }
 
     /**
@@ -557,47 +544,6 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
         return rachioApi.getExternalId();
     }
 
-    /**
-     * Start or stop a background polling job to look for Rachio device and zone status updates based on whether or not
-     * there are any listeners to notify.
-     */
-    private synchronized void updateListenerManagement() {
-        ScheduledFuture<?> job = pollingJob;
-        if (!rachioStatusListeners.isEmpty() && (job == null || job.isCancelled())) {
-            pollingJob = scheduler.scheduleWithFixedDelay(pollingRunnable, getPollingInterval(), getPollingInterval(),
-                    TimeUnit.SECONDS);
-        } else if (rachioStatusListeners.isEmpty() && job != null && !job.isCancelled()) {
-            job.cancel(true);
-            pollingJob = null;
-        }
-    }
-
-    /**
-     * Register the given listener to receive Rachio device and zone status updates.
-     *
-     * @param listener the listener to register
-     */
-    public void registerStatusListener(final RachioStatusListener listener) {
-        rachioStatusListeners.add(listener);
-        updateListenerManagement();
-    }
-
-    /**
-     * Unregister the given listener from further Rachio device and zone status updates.
-     *
-     * @param listener the listener to unregister
-     * @return <code>true</code> if listener was previously registered and is now unregistered; <code>false</code>
-     *         otherwise
-     */
-    public boolean unregisterStatusListener(final RachioStatusListener listener) {
-        boolean result = rachioStatusListeners.remove(listener);
-        if (result) {
-            updateListenerManagement();
-        }
-
-        return result;
-    }
-
     @Override
     public Collection<ConfigStatusMessage> getConfigStatus() {
         Collection<ConfigStatusMessage> configStatusMessages = new ArrayList<>();
@@ -617,21 +563,19 @@ public class RachioBridgeHandler extends ConfigStatusBridgeHandler {
         updateProperties(rachioApi.fillProperties());
     }
 
-    private Runnable pollingRunnable = new Runnable() {
-        @Override
-        public void run() {
-            refreshDeviceStatus(RefreshReason.SCHEDULED_POLL);
-        }
-    };
+    @Override
+    protected int getPollingIntervalSeconds() {
+        return getPollingInterval();
+    }
+
+    @Override
+    protected void runScheduledRefresh() {
+        refreshDeviceStatus(RefreshReason.SCHEDULED_POLL);
+    }
 
     @Override
     public synchronized void dispose() {
         logger.debug("RachioCloud: Disposing handler");
-
-        ScheduledFuture<?> job = pollingJob;
-        if (job != null && !job.isCancelled()) {
-            job.cancel(true);
-            pollingJob = null;
-        }
+        super.dispose();
     }
 }
