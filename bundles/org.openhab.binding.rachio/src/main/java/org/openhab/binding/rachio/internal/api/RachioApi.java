@@ -24,6 +24,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -52,6 +54,8 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 
 /**
  * The {@link RachioApi} implements the interface to the Rachio cloud service (using http).
@@ -75,6 +79,8 @@ public class RachioApi {
     protected ThingUID bridgeUID = null;
 
     protected RachioApiResult lastApiResult = new RachioApiResult();
+    private static final Map<String, ClientRateLimitManager> rateLimitManagers = new ConcurrentHashMap<>();
+    private ClientRateLimitManager rateLimitManager = new ClientRateLimitManager(10, Duration.ofSeconds(30));
 
     private HashMap<String, RachioDevice> deviceList = new HashMap<String, RachioDevice>();
     private RachioHttp httpApi = new RachioHttp("");
@@ -89,6 +95,56 @@ public class RachioApi {
 
     protected void setApiResult(RachioApiResult result) {
         lastApiResult = result;
+    }
+
+    private void throttleIfNeeded(PRIORITY priority) throws RachioApiException {
+        if (priority == PRIORITY.HI) {
+            return;
+        }
+        if (rateLimitManager.shouldThrottle(priority)) {
+            String message = MessageFormat.format("RachioApi: Throttling {0} priority REST call to preserve the rate limit budget",
+                    priority);
+            throw new RachioApiException(message, lastApiResult);
+        }
+    }
+
+    private void updateRateLimit(RachioApiResult result) {
+        if (result == null) {
+            return;
+        }
+        rateLimitManager.updateRateLimit(result.rateLimit, result.rateRemaining, result.rateReset);
+    }
+
+    private RachioApiResult httpGet(String url, @Nullable String params, PRIORITY priority) throws RachioApiException {
+        throttleIfNeeded(priority);
+        RachioApiResult result = httpApi.httpGet(url, params);
+        updateRateLimit(result);
+        lastApiResult = result;
+        return result;
+    }
+
+    private RachioApiResult httpPut(String url, String data, PRIORITY priority) throws RachioApiException {
+        throttleIfNeeded(priority);
+        RachioApiResult result = httpApi.httpPut(url, data);
+        updateRateLimit(result);
+        lastApiResult = result;
+        return result;
+    }
+
+    private RachioApiResult httpPost(String url, String data, PRIORITY priority) throws RachioApiException {
+        throttleIfNeeded(priority);
+        RachioApiResult result = httpApi.httpPost(url, data);
+        updateRateLimit(result);
+        lastApiResult = result;
+        return result;
+    }
+
+    private RachioApiResult httpDelete(String url, @Nullable String params, PRIORITY priority) throws RachioApiException {
+        throttleIfNeeded(priority);
+        RachioApiResult result = httpApi.httpDelete(url, params);
+        updateRateLimit(result);
+        lastApiResult = result;
+        return result;
     }
 
     public String getPersonId() {
@@ -120,6 +176,8 @@ public class RachioApi {
     public void initialize(String apikey, ThingUID bridgeUID) throws RachioApiException {
         this.apikey = apikey;
         this.bridgeUID = bridgeUID;
+        this.rateLimitManager = rateLimitManagers.computeIfAbsent(apikey,
+                key -> new ClientRateLimitManager(10, Duration.ofSeconds(30)));
         httpApi = new RachioHttp(this.apikey);
         if (!initializePersonId() || !initializeDevices(bridgeUID) || !initializeZones()) {
             throw new RachioApiException("API initialization failed!");
@@ -170,7 +228,7 @@ public class RachioApi {
             return true;
         }
 
-        lastApiResult = httpApi.httpGet(APIURL_BASE + APIURL_GET_PERSON, null);
+        lastApiResult = httpGet(APIURL_BASE + APIURL_GET_PERSON, null, PRIORITY.MED);
         Gson gson = new Gson();
         RachioCloudPersonId pid = gson.fromJson(lastApiResult.resultString, RachioCloudPersonId.class);
         personId = pid.id;
@@ -190,59 +248,59 @@ public class RachioApi {
 
     public void stopWatering(String deviceId) throws RachioApiException {
         logger.debug("Stop watering for device '{}'", deviceId);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_STOP, "{ \"id\" : \"" + deviceId + "\" }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_STOP, "{ \"id\" : \"" + deviceId + "\" }", PRIORITY.HI);
     }
 
     public void enableDevice(String deviceId) throws RachioApiException {
         logger.debug("Enable device '{}'.", deviceId);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_ON, "{ \"id\" : \"" + deviceId + "\" }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_ON, "{ \"id\" : \"" + deviceId + "\" }", PRIORITY.HI);
     }
 
     public void disableDevice(String deviceId) throws RachioApiException {
         logger.debug("Disable device '{}'.", deviceId);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_OFF, "{ \"id\" : \"" + deviceId + "\" }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_OFF, "{ \"id\" : \"" + deviceId + "\" }", PRIORITY.HI);
     }
 
     public void rainDelay(String deviceId, Integer delay) throws RachioApiException {
         logger.debug("Start dain relay for device '{}'.", deviceId);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_RAIN_DELAY,
-                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + delay + " }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_RAIN_DELAY,
+                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + delay + " }", PRIORITY.HI);
     }
 
     public void pauseZoneRun(String deviceId, int duration) throws RachioApiException {
         logger.debug("Pause active zone run for device '{}' for {} sec.", deviceId, duration);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_PAUSE_ZONE_RUN,
-                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + duration + " }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_PAUSE_ZONE_RUN,
+                "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + duration + " }", PRIORITY.HI);
     }
 
     public void resumeZoneRun(String deviceId) throws RachioApiException {
         logger.debug("Resume active zone run for device '{}'.", deviceId);
-        httpApi.httpPut(APIURL_BASE + APIURL_DEV_PUT_RESUME_ZONE_RUN, "{ \"id\" : \"" + deviceId + "\" }");
+        httpPut(APIURL_BASE + APIURL_DEV_PUT_RESUME_ZONE_RUN, "{ \"id\" : \"" + deviceId + "\" }", PRIORITY.HI);
     }
 
     public void runMultilpeZones(String zoneListJson) throws RachioApiException {
         logger.debug("Start multiple zones '{}'.", zoneListJson);
-        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_MULTIPLE_START, zoneListJson);
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_MULTIPLE_START, zoneListJson, PRIORITY.HI);
     }
 
     public void runZone(String zoneId, int duration) throws RachioApiException {
         logger.debug("Start zone '{}' for {} sec.", zoneId, duration);
-        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_START,
-                "{ \"id\" : \"" + zoneId + "\", \"duration\" : " + duration + " }");
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_START,
+                "{ \"id\" : \"" + zoneId + "\", \"duration\" : " + duration + " }", PRIORITY.HI);
     }
 
     public void enableZone(String zoneId) throws RachioApiException {
         logger.debug("Enable zone '{}'.", zoneId);
-        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_ENABLE, "{ \"id\" : \"" + zoneId + "\" }");
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_ENABLE, "{ \"id\" : \"" + zoneId + "\" }", PRIORITY.HI);
     }
 
     public void disableZone(String zoneId) throws RachioApiException {
         logger.debug("Disable zone '{}'.", zoneId);
-        httpApi.httpPut(APIURL_BASE + APIURL_ZONE_PUT_DISABLE, "{ \"id\" : \"" + zoneId + "\" }");
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_DISABLE, "{ \"id\" : \"" + zoneId + "\" }", PRIORITY.HI);
     }
 
     public void getDeviceInfo(String deviceId) throws RachioApiException {
-        httpApi.httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId, null);
+        httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId, null, PRIORITY.MED);
     }
 
     public void registerWebHook(String deviceId, String callbackUrl, @Nullable String externalId,
@@ -260,8 +318,8 @@ public class RachioApi {
 
         logger.debug("Register WebHook for controller '{}'", deviceId);
         try {
-            String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
-                    WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId)).resultString;
+            String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
+                    WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId), PRIORITY.MED).resultString;
             deleteExistingWebHooks(json, deviceId, encodedUrl, getKnownExternalIds(externalId), clearAllCallbacks);
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
@@ -270,7 +328,7 @@ public class RachioApi {
         Map<String, Object> jsonData = Map.of("resourceId", Map.of("irrigationControllerId", deviceId), "externalId",
                 externalId != null ? externalId : "", "url", encodedUrl, "eventTypes",
                 getIrrigationControllerEventTypes());
-        httpApi.httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData));
+        httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData), PRIORITY.HI);
     }
 
     /**
@@ -395,7 +453,7 @@ public class RachioApi {
 
     private List<String> getSupportedWebhookEventTypes() {
         try {
-            String json = httpApi.httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null).resultString;
+            String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null, PRIORITY.MED).resultString;
             return parseWebhookEventTypeList(json);
         } catch (RachioApiException e) {
             logger.debug("Unable to query supported webhook event types: {}", e.getMessage());
@@ -446,7 +504,7 @@ public class RachioApi {
                 try {
                     logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true",
                             whe.id, deviceId);
-                    httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
+                    httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null, PRIORITY.MED);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
@@ -455,7 +513,7 @@ public class RachioApi {
                     logger.debug(
                             "Delete duplicate webhook '{}' for controller '{}' because it matches this binding instance",
                             whe.id, deviceId);
-                    httpApi.httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null);
+                    httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null, PRIORITY.MED);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
@@ -508,7 +566,7 @@ public class RachioApi {
             logger.debug("RachioApi.initializeDevices: httpAPI not initialized");
             return false;
         }
-        json = httpApi.httpGet(APIURL_BASE + APIURL_GET_PERSONID + "/" + personId, null).resultString;
+        json = httpGet(APIURL_BASE + APIURL_GET_PERSONID + "/" + personId, null, PRIORITY.MED).resultString;
         logger.trace("Initialize from JSON='{}'", json);
 
         Gson gson = new Gson();
