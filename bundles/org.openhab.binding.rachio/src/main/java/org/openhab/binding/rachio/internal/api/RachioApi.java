@@ -111,7 +111,8 @@ public class RachioApi {
         if (result == null) {
             return;
         }
-        rateLimitManager.updateRateLimit(result.rateLimit, result.rateRemaining, result.rateReset);
+        int rateRemaining = result.hasKnownRateRemaining() ? result.rateRemaining : -1;
+        rateLimitManager.updateRateLimit(result.rateLimit, rateRemaining, result.rateReset);
     }
 
     private RachioApiResult recordApiResult(RachioApiResult result) {

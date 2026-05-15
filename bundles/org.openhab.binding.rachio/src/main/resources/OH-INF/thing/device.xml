@@ -4,49 +4,6 @@
 	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
 	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
-	<bridge-type id="cloud">
-		<label>Rachio Cloud Connector</label>
-		<description>Rachio Sprinkler Controller.</description>
-
-		<properties>
-			<property name="vendor">Rachio</property>
-		</properties>
-
-		<config-description>
-			<parameter name="apikey" type="text">
-				<label>Rachio apikey</label>
-				<description>Visit Rachio Cloud Portal to create an apikey</description>
-				<required>false</required>
-			</parameter>
-			<parameter name="pollingInterval" type="integer" min="30" step="30">
-				<label>Polling/Refresh Interval</label>
-				<description>Seconds between fetching values from the cloud service</description>
-				<required>false</required>
-				<default>120</default>
-			</parameter>
-			<parameter name="defaultRuntime" type="integer" min="30" step="30">
-				<label>Default Runtime</label>
-				<description>Number of seconds to run a zone if no runtime is specified (=0)</description>
-				<required>false</required>
-				<default>120</default>
-			</parameter>
-			<parameter name="callbackUrl" type="text">
-				<label>Callback URL</label>
-				<description>Public HTTPS URL for Rachio webhook events. For openHAB Cloud / myopenHAB.org, use
-					https://username:password@home.myopenhab.org/rachio/webhook where username is your myopenHAB.org email address
-					(URL-encode @ as %40 if present). For direct reverse proxies, use https://yourhost.example.org/rachio/webhook.
-					Credentials are automatically encoded for Basic Auth.</description>
-				<required>false</required>
-			</parameter>
-			<parameter name="clearAllCallbacks" type="boolean">
-				<label>Clear Callbacks</label>
-				<description>If true all callbacks will be cleared on registrations.</description>
-				<required>false</required>
-				<default>false</default>
-			</parameter>
-		</config-description>
-	</bridge-type>
-
 	<thing-type id="device">
 		<supported-bridge-type-refs>
 			<bridge-type-ref id="cloud"/>
@@ -146,73 +103,6 @@
 		<description>Latitude of the device location</description>
 		<state readOnly="true" pattern="%s">
 		</state>
-	</channel-type>
-
-	<thing-type id="zone">
-		<supported-bridge-type-refs>
-			<bridge-type-ref id="cloud"/>
-		</supported-bridge-type-refs>
-
-		<label>Rachio Sprinkler Zone</label>
-		<description>A zone of a Rachio Sprinkler Controller</description>
-
-		<channels>
-			<channel id="name" typeId="zone_name"/>
-			<channel id="number" typeId="zone_number"/>
-			<channel id="enabled" typeId="zone_enabled"/>
-			<channel id="run" typeId="zone_run"/>
-			<channel id="runTime" typeId="zone_runTime"/>
-			<channel id="runTotal" typeId="zone_runTotal"/>
-			<channel id="imageUrl" typeId="zone_imageUrl"/>
-			<channel id="lastUpdate" typeId="lastUpdate"/>
-			<channel id="lastEvent" typeId="lastEvent"/>
-			<channel id="lastEventTime" typeId="lastEventTime"/>
-		</channels>
-	</thing-type>
-
-	<channel-type id="zone_name">
-		<item-type>String</item-type>
-		<label>Name</label>
-		<description>Name of the zone as configured in the Rachip App</description>
-		<state readOnly="true" pattern="%s">
-		</state>
-	</channel-type>
-	<channel-type id="zone_number">
-		<item-type>Number</item-type>
-		<label>Zone Number</label>
-		<description>Zone Number (1-16)</description>
-		<state readOnly="true" pattern="%d">
-		</state>
-	</channel-type>
-	<channel-type id="zone_enabled">
-		<item-type>Switch</item-type>
-		<label>Enabled</label>
-		<description>ON: Zone is enabled, OFF: Zone is disabled. Sending ON/OFF enables or disables the zone.</description>
-	</channel-type>
-	<channel-type id="zone_run">
-		<item-type>Switch</item-type>
-		<label>Run Zone</label>
-		<description>ON: start watering, OFF: stop watering</description>
-	</channel-type>
-	<channel-type id="zone_runTime">
-		<item-type>Number</item-type>
-		<label>Runtime</label>
-		<description>Set > 0 to start zone for given secs</description>
-	</channel-type>
-	<channel-type id="zone_avlWater">
-		<item-type>Number</item-type>
-		<label>Available Water</label>
-		<description>Available water for the zone.</description>
-	</channel-type>
-	<channel-type id="zone_runTotal">
-		<item-type>Number</item-type>
-		<label>Total Runtime</label>
-		<description>Total runtime of the zone.</description>
-	</channel-type>
-	<channel-type id="zone_imageUrl">
-		<item-type>String</item-type>
-		<label>Image URL</label>
-		<description>URL for the zone picture/image.</description>
 	</channel-type>
 
 	<channel-type id="scheduleName">

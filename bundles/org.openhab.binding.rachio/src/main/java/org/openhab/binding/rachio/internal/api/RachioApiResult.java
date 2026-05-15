@@ -41,11 +41,13 @@ public class RachioApiResult {
     public Integer rateLimit = 0;
     public Integer rateRemaining = 0;
     public String rateReset = "";
+    private transient boolean rateRemainingKnown = false;
 
     public void setRateLimit(int rateLimit, int rateRemaining, String rateReset) {
         this.rateLimit = rateLimit;
         this.rateRemaining = rateRemaining;
         this.rateReset = rateReset;
+        this.rateRemainingKnown = true;
     }
 
     public void setRateLimit(@Nullable String rateLimit, @Nullable String rateRemaining, @Nullable String rateReset) {
@@ -54,12 +56,15 @@ public class RachioApiResult {
         }
         if (rateRemaining != null) {
             this.rateRemaining = Integer.parseInt(rateRemaining);
+            this.rateRemainingKnown = true;
+        } else {
+            this.rateRemainingKnown = false;
         }
         if (rateReset != null) {
             this.rateReset = rateReset;
         }
 
-        if ((this.rateLimit == 0) || (this.rateRemaining == 0)) {
+        if ((this.rateLimit == 0) || !rateRemainingKnown || (this.rateRemaining == 0)) {
             return;
         }
 
@@ -78,6 +83,10 @@ public class RachioApiResult {
                 this.rateReset);
     }
 
+    boolean hasKnownRateRemaining() {
+        return rateRemainingKnown;
+    }
+
     public boolean isResponseRateLimit() {
         return responseCode == HttpStatus.TOO_MANY_REQUESTS_429;
     }
@@ -91,6 +100,6 @@ public class RachioApiResult {
     }
 
     public boolean isRateLimitBlocked() {
-        return (rateRemaining > 0) && (rateRemaining <= RACHIO_RATE_LIMIT_BLOCK);
+        return rateRemainingKnown && (rateRemaining >= 0) && (rateRemaining <= RACHIO_RATE_LIMIT_BLOCK);
     }
 }

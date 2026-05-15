@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<bridge-type id="cloud">
+		<label>Rachio Cloud Connector</label>
+		<description>Rachio Sprinkler Controller.</description>
+
+		<properties>
+			<property name="vendor">Rachio</property>
+		</properties>
+
+		<config-description>
+			<parameter name="apikey" type="text">
+				<label>Rachio apikey</label>
+				<description>Visit Rachio Cloud Portal to create an apikey</description>
+				<required>false</required>
+			</parameter>
+			<parameter name="pollingInterval" type="integer" min="30" step="30">
+				<label>Polling/Refresh Interval</label>
+				<description>Seconds between fetching values from the cloud service</description>
+				<required>false</required>
+				<default>120</default>
+			</parameter>
+			<parameter name="defaultRuntime" type="integer" min="30" step="30">
+				<label>Default Runtime</label>
+				<description>Number of seconds to run a zone if no runtime is specified (=0)</description>
+				<required>false</required>
+				<default>120</default>
+			</parameter>
+			<parameter name="callbackUrl" type="text">
+				<label>Callback URL</label>
+				<description>Public HTTPS URL for Rachio webhook events. For openHAB Cloud / myopenHAB.org, use
+					https://username:password@home.myopenhab.org/rachio/webhook where username is your myopenHAB.org email address
+					(URL-encode @ as %40 if present). For direct reverse proxies, use https://yourhost.example.org/rachio/webhook.
+					Credentials are automatically encoded for Basic Auth.</description>
+				<required>false</required>
+			</parameter>
+			<parameter name="clearAllCallbacks" type="boolean">
+				<label>Clear Callbacks</label>
+				<description>If true all callbacks will be cleared on registrations.</description>
+				<required>false</required>
+				<default>false</default>
+			</parameter>
+		</config-description>
+	</bridge-type>
+
+</thing:thing-descriptions>

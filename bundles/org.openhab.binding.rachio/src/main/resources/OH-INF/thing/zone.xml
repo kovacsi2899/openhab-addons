@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="zone">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="cloud"/>
+		</supported-bridge-type-refs>
+
+		<label>Rachio Sprinkler Zone</label>
+		<description>A zone of a Rachio Sprinkler Controller</description>
+
+		<channels>
+			<channel id="name" typeId="zone_name"/>
+			<channel id="number" typeId="zone_number"/>
+			<channel id="enabled" typeId="zone_enabled"/>
+			<channel id="run" typeId="zone_run"/>
+			<channel id="runTime" typeId="zone_runTime"/>
+			<channel id="runTotal" typeId="zone_runTotal"/>
+			<channel id="imageUrl" typeId="zone_imageUrl"/>
+			<channel id="lastUpdate" typeId="lastUpdate"/>
+			<channel id="lastEvent" typeId="lastEvent"/>
+			<channel id="lastEventTime" typeId="lastEventTime"/>
+		</channels>
+	</thing-type>
+
+	<channel-type id="zone_name">
+		<item-type>String</item-type>
+		<label>Name</label>
+		<description>Name of the zone as configured in the Rachip App</description>
+		<state readOnly="true" pattern="%s">
+		</state>
+	</channel-type>
+	<channel-type id="zone_number">
+		<item-type>Number</item-type>
+		<label>Zone Number</label>
+		<description>Zone Number (1-16)</description>
+		<state readOnly="true" pattern="%d">
+		</state>
+	</channel-type>
+	<channel-type id="zone_enabled">
+		<item-type>Switch</item-type>
+		<label>Enabled</label>
+		<description>ON: Zone is enabled, OFF: Zone is disabled. Sending ON/OFF enables or disables the zone.</description>
+	</channel-type>
+	<channel-type id="zone_run">
+		<item-type>Switch</item-type>
+		<label>Run Zone</label>
+		<description>ON: start watering, OFF: stop watering</description>
+	</channel-type>
+	<channel-type id="zone_runTime">
+		<item-type>Number</item-type>
+		<label>Runtime</label>
+		<description>Set > 0 to start zone for given secs</description>
+	</channel-type>
+	<channel-type id="zone_avlWater">
+		<item-type>Number</item-type>
+		<label>Available Water</label>
+		<description>Available water for the zone.</description>
+	</channel-type>
+	<channel-type id="zone_runTotal">
+		<item-type>Number</item-type>
+		<label>Total Runtime</label>
+		<description>Total runtime of the zone.</description>
+	</channel-type>
+	<channel-type id="zone_imageUrl">
+		<item-type>String</item-type>
+		<label>Image URL</label>
+		<description>URL for the zone picture/image.</description>
+	</channel-type>
+</thing:thing-descriptions>

@@ -56,12 +56,12 @@ public class ClientRateLimitManager {
     }
 
     public void updateRateLimit(int rateLimitCap, int rateRemaining, @Nullable String rateReset) {
-        if (rateLimitCap > 0) {
+        if (rateLimitCap > 0 && rateRemaining >= 0) {
             this.rateLimitCap = rateLimitCap;
             this.rateRemaining = rateRemaining;
-        }
-        if (rateReset != null && !rateReset.isBlank()) {
-            this.rateResetTime = parseRateReset(rateReset);
+            if (rateReset != null && !rateReset.isBlank()) {
+                this.rateResetTime = parseRateReset(rateReset);
+            }
         }
         logRequest();
     }
