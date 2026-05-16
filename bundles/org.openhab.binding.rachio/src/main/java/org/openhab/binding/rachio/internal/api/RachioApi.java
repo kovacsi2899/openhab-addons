@@ -216,35 +216,53 @@ public class RachioApi {
 
     @Nullable
     public RachioDevice getDevByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID thingUID) {
+        if (bridgeUID == null || thingUID == null) {
+            logger.debug("getDevByUID: Unable map UID to device, bridgeUID={}, deviceUID={}", bridgeUID, thingUID);
+            return null;
+        }
+
         for (HashMap.Entry<String, RachioDevice> entry : deviceList.entrySet()) {
             RachioDevice dev = entry.getValue();
-            logger.trace("getDevByUID: bridge {} / {}, device {} / {}", bridgeUID, dev.bridgeUID, thingUID, dev.devUID);
-            if (dev.bridgeUID.equals(bridgeUID) && dev.getUID().equals(thingUID)) {
+            ThingUID expectedUID = new ThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            logger.trace("getDevByUID: requested bridge={}, requested device={}, cached bridge={}, cached device={}, "
+                    + "candidate device={}", bridgeUID, thingUID, dev.bridgeUID, dev.devUID, expectedUID);
+            if (expectedUID.equals(thingUID)) {
+                dev.setUID(bridgeUID, expectedUID);
                 logger.trace("Device '{}' found.", dev.name);
                 return dev;
             }
         }
-        logger.debug("getDevByUID: Unable map UID to device");
+        logger.debug("getDevByUID: Unable map UID to device, bridgeUID={}, deviceUID={}", bridgeUID, thingUID);
         return null;
     }
 
     @Nullable
     public RachioZone getZoneByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID zoneUID) {
-        HashMap<String, RachioDevice> deviceList = getDevices();
-        if (deviceList == null) {
+        if (bridgeUID == null || zoneUID == null) {
+            logger.debug("getZoneByUID: Unable map UID to zone, bridgeUID={}, zoneUID={}", bridgeUID, zoneUID);
             return null;
         }
+
         for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
             RachioDevice dev = de.getValue();
+            ThingUID expectedDevUID = new ThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
 
             HashMap<String, RachioZone> zoneList = dev.getZones();
             for (HashMap.Entry<String, RachioZone> ze : zoneList.entrySet()) {
                 RachioZone zone = ze.getValue();
-                if (zone.getUID().equals(zoneUID)) {
+                ThingUID expectedZoneUID = new ThingUID(THING_TYPE_ZONE, bridgeUID, zone.getThingID());
+                logger.trace(
+                        "getZoneByUID: requested bridge={}, requested zone={}, cached device={}, cached zone={}, "
+                                + "candidate device={}, candidate zone={}",
+                        bridgeUID, zoneUID, zone.getDevUID(), zone.getUID(), expectedDevUID, expectedZoneUID);
+                if (expectedZoneUID.equals(zoneUID)) {
+                    dev.setUID(bridgeUID, expectedDevUID);
+                    zone.setUID(expectedDevUID, expectedZoneUID);
                     return zone;
                 }
             }
         }
+        logger.debug("getZoneByUID: Unable map UID to zone, bridgeUID={}, zoneUID={}", bridgeUID, zoneUID);
         return null;
     }
 
