@@ -82,6 +82,24 @@ Bridge rachio:cloud:1 [
 
 The bridge thing doesn't have any channels.
 
+### Adding Controllers and Zones
+
+Recommended: use Inbox discovery.
+
+1. Add and configure the Rachio Cloud bridge.
+2. Run Scan / Inbox discovery.
+3. Accept the discovered controller and zone Things.
+
+Discovery creates stable openHAB Thing UIDs and provides the real Rachio API identifiers automatically.
+
+Manual creation is also supported.
+The local openHAB Thing ID may be chosen freely, but the controller Thing must be configured with the real Rachio controller UUID in `deviceId`.
+The controller UUID is the Rachio API device ID, for example `811aea42-2bf5-4761-9f97-900108d6f04e`.
+It is not the controller MAC address, such as `009D6BC04DAC`.
+
+Manual zone Things must be configured with the real Rachio zone UUID in `zoneId`.
+Using discovery first is the easiest way to obtain these identifiers; they are also visible in discovery properties and debug logs.
+
 ### openHAB Cloud / myopenHAB.org Configuration
 
 For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-cloud.html) or [myopenHAB.org](https://www.myopenhab.org/), configure the public callback URL and Basic Auth credentials separately:
@@ -130,7 +148,10 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |scheduleStart|Schedule start time                                                                                                    |
 |scheduleStop |Schedule end time                                                                                                      |
 
-The are no additional configuration options on the device level.
+Controller identity is based on the Rachio API controller UUID configured as `deviceId`.
+Discovery fills this automatically.
+For manually created controller Things, set `deviceId` to the Rachio API device UUID.
+The MAC address may still appear in discovered Thing UIDs for compatibility, but it is not the API controller ID.
 
 ### Zone Thing - represents one zone of a Controller
 
@@ -147,6 +168,9 @@ The are no additional configuration options on the device level.
 |lastEvent    |Last event received from the cloud (requires configuration of event callback)                                          |
 |lastEventTime|Timestamp last event has been received (only if event callback is active)                                              |
 
+Zone identity is based on the Rachio API zone UUID configured as `zoneId`.
+Discovery fills this automatically.
+For manually created zone Things, set `zoneId` to the Rachio API zone UUID.
 
 # Full example
 
@@ -156,17 +180,17 @@ The are no additional configuration options on the device level.
 Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  pollingInterval=60, defaultRuntime=120  ]
 {
     // Controller
-    Thing rachio:device:1:XXXXXXXXXXXX "Rachio-XXXXXX" @ "Sprinkler"
+    Thing device XXXXXXXXXXXX "Rachio-XXXXXX" @ "Sprinkler" [
+        deviceId="811aea42-2bf5-4761-9f97-900108d6f04e"
+    ]
     
     // Zones
-    Thing rachio:zone:1:XXXXXXXXXXXX-1 "Rachio zone 1" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-2 "Rachio zone 2" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-3 "Rachio zone 3" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-4 "Rachio zone 4" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-5 "Rachio zone 5" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-6 "Rachio zone 6" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-7 "Rachio zone 7" @ "Sprinkler"
-    Thing rachio:zone:1:XXXXXXXXXXXX-8 "Rachio zone 8" @ "Sprinkler"
+    Thing zone XXXXXXXXXXXX-1 "Rachio zone 1" @ "Sprinkler" [
+        zoneId="a4f319e9-f88e-476f-b341-0ea571a202a0"
+    ]
+    Thing zone XXXXXXXXXXXX-2 "Rachio zone 2" @ "Sprinkler" [
+        zoneId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
 }
 ```
 

@@ -148,7 +148,8 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                         dev.getEnabled());
                 Map<String, Object> properties = new HashMap<>(dev.fillProperties());
                 DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(devThingUID).withProperties(properties)
-                        .withBridge(bridgeUID).withLabel(dev.getThingName()).build();
+                        .withRepresentationProperty(PROPERTY_DEV_ID).withBridge(bridgeUID).withLabel(dev.getThingName())
+                        .build();
                 thingDiscovered(discoveryResult);
 
                 HashMap<String, RachioZone> zoneList = dev.getZones();
@@ -167,8 +168,9 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                         @SuppressWarnings({ "unchecked", "rawtypes" })
                         Map<String, Object> zproperties = (Map) zone.fillProperties();
                         DiscoveryResult zoneDiscoveryResult = DiscoveryResultBuilder.create(zoneThingUID)
-                                .withProperties(zproperties).withBridge(bridgeUID)
-                                .withLabel(dev.name + "[" + zone.zoneNumber + "]: " + zone.name).build();
+                                .withProperties(zproperties).withRepresentationProperty(PROPERTY_ZONE_ID)
+                                .withBridge(bridgeUID).withLabel(dev.name + "[" + zone.zoneNumber + "]: " + zone.name)
+                                .build();
                         thingDiscovered(zoneDiscoveryResult);
                     } else {
                         logger.debug("Zone#{} '{}' is disabled, skip thing creation", zone.name, zone.id);

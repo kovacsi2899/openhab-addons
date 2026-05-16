@@ -50,6 +50,32 @@ class RachioApiUIDLookupTest {
     }
 
     @Test
+    void getDevByUIDMatchesConfiguredDeviceIdWithCanonicalDiscoveryThingUID() {
+        RachioDevice device = device("811aea42-2bf5-4761-9f97-900108d6f04e", "009D6BC04DAC", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID thingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "009D6BC04DAC");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, thingUID,
+                Map.<String, Object> of(PROPERTY_DEV_ID, device.id), Collections.emptyMap());
+
+        assertThat(foundDevice, is(sameInstance(device)));
+        assertThat(device.getUID(), is(thingUID));
+    }
+
+    @Test
+    void getDevByUIDMatchesConfiguredDeviceIdWithArbitraryThingUID() {
+        RachioDevice device = device("811aea42-2bf5-4761-9f97-900108d6f04e", "009D6BC04DAC", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID customThingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "a283238ad8");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, customThingUID,
+                Map.<String, Object> of(PROPERTY_DEV_ID, device.id), Collections.emptyMap());
+
+        assertThat(foundDevice, is(sameInstance(device)));
+        assertThat(device.getUID(), is(customThingUID));
+    }
+
+    @Test
     void getDevByUIDFallsBackToPersistedDeviceIdProperty() {
         RachioDevice device = device("device-id", "ABCDEF123456", "serial-number");
         RachioApi api = apiWithDevice(device);
@@ -59,6 +85,61 @@ class RachioApiUIDLookupTest {
 
         assertThat(foundDevice, is(sameInstance(device)));
         assertThat(device.getUID(), is(legacyThingUID));
+    }
+
+    @Test
+    void getDevByUIDDoesNotUseLegacyFallbackWhenConfiguredDeviceIdIsInvalid() {
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID thingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "ABCDEF123456");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, thingUID,
+                Map.<String, Object> of(PROPERTY_DEV_ID, "wrong-device-id"), Collections.emptyMap());
+
+        assertThat(foundDevice, is(nullValue()));
+    }
+
+    @Test
+    void getZoneByUIDMatchesCanonicalThingUID() {
+        RachioCloudZone cloudZone = zone("zone-id", 3);
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);
+        RachioZone zone = Objects.requireNonNull(device.getZones().get("zone-id"));
+        RachioApi api = apiWithDevice(device);
+        ThingUID zoneUID = new ThingUID(THING_TYPE_ZONE, BRIDGE_UID, zone.getThingID());
+
+        RachioZone foundZone = api.getZoneByUID(BRIDGE_UID, zoneUID);
+
+        assertThat(foundZone, is(sameInstance(zone)));
+        assertThat(zone.getUID(), is(zoneUID));
+    }
+
+    @Test
+    void getZoneByUIDMatchesConfiguredZoneIdWithArbitraryThingUID() {
+        RachioCloudZone cloudZone = zone("zone-id", 3);
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);
+        RachioZone zone = Objects.requireNonNull(device.getZones().get("zone-id"));
+        RachioApi api = apiWithDevice(device);
+        ThingUID customZoneUID = new ThingUID(THING_TYPE_ZONE, BRIDGE_UID, "custom-zone-id");
+
+        RachioZone foundZone = api.getZoneByUID(BRIDGE_UID, customZoneUID,
+                Map.<String, Object> of(PROPERTY_ZONE_ID, "zone-id"), Collections.emptyMap());
+
+        assertThat(foundZone, is(sameInstance(zone)));
+        assertThat(zone.getUID(), is(customZoneUID));
+    }
+
+    @Test
+    void getZoneByUIDDoesNotUseLegacyFallbackWhenConfiguredZoneIdIsInvalid() {
+        RachioCloudZone cloudZone = zone("zone-id", 3);
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);
+        RachioZone zone = Objects.requireNonNull(device.getZones().get("zone-id"));
+        RachioApi api = apiWithDevice(device);
+        ThingUID zoneUID = new ThingUID(THING_TYPE_ZONE, BRIDGE_UID, zone.getThingID());
+
+        RachioZone foundZone = api.getZoneByUID(BRIDGE_UID, zoneUID,
+                Map.<String, Object> of(PROPERTY_ZONE_ID, "wrong-zone-id"), Collections.emptyMap());
+
+        assertThat(foundZone, is(nullValue()));
     }
 
     @Test

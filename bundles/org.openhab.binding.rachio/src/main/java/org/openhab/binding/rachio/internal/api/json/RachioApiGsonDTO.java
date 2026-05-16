@@ -43,6 +43,7 @@ public class RachioApiGsonDTO {
         public String url = "";
         public String externalId = "";
         public RachioApiWebHookResourceId resourceId = new RachioApiWebHookResourceId();
+        public ArrayList<String> eventTypes = new ArrayList<>();
     }
 
     public static class RachioApiWebHookList {

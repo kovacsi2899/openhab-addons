@@ -498,7 +498,13 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
     @Nullable
     public RachioDevice getDevByThing(Thing thing) {
-        return rachioApi.getDevByUID(getThing().getUID(), thing.getUID(), thing.getProperties());
+        return rachioApi.getDevByUID(getThing().getUID(), thing.getUID(), thing.getConfiguration().getProperties(),
+                thing.getProperties());
+    }
+
+    @Nullable
+    public RachioDevice getDevForZone(RachioZone zone) {
+        return rachioApi.getDeviceByZoneRachioId(zone.id);
     }
 
     /**
@@ -514,7 +520,8 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
     @Nullable
     public RachioZone getZoneByThing(Thing thing) {
-        return rachioApi.getZoneByUID(getThing().getUID(), thing.getUID(), thing.getProperties());
+        return rachioApi.getZoneByUID(getThing().getUID(), thing.getUID(), thing.getConfiguration().getProperties(),
+                thing.getProperties());
     }
 
     /**

@@ -62,6 +62,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
     @Override
     public void initialize() {
         logger.debug("Initializing zone '{}'", this.getThing().getUID().toString());
+        String configuredZoneId = getThingConfigurationString(PROPERTY_ZONE_ID);
 
         try {
             if (initializeCloudHandler()) {
@@ -70,7 +71,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 RachioZone z = zone;
                 if (z != null && handler != null) {
                     z.setThingHandler(this);
-                    dev = handler.getDevByUID(z.getDevUID());
+                    dev = handler.getDevForZone(z);
                     RachioDevice d = dev;
                     if (d != null) {
                         thingId = d.name + "[" + z.zoneNumber + "]";
@@ -78,7 +79,9 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 }
             }
             if ((bridge == null) || (cloudHandler == null) || (dev == null) || (zone == null)) {
-                logger.debug("{}: Thing initialisation failed!", thingId);
+                String errorMessage = buildZoneResolutionError(configuredZoneId);
+                logger.debug("{}: {}", thingId, errorMessage);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, errorMessage);
                 return;
             }
 
@@ -172,6 +175,15 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, errorMessage);
             }
         }
+    }
+
+    private String buildZoneResolutionError(String configuredZoneId) {
+        if (configuredZoneId.isBlank()) {
+            return "Unable to resolve Rachio zone for Thing '" + getThing().getUID()
+                    + "': no zoneId is configured and no legacy UID/property mapping matched. The zoneId must be the Rachio zone UUID.";
+        }
+        return "Unable to resolve Rachio zone for Thing '" + getThing().getUID() + "' using configured zoneId '"
+                + configuredZoneId + "'.";
     }
 
     @Override

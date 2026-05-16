@@ -62,27 +62,40 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         logger.debug("Initializing Rachio Thing '{}'.", thingId);
 
         String errorMessage = "";
+        ThingStatusDetail errorStatusDetail = ThingStatusDetail.COMMUNICATION_ERROR;
+        String configuredDeviceId = getThingConfigurationString(PROPERTY_DEV_ID);
         try {
-            if (initializeCloudHandler()) {
-                RachioBridgeHandler handler = cloudHandler;
-                dev = handler != null ? handler.getDevByThing(this.getThing()) : null;
-                RachioDevice d = dev;
-                if (d != null && handler != null) {
-                    thingId = d.name;
-                    d.setThingHandler(this);
-                    handler.registerStatusListener(this);
-                    handler.registerWebHook(d.id);
-                    if (!isBridgeOnline()) {
-                        logger.debug("{}: Rachio Bridge is offline!", thingId);
-                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
-                    } else {
-                        goOnline();
-                        logger.debug("{}: Device {} initialized.", thingId, d.name);
-                        return;
-                    }
-                }
+            if (!initializeCloudHandler()) {
+                errorMessage = "Rachio bridge is not initialized";
+                return;
             }
-            errorMessage = "Initialisation failed";
+
+            RachioBridgeHandler handler = cloudHandler;
+            dev = handler != null ? handler.getDevByThing(this.getThing()) : null;
+            RachioDevice d = dev;
+            if (d == null || handler == null) {
+                errorMessage = buildDeviceResolutionError(configuredDeviceId);
+                errorStatusDetail = ThingStatusDetail.CONFIGURATION_ERROR;
+                return;
+            }
+
+            thingId = d.name;
+            d.setThingHandler(this);
+            handler.registerStatusListener(this);
+            handler.registerWebHook(d.id);
+            if (configuredDeviceId.isBlank()) {
+                logger.debug(
+                        "Rachio controller Thing '{}' used legacy UID/property mapping. Configure deviceId='{}' to decouple the openHAB Thing ID from the Rachio controller UUID.",
+                        getThing().getUID(), d.id);
+            }
+            if (!isBridgeOnline()) {
+                logger.debug("{}: Rachio Bridge is offline!", thingId);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
+            } else {
+                goOnline();
+                logger.debug("{}: Device {} initialized.", thingId, d.name);
+                return;
+            }
         } catch (RachioApiException e) {
             errorMessage = e.toString();
         } catch (RuntimeException e) {
@@ -92,9 +105,18 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         } finally {
             if (!errorMessage.isEmpty()) {
                 logger.warn("{}: ERROR: {}", thingId, errorMessage);
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, errorMessage);
+                updateStatus(ThingStatus.OFFLINE, errorStatusDetail, errorMessage);
             }
         }
+    }
+
+    private String buildDeviceResolutionError(String configuredDeviceId) {
+        if (configuredDeviceId.isBlank()) {
+            return "Unable to resolve Rachio controller for Thing '" + getThing().getUID()
+                    + "': no deviceId is configured and no legacy UID/property mapping matched. The deviceId must be the Rachio controller UUID, not the MAC address.";
+        }
+        return "Unable to resolve Rachio controller for Thing '" + getThing().getUID() + "' using configured deviceId '"
+                + configuredDeviceId + "'.";
     }
 
     @Override

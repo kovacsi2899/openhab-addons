@@ -24,6 +24,15 @@
 			<channel id="lastEvent" typeId="lastEvent"/>
 			<channel id="lastEventTime" typeId="lastEventTime"/>
 		</channels>
+
+		<representation-property>zoneId</representation-property>
+
+		<config-description>
+			<parameter name="zoneId" type="text" required="true">
+				<label>Zone ID</label>
+				<description>Rachio API zone UUID.</description>
+			</parameter>
+		</config-description>
 	</thing-type>
 
 	<channel-type id="zone_name">
