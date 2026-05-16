@@ -49,6 +49,7 @@ import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
 import org.openhab.core.thing.Thing;
+import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.ThingUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -223,11 +224,12 @@ public class RachioApi {
 
         for (HashMap.Entry<String, RachioDevice> entry : deviceList.entrySet()) {
             RachioDevice dev = entry.getValue();
-            ThingUID expectedUID = new ThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            @Nullable
+            ThingUID expectedUID = buildExpectedThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
             logger.trace("getDevByUID: requested bridge={}, requested device={}, cached bridge={}, cached device={}, "
                     + "candidate device={}", bridgeUID, thingUID, dev.bridgeUID, dev.devUID, expectedUID);
-            if (expectedUID.equals(thingUID)) {
-                dev.setUID(bridgeUID, expectedUID);
+            if (expectedUID != null && matchesThingUID(expectedUID, thingUID)) {
+                dev.setUID(bridgeUID, thingUID);
                 logger.trace("Device '{}' found.", dev.name);
                 return dev;
             }
@@ -245,25 +247,50 @@ public class RachioApi {
 
         for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
             RachioDevice dev = de.getValue();
-            ThingUID expectedDevUID = new ThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            @Nullable
+            ThingUID expectedDevUID = buildExpectedThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            if (expectedDevUID == null) {
+                logger.trace("getZoneByUID: Skip device '{}' because no valid device Thing UID can be built", dev.name);
+                continue;
+            }
 
             HashMap<String, RachioZone> zoneList = dev.getZones();
             for (HashMap.Entry<String, RachioZone> ze : zoneList.entrySet()) {
                 RachioZone zone = ze.getValue();
-                ThingUID expectedZoneUID = new ThingUID(THING_TYPE_ZONE, bridgeUID, zone.getThingID());
+                @Nullable
+                ThingUID expectedZoneUID = buildExpectedThingUID(THING_TYPE_ZONE, bridgeUID, zone.getThingID());
                 logger.trace(
                         "getZoneByUID: requested bridge={}, requested zone={}, cached device={}, cached zone={}, "
                                 + "candidate device={}, candidate zone={}",
                         bridgeUID, zoneUID, zone.getDevUID(), zone.getUID(), expectedDevUID, expectedZoneUID);
-                if (expectedZoneUID.equals(zoneUID)) {
+                if (expectedZoneUID != null && matchesThingUID(expectedZoneUID, zoneUID)) {
                     dev.setUID(bridgeUID, expectedDevUID);
-                    zone.setUID(expectedDevUID, expectedZoneUID);
+                    zone.setUID(expectedDevUID, zoneUID);
                     return zone;
                 }
             }
         }
         logger.debug("getZoneByUID: Unable map UID to zone, bridgeUID={}, zoneUID={}", bridgeUID, zoneUID);
         return null;
+    }
+
+    private @Nullable ThingUID buildExpectedThingUID(ThingTypeUID thingTypeUID, ThingUID bridgeUID,
+            @Nullable String thingId) {
+        if (thingId == null || thingId.isBlank()) {
+            return null;
+        }
+        try {
+            return new ThingUID(thingTypeUID, bridgeUID, thingId);
+        } catch (IllegalArgumentException e) {
+            logger.trace("Unable to build Rachio Thing UID for thing type '{}', bridge '{}', thing id '{}'",
+                    thingTypeUID, bridgeUID, thingId);
+            return null;
+        }
+    }
+
+    private boolean matchesThingUID(ThingUID expectedUID, ThingUID requestedUID) {
+        return expectedUID.equals(requestedUID)
+                || expectedUID.getAsString().equalsIgnoreCase(requestedUID.getAsString());
     }
 
     private Boolean initializePersonId(PRIORITY priority) throws RachioApiException {
