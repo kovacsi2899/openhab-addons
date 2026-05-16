@@ -37,6 +37,7 @@ import org.openhab.core.config.core.Configuration;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
@@ -495,6 +496,11 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return rachioApi.getDevByUID(getThing().getUID(), thingUID);
     }
 
+    @Nullable
+    public RachioDevice getDevByThing(Thing thing) {
+        return rachioApi.getDevByUID(getThing().getUID(), thing.getUID(), thing.getProperties());
+    }
+
     /**
      * return RachioZone for given Zone Thing UID
      *
@@ -504,6 +510,11 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     @Nullable
     public RachioZone getZoneByUID(@Nullable ThingUID thingUID) {
         return rachioApi.getZoneByUID(getThing().getUID(), thingUID);
+    }
+
+    @Nullable
+    public RachioZone getZoneByThing(Thing thing) {
+        return rachioApi.getZoneByUID(getThing().getUID(), thing.getUID(), thing.getProperties());
     }
 
     /**

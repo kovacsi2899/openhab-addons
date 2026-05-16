@@ -65,7 +65,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         try {
             if (initializeCloudHandler()) {
                 RachioBridgeHandler handler = cloudHandler;
-                dev = handler != null ? handler.getDevByUID(this.getThing().getUID()) : null;
+                dev = handler != null ? handler.getDevByThing(this.getThing()) : null;
                 RachioDevice d = dev;
                 if (d != null && handler != null) {
                     thingId = d.name;

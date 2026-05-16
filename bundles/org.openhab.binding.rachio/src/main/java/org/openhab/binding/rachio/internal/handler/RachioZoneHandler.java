@@ -66,7 +66,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
         try {
             if (initializeCloudHandler()) {
                 RachioBridgeHandler handler = cloudHandler;
-                zone = handler != null ? handler.getZoneByUID(this.getThing().getUID()) : null;
+                zone = handler != null ? handler.getZoneByThing(this.getThing()) : null;
                 RachioZone z = zone;
                 if (z != null && handler != null) {
                     z.setThingHandler(this);

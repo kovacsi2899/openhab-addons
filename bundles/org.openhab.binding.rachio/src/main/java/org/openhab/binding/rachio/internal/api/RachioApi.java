@@ -27,6 +27,7 @@ import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -217,6 +218,12 @@ public class RachioApi {
 
     @Nullable
     public RachioDevice getDevByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID thingUID) {
+        return getDevByUID(bridgeUID, thingUID, Collections.emptyMap());
+    }
+
+    @Nullable
+    public RachioDevice getDevByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID thingUID,
+            Map<String, String> properties) {
         if (bridgeUID == null || thingUID == null) {
             logger.debug("getDevByUID: Unable map UID to device, bridgeUID={}, deviceUID={}", bridgeUID, thingUID);
             return null;
@@ -230,16 +237,36 @@ public class RachioApi {
                     + "candidate device={}", bridgeUID, thingUID, dev.bridgeUID, dev.devUID, expectedUID);
             if (expectedUID != null && matchesThingUID(expectedUID, thingUID)) {
                 dev.setUID(bridgeUID, thingUID);
-                logger.trace("Device '{}' found.", dev.name);
+                logger.trace("Device '{}' found by canonical UID '{}'.", dev.name, expectedUID);
                 return dev;
             }
         }
+
+        for (HashMap.Entry<String, RachioDevice> entry : deviceList.entrySet()) {
+            RachioDevice dev = entry.getValue();
+            @Nullable
+            String matchedProperty = getMatchingDeviceProperty(dev, properties);
+            if (matchedProperty != null) {
+                dev.setUID(bridgeUID, thingUID);
+                logger.debug(
+                        "getDevByUID: mapped requested device UID '{}' to Rachio device '{}' using Thing property '{}'",
+                        thingUID, dev.name, matchedProperty);
+                return dev;
+            }
+        }
+
         logger.debug("getDevByUID: Unable map UID to device, bridgeUID={}, deviceUID={}", bridgeUID, thingUID);
         return null;
     }
 
     @Nullable
     public RachioZone getZoneByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID zoneUID) {
+        return getZoneByUID(bridgeUID, zoneUID, Collections.emptyMap());
+    }
+
+    @Nullable
+    public RachioZone getZoneByUID(@Nullable ThingUID bridgeUID, @Nullable ThingUID zoneUID,
+            Map<String, String> properties) {
         if (bridgeUID == null || zoneUID == null) {
             logger.debug("getZoneByUID: Unable map UID to zone, bridgeUID={}, zoneUID={}", bridgeUID, zoneUID);
             return null;
@@ -266,12 +293,66 @@ public class RachioApi {
                 if (expectedZoneUID != null && matchesThingUID(expectedZoneUID, zoneUID)) {
                     dev.setUID(bridgeUID, expectedDevUID);
                     zone.setUID(expectedDevUID, zoneUID);
+                    logger.trace("Zone '{}' found by canonical UID '{}'.", zone.name, expectedZoneUID);
                     return zone;
                 }
             }
         }
+
+        for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
+            RachioDevice dev = de.getValue();
+            @Nullable
+            ThingUID expectedDevUID = buildExpectedThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            if (expectedDevUID == null) {
+                logger.trace("getZoneByUID: Skip device '{}' because no valid device Thing UID can be built", dev.name);
+                continue;
+            }
+
+            HashMap<String, RachioZone> zoneList = dev.getZones();
+            for (HashMap.Entry<String, RachioZone> ze : zoneList.entrySet()) {
+                RachioZone zone = ze.getValue();
+                @Nullable
+                String matchedProperty = getMatchingZoneProperty(zone, properties);
+                if (matchedProperty != null) {
+                    dev.setUID(bridgeUID, expectedDevUID);
+                    zone.setUID(expectedDevUID, zoneUID);
+                    logger.debug(
+                            "getZoneByUID: mapped requested zone UID '{}' to Rachio zone '{}' using Thing property '{}'",
+                            zoneUID, zone.name, matchedProperty);
+                    return zone;
+                }
+            }
+        }
+
         logger.debug("getZoneByUID: Unable map UID to zone, bridgeUID={}, zoneUID={}", bridgeUID, zoneUID);
         return null;
+    }
+
+    private @Nullable String getMatchingDeviceProperty(RachioDevice dev, Map<String, String> properties) {
+        if (matchesProperty(properties, PROPERTY_DEV_ID, dev.id)) {
+            return PROPERTY_DEV_ID;
+        }
+        if (matchesProperty(properties, Thing.PROPERTY_MAC_ADDRESS, dev.macAddress)) {
+            return Thing.PROPERTY_MAC_ADDRESS;
+        }
+        if (matchesProperty(properties, Thing.PROPERTY_SERIAL_NUMBER, dev.serialNumber)) {
+            return Thing.PROPERTY_SERIAL_NUMBER;
+        }
+        return null;
+    }
+
+    private @Nullable String getMatchingZoneProperty(RachioZone zone, Map<String, String> properties) {
+        if (matchesProperty(properties, PROPERTY_ZONE_ID, zone.id)) {
+            return PROPERTY_ZONE_ID;
+        }
+        return null;
+    }
+
+    private boolean matchesProperty(Map<String, String> properties, String propertyName,
+            @Nullable String expectedValue) {
+        String actualValue = properties.get(propertyName);
+        return actualValue != null && !actualValue.isBlank() && expectedValue != null && !expectedValue.isBlank()
+                && actualValue.equalsIgnoreCase(expectedValue);
     }
 
     private @Nullable ThingUID buildExpectedThingUID(ThingTypeUID thingTypeUID, ThingUID bridgeUID,

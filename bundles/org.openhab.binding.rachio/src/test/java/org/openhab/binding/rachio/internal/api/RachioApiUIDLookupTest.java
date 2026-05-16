@@ -1,0 +1,112 @@
+/**
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+package org.openhab.binding.rachio.internal.api;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.sameInstance;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_DEV_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_ZONE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_DEVICE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_ZONE;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+
+import org.junit.jupiter.api.Test;
+import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.api.json.RachioZoneGsonDTO.RachioCloudZone;
+import org.openhab.core.thing.ThingUID;
+
+/**
+ * Tests for Rachio Thing UID mapping across API model rebuilds.
+ */
+class RachioApiUIDLookupTest {
+    private static final ThingUID BRIDGE_UID = new ThingUID(THING_TYPE_CLOUD, "bridge");
+
+    @Test
+    void getDevByUIDMatchesCanonicalThingUID() {
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID thingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "ABCDEF123456");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, thingUID);
+
+        assertThat(foundDevice, is(sameInstance(device)));
+        assertThat(device.getUID(), is(thingUID));
+    }
+
+    @Test
+    void getDevByUIDFallsBackToPersistedDeviceIdProperty() {
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID legacyThingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "legacy-device-id");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, legacyThingUID, Map.of(PROPERTY_DEV_ID, "device-id"));
+
+        assertThat(foundDevice, is(sameInstance(device)));
+        assertThat(device.getUID(), is(legacyThingUID));
+    }
+
+    @Test
+    void getZoneByUIDFallsBackToPersistedZoneIdProperty() {
+        RachioCloudZone cloudZone = zone("zone-id", 3);
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);
+        RachioZone zone = Objects.requireNonNull(device.getZones().get("zone-id"));
+        RachioApi api = apiWithDevice(device);
+        ThingUID legacyZoneUID = new ThingUID(THING_TYPE_ZONE, BRIDGE_UID, "legacy-zone-id");
+
+        RachioZone foundZone = api.getZoneByUID(BRIDGE_UID, legacyZoneUID, Map.of(PROPERTY_ZONE_ID, "zone-id"));
+
+        assertThat(foundZone, is(sameInstance(zone)));
+        assertThat(zone.getUID(), is(legacyZoneUID));
+    }
+
+    @Test
+    void getDevByUIDReturnsNullWithoutMatchingUIDOrProperties() {
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number");
+        RachioApi api = apiWithDevice(device);
+        ThingUID legacyThingUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "legacy-device-id");
+
+        RachioDevice foundDevice = api.getDevByUID(BRIDGE_UID, legacyThingUID, Collections.emptyMap());
+
+        assertThat(foundDevice, is(nullValue()));
+    }
+
+    private RachioApi apiWithDevice(RachioDevice device) {
+        RachioApi api = new RachioApi("");
+        api.getDevices().put(device.id, device);
+        return api;
+    }
+
+    private RachioDevice device(String id, String macAddress, String serialNumber, RachioCloudZone... zones) {
+        RachioCloudDevice cloudDevice = new RachioCloudDevice();
+        cloudDevice.id = id;
+        cloudDevice.name = "Test Controller";
+        cloudDevice.macAddress = macAddress;
+        cloudDevice.serialNumber = serialNumber;
+        cloudDevice.zones.addAll(java.util.List.of(zones));
+        return new RachioDevice(cloudDevice);
+    }
+
+    private RachioCloudZone zone(String id, int zoneNumber) {
+        RachioCloudZone zone = new RachioCloudZone();
+        zone.id = id;
+        zone.name = "Test Zone";
+        zone.zoneNumber = zoneNumber;
+        return zone;
+    }
+}
