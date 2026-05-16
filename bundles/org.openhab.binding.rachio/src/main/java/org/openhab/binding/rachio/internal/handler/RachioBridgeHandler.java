@@ -408,7 +408,11 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @return the polling interval in seconds
      */
     public String getApiKey() {
-        String apikey = getConfigAs(RachioConfiguration.class).apikey;
+        String apikey = thingConfig.apikey;
+        if (!apikey.isEmpty()) {
+            return apikey;
+        }
+        apikey = getConfigAs(RachioConfiguration.class).apikey;
         if (!apikey.isEmpty()) {
             return apikey;
         }
@@ -423,7 +427,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @return the polling interval in seconds
      */
     public int getPollingInterval() {
-        return getConfigAs(RachioConfiguration.class).pollingInterval;
+        return thingConfig.pollingInterval;
     }
 
     /**
@@ -432,7 +436,15 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @return callbackUrl
      */
     public String getCallbackUrl() {
-        return getConfigAs(RachioConfiguration.class).callbackUrl;
+        return thingConfig.callbackUrl;
+    }
+
+    public String getCallbackUsername() {
+        return thingConfig.callbackUsername;
+    }
+
+    public String getCallbackPassword() {
+        return thingConfig.callbackPassword;
     }
 
     /**
@@ -441,7 +453,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @return true=clear all callbacks, false=clear only the current one (avoid multiple instances)
      */
     public Boolean getClearAllCallbacks() {
-        return getConfigAs(RachioConfiguration.class).clearAllCallbacks;
+        return thingConfig.clearAllCallbacks;
     }
 
     /**
@@ -450,7 +462,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @return the polling interval in seconds
      */
     public int getDefaultRuntime() {
-        return getConfigAs(RachioConfiguration.class).defaultRuntime;
+        return thingConfig.defaultRuntime;
     }
 
     //
@@ -505,7 +517,8 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         if (getCallbackUrl().isEmpty()) {
             logger.debug("RachioCloud: No callbackUrl configured.");
         } else {
-            rachioApi.registerWebHook(deviceId, getCallbackUrl(), getExternalId(), getClearAllCallbacks());
+            rachioApi.registerWebHook(deviceId, getCallbackUrl(), getCallbackUsername(), getCallbackPassword(),
+                    getExternalId(), getClearAllCallbacks());
         }
     }
 

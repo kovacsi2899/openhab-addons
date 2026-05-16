@@ -7,4 +7,48 @@
 	<name>Rachio Binding</name>
 	<description>This is the binding for Rachio Sprinkler Controller.</description>
 
+	<config-description>
+		<parameter name="apikey" type="text">
+			<label>Rachio apikey</label>
+			<description>Visit Rachio Cloud Portal to create an apikey</description>
+			<required>false</required>
+		</parameter>
+		<parameter name="pollingInterval" type="integer" min="30" step="30">
+			<label>Polling/Refresh Interval</label>
+			<description>Seconds between fetching values from the cloud service</description>
+			<required>false</required>
+			<default>120</default>
+		</parameter>
+		<parameter name="defaultRuntime" type="integer" min="30" step="30">
+			<label>Default Runtime</label>
+			<description>Number of seconds to run a zone if no runtime is specified (=0)</description>
+			<required>false</required>
+			<default>120</default>
+		</parameter>
+		<parameter name="callbackUrl" type="text">
+			<label>Callback URL</label>
+			<description>Public HTTPS webhook endpoint without credentials in the recommended configuration model.</description>
+			<context>url</context>
+			<required>false</required>
+		</parameter>
+		<parameter name="callbackUsername" type="text">
+			<label>Callback Username</label>
+			<description>HTTP Basic Auth username for the webhook endpoint, for example the myopenHAB.org account email address.</description>
+			<required>false</required>
+		</parameter>
+		<parameter name="callbackPassword" type="text">
+			<label>Callback Password</label>
+			<description>HTTP Basic Auth password for the webhook endpoint. Enter the raw password; the binding encodes it when
+				registering the webhook.</description>
+			<context>password</context>
+			<required>false</required>
+		</parameter>
+		<parameter name="clearAllCallbacks" type="boolean">
+			<label>Clear Callbacks</label>
+			<description>If true all callbacks will be cleared on registrations.</description>
+			<required>false</required>
+			<default>false</default>
+		</parameter>
+	</config-description>
+
 </addon:addon>

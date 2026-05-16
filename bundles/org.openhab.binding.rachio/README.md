@@ -54,7 +54,15 @@ Now the binding is able to connect to the cloud and start discovery devices and 
 Create conf/things/rachio.things and fill in the parameters:
 
 ```
-Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterval=180, defaultRuntime=120, callbackUrl="https://host.example.org/rachio/webhook", clearAllCallbacks=true  ]
+Bridge rachio:cloud:1 [
+    apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx",
+    pollingInterval=180,
+    defaultRuntime=120,
+    callbackUrl="https://home.myopenhab.org/rachio/webhook",
+    callbackUsername="user@example.com",
+    callbackPassword="raw-password-with-special-characters",
+    clearAllCallbacks=false
+]
 {
 }
 ```
@@ -67,35 +75,36 @@ Bridge rachio:cloud:1 [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx", pollingInterv
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
-|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. For openHAB Cloud / myopenHAB.org, use `https://username:password@home.myopenhab.org/rachio/webhook` where username is your myopenHAB.org email address (URL-encode @ as %40 if present, e.g., `user%40example.com`). For direct reverse proxies, use `https://yourhost.example.org/rachio/webhook`. Credentials are automatically encoded for Basic Auth. The webhook service automatically signs events with the `x-signature` header.|
+|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. For direct reverse proxies without Basic Auth, use `https://yourhost.example.org/rachio/webhook`.|
+|callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
+|callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
 |clearAllCallbacks|The binding dynamically registers the callback. It also supports multiple applications registered to receive events, e.g. a 2nd OH device with the binding providing the same functionality. If for any reason your device setup changes (e.g. new ip address) you need to clear the registered URL once to avoid the "old URL" still receiving events. This also allows to move for a test setup to the regular setup.|
 
 The bridge thing doesn't have any channels.
 
 ### openHAB Cloud / myopenHAB.org Configuration
 
-For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-cloud.html) or [myopenHAB.org](https://www.myopenhab.org/), configure the callbackUrl as follows:
+For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-cloud.html) or [myopenHAB.org](https://www.myopenhab.org/), configure the public callback URL and Basic Auth credentials separately:
 
 1. **Determine your myopenHAB.org credentials:**
    - Username: Your myopenHAB.org email address
    - Password: Your myopenHAB.org password
 
-2. **URL-encode special characters in username:**
-   - If your email contains `@`, encode it as `%40`
-   - Example: `user@example.com` becomes `user%40example.com`
-   - Other special characters like `+` should also be encoded if present
-
-3. **Set the callbackUrl:**
+2. **Set the callback configuration:**
    ```
-   callbackUrl="https://user%40example.com:password@home.myopenhab.org/rachio/webhook"
+   callbackUrl="https://home.myopenhab.org/rachio/webhook"
+   callbackUsername="user@example.com"
+   callbackPassword="raw-password-with-special-characters"
    ```
 
-4. **Validation:**
+3. **Validation:**
    - Test that `https://home.myopenhab.org/rachio/webhook` is reachable with Basic Auth
    - Check openHAB logs for successful webhook registration
    - Verify that Rachio events appear in openHAB without delays
 
-**Important:** The binding automatically handles URL encoding of credentials. Manual encoding is only required for the username portion when configuring the callbackUrl parameter.
+The username and password are entered as raw values. The binding percent-encodes them internally before registering the webhook URL with Rachio, so you do not need to manually encode `@`, `?`, `#`, `/`, or similar URI-reserved characters.
+
+Legacy `callbackUrl` values that already contain validly encoded credentials, such as `https://user%40example.com:pass%3Fword@home.myopenhab.org/rachio/webhook`, remain supported for backward compatibility. The separate `callbackUsername` and `callbackPassword` fields are recommended for new configurations and take precedence if both models are configured.
 
 ### Device Thing - represents one Rachio Controller
 
@@ -295,7 +304,7 @@ Navigate to the Rachio Cloud Connector thing settings and set the callback URL.
 Check the openHAB logs to verify successful webhook registration:
 
 ```
-DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Register WebHook with new API, url=https://your-domain.com/rachio/webhook
+DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Register WebHook for controller 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Webhook successfully registered with new WebhookService API
 ```
 

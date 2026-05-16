@@ -51,6 +51,8 @@ public class RachioBindingConstants {
     public static final String PARAM_POLLING_INTERVAL = "pollingInterval";
     public static final String PARAM_DEF_RUNTIME = "defaultRuntime";
     public static final String PARAM_CALLBACK_URL = "callbackUrl";
+    public static final String PARAM_CALLBACK_USERNAME = "callbackUsername";
+    public static final String PARAM_CALLBACK_PASSWORD = "callbackPassword";
     public static final String PARAM_CLEAR_CALLBACK = "clearAllCallbacks";
 
     // List of non-standard Properties

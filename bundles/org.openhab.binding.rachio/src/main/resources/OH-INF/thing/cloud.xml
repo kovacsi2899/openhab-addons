@@ -32,10 +32,24 @@
 			</parameter>
 			<parameter name="callbackUrl" type="text">
 				<label>Callback URL</label>
-				<description>Public HTTPS URL for Rachio webhook events. For openHAB Cloud / myopenHAB.org, use
-					https://username:password@home.myopenhab.org/rachio/webhook where username is your myopenHAB.org email address
-					(URL-encode @ as %40 if present). For direct reverse proxies, use https://yourhost.example.org/rachio/webhook.
-					Credentials are automatically encoded for Basic Auth.</description>
+				<description>Public HTTPS URL for Rachio webhook events. In the recommended Basic Auth configuration,
+					do not include
+					credentials here; configure callbackUsername and callbackPassword separately. For direct reverse
+					proxies, use
+					https://yourhost.example.org/rachio/webhook.</description>
+				<context>url</context>
+				<required>false</required>
+			</parameter>
+			<parameter name="callbackUsername" type="text">
+				<label>Callback Username</label>
+				<description>HTTP Basic Auth username for the webhook endpoint, for example the myopenHAB.org account email address.</description>
+				<required>false</required>
+			</parameter>
+			<parameter name="callbackPassword" type="text">
+				<label>Callback Password</label>
+				<description>HTTP Basic Auth password for the webhook endpoint. Enter the raw password; the binding encodes it when
+					registering the webhook.</description>
+				<context>password</context>
 				<required>false</required>
 			</parameter>
 			<parameter name="clearAllCallbacks" type="boolean">

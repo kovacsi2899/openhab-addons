@@ -14,6 +14,8 @@ package org.openhab.binding.rachio.internal;
 
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,12 +32,17 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class RachioConfiguration {
+    private static final String REDACTED = "[redacted]";
+    private static final String REDACTED_INVALID_URL = "[redacted invalid URL]";
+
     private final Logger logger = LoggerFactory.getLogger(RachioConfiguration.class);
 
     public String apikey = "";
     public int pollingInterval = DEFAULT_POLLING_INTERVAL_SEC;
     public int defaultRuntime = DEFAULT_ZONE_RUNTIME_SEC;
     public String callbackUrl = "";
+    public String callbackUsername = "";
+    public String callbackPassword = "";
     public Boolean clearAllCallbacks = false;
 
     public void updateConfig(@Nullable Map<String, @Nullable Object> config) {
@@ -51,12 +58,13 @@ public class RachioConfiguration {
                 // no value set
                 continue;
             }
-            String value = ce.getValue().toString();
+            Object configValue = ce.getValue();
+            String value = configValue != null ? configValue.toString() : "";
 
             if (key.equalsIgnoreCase("service.pid")) {
                 logger.debug("Rachio: Binding configuration:");
             }
-            logger.debug("  {}={}", key, value);
+            logger.debug("  {}={}", key, sanitizeValueForLogging(key, value));
 
             if (key.equalsIgnoreCase(PARAM_APIKEY)) {
                 apikey = value;
@@ -66,10 +74,85 @@ public class RachioConfiguration {
                 this.defaultRuntime = Integer.parseInt(value);
             } else if (key.equalsIgnoreCase(PARAM_CALLBACK_URL)) {
                 this.callbackUrl = value;
+            } else if (key.equalsIgnoreCase(PARAM_CALLBACK_USERNAME)) {
+                this.callbackUsername = value;
+            } else if (key.equalsIgnoreCase(PARAM_CALLBACK_PASSWORD)) {
+                this.callbackPassword = value;
             } else if (key.equalsIgnoreCase(PARAM_CLEAR_CALLBACK)) {
                 String str = value;
                 this.clearAllCallbacks = str.toLowerCase().equals("true");
             }
         }
+    }
+
+    private String sanitizeValueForLogging(String key, String value) {
+        if (key.equalsIgnoreCase(PARAM_APIKEY)) {
+            return REDACTED;
+        }
+        if (key.equalsIgnoreCase(PARAM_CALLBACK_USERNAME)) {
+            return REDACTED;
+        }
+        if (key.equalsIgnoreCase(PARAM_CALLBACK_PASSWORD)) {
+            return REDACTED;
+        }
+        if (key.equalsIgnoreCase(PARAM_CALLBACK_URL)) {
+            return sanitizeCallbackUrlForLogging(value);
+        }
+        return value;
+    }
+
+    private String sanitizeCallbackUrlForLogging(String value) {
+        if (value.isBlank()) {
+            return value;
+        }
+
+        try {
+            URI uri = new URI(value);
+            String rawUserInfo = uri.getRawUserInfo();
+            String rawAuthority = uri.getRawAuthority();
+            if (rawUserInfo == null) {
+                if (rawAuthority != null && rawAuthority.contains("@")) {
+                    return REDACTED_INVALID_URL;
+                }
+                return value;
+            }
+
+            if (rawAuthority == null) {
+                return REDACTED_INVALID_URL;
+            }
+
+            String userInfoPrefix = rawUserInfo + "@";
+            if (!rawAuthority.startsWith(userInfoPrefix)
+                    || rawAuthority.indexOf('@') != rawAuthority.lastIndexOf('@')) {
+                return REDACTED_INVALID_URL;
+            }
+
+            return buildCallbackUrlForLogging(uri, "***:***@" + rawAuthority.substring(userInfoPrefix.length()));
+        } catch (URISyntaxException e) {
+            return REDACTED_INVALID_URL;
+        }
+    }
+
+    private String buildCallbackUrlForLogging(URI uri, String sanitizedAuthority) {
+        StringBuilder url = new StringBuilder();
+        String scheme = uri.getScheme();
+        if (scheme != null) {
+            url.append(scheme).append(":");
+        }
+        url.append("//").append(sanitizedAuthority);
+
+        String path = uri.getRawPath();
+        if (path != null) {
+            url.append(path);
+        }
+        String query = uri.getRawQuery();
+        if (query != null) {
+            url.append("?").append(query);
+        }
+        String fragment = uri.getRawFragment();
+        if (fragment != null) {
+            url.append("#").append(fragment);
+        }
+        return url.toString();
     }
 }

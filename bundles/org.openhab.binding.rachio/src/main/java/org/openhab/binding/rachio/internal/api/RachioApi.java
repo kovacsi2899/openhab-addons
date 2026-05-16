@@ -70,6 +70,7 @@ public class RachioApi {
     private static final String HMAC_SHA256_ALGORITHM = "HmacSHA256";
     private static final String UTF8_CHAR_SET = "UTF-8";
     private static final int WEBHOOK_SIGNATURE_LENGTH_BYTES = 32;
+    private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
     protected String apikey = "";
     protected String personId = "";
@@ -328,16 +329,16 @@ public class RachioApi {
         httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId, null, PRIORITY.MED);
     }
 
-    public void registerWebHook(String deviceId, String callbackUrl, @Nullable String externalId,
-            Boolean clearAllCallbacks) throws RachioApiException {
+    public void registerWebHook(String deviceId, String callbackUrl, String callbackUsername, String callbackPassword,
+            @Nullable String externalId, Boolean clearAllCallbacks) throws RachioApiException {
         logger.debug("Register webhook for device '{}', externalId={}, clearAllCallbacks={}", deviceId, externalId,
                 clearAllCallbacks);
 
-        String encodedUrl;
+        String registrationUrl;
         try {
-            encodedUrl = encodeCallbackUrl(callbackUrl);
+            registrationUrl = buildWebhookRegistrationUrl(callbackUrl, callbackUsername, callbackPassword);
         } catch (RachioApiException e) {
-            logger.warn("Failed to encode callback URL for device '{}'; callback URL is malformed", deviceId);
+            logger.warn("Failed to build callback URL for device '{}': {}", deviceId, e.getMessage());
             throw e;
         }
 
@@ -345,42 +346,128 @@ public class RachioApi {
         try {
             String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
                     WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId), PRIORITY.MED).resultString;
-            deleteExistingWebHooks(json, deviceId, encodedUrl, getKnownExternalIds(externalId), clearAllCallbacks);
+            deleteExistingWebHooks(json, deviceId, registrationUrl, getKnownExternalIds(externalId), clearAllCallbacks);
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
         }
 
         Map<String, Object> jsonData = Map.of("resourceId", Map.of("irrigationControllerId", deviceId), "externalId",
-                externalId != null ? externalId : "", "url", encodedUrl, "eventTypes",
+                externalId != null ? externalId : "", "url", registrationUrl, "eventTypes",
                 getIrrigationControllerEventTypes());
-        httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData), PRIORITY.HI);
+        try {
+            httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData), PRIORITY.HI);
+        } catch (RachioApiException e) {
+            throw sanitizeWebhookRegistrationException(e, registrationUrl);
+        }
     }
 
     /**
-     * Encodes the callback URL to ensure proper URL encoding of user credentials.
-     * Uses RFC 3986 compliant encoding for the userinfo portion only.
-     *
-     * @param callbackUrl the raw callback URL
-     * @return the URL with properly encoded userinfo
-     * @throws RachioApiException if the URL is malformed
+     * Build the URL sent to Rachio when creating a webhook. Rachio enables webhook Basic Authentication by accepting a
+     * URL with an encoded userinfo section and then sending those credentials as an Authorization header.
      */
-    private String encodeCallbackUrl(String callbackUrl) throws RachioApiException {
+    private String buildWebhookRegistrationUrl(String callbackUrl, String callbackUsername, String callbackPassword)
+            throws RachioApiException {
+        if (callbackUrl.isBlank()) {
+            throw new RachioApiException("Webhook callback URL is not configured.");
+        }
+
+        boolean usernameConfigured = !callbackUsername.isEmpty();
+        boolean passwordConfigured = !callbackPassword.isEmpty();
+        if (usernameConfigured != passwordConfigured) {
+            throw new RachioApiException(
+                    "Webhook Basic Auth configuration is incomplete: both callbackUsername and callbackPassword must be provided together.");
+        }
+
+        String trimmedCallbackUrl = callbackUrl.trim();
+        if (!usernameConfigured) {
+            URI callbackUri = parseWebhookCallbackUri(trimmedCallbackUrl, true);
+            return callbackUri.toASCIIString();
+        }
+
+        URI callbackUri;
+        try {
+            callbackUri = parseWebhookCallbackUri(trimmedCallbackUrl, true);
+        } catch (RachioApiException e) {
+            String callbackUrlWithoutUserInfo = stripPotentialEmbeddedUserInfo(trimmedCallbackUrl);
+            if (callbackUrlWithoutUserInfo.equals(trimmedCallbackUrl)) {
+                throw e;
+            }
+            logger.debug(
+                    "Callback URL contains embedded credentials, but explicit callbackUsername/callbackPassword fields are configured; using the explicit fields.");
+            callbackUri = parseWebhookCallbackUri(callbackUrlWithoutUserInfo, true);
+        }
+
+        String rawAuthority = callbackUri.getRawAuthority();
+        if (rawAuthority == null) {
+            throw new RachioApiException("Invalid callback URL format: missing URL authority.");
+        }
+
+        String authorityWithoutUserInfo = rawAuthority;
+        int userInfoSeparator = rawAuthority.lastIndexOf('@');
+        if (userInfoSeparator >= 0) {
+            logger.debug(
+                    "Callback URL contains embedded credentials, but explicit callbackUsername/callbackPassword fields are configured; using the explicit fields.");
+            authorityWithoutUserInfo = rawAuthority.substring(userInfoSeparator + 1);
+        }
+
+        if (authorityWithoutUserInfo.isEmpty() || authorityWithoutUserInfo.contains("@")) {
+            throw new RachioApiException("Invalid callback URL format: invalid URL authority.");
+        }
+
+        String encodedUserInfo = encodeURIComponent(callbackUsername) + ":" + encodeURIComponent(callbackPassword);
+        String registrationUrl = buildUriString(callbackUri, encodedUserInfo + "@" + authorityWithoutUserInfo);
+        return parseWebhookCallbackUri(registrationUrl, true).toASCIIString();
+    }
+
+    private URI parseWebhookCallbackUri(String callbackUrl, boolean requireValidHost) throws RachioApiException {
         try {
             URI uri = new URI(callbackUrl);
-
-            // If userinfo exists, encode it properly
-            if (uri.getUserInfo() != null) {
-                String encodedUserInfo = encodeUserInfo(uri.getUserInfo());
-
-                // Reconstruct URI with encoded userinfo
-                uri = new URI(uri.getScheme(), encodedUserInfo, uri.getHost(), uri.getPort(), uri.getPath(),
-                        uri.getQuery(), uri.getFragment());
+            if (!uri.isAbsolute() || uri.getRawAuthority() == null) {
+                throw new RachioApiException("Invalid callback URL format: expected an absolute URL with a host.");
             }
-
-            return uri.toASCIIString();
+            if (requireValidHost && uri.getHost() == null) {
+                if (uri.getRawAuthority().contains("@")) {
+                    throw new RachioApiException("Invalid callback URL format: malformed embedded credentials.");
+                }
+                throw new RachioApiException("Invalid callback URL format: expected a valid URL host.");
+            }
+            return uri;
         } catch (URISyntaxException e) {
             throw new RachioApiException("Invalid callback URL format: " + e.getReason());
         }
+    }
+
+    private String stripPotentialEmbeddedUserInfo(String callbackUrl) {
+        int authorityStart = callbackUrl.indexOf("://");
+        if (authorityStart < 0) {
+            return callbackUrl;
+        }
+
+        authorityStart += 3;
+        int userInfoSeparator = callbackUrl.lastIndexOf('@');
+        if (userInfoSeparator < authorityStart) {
+            return callbackUrl;
+        }
+        return callbackUrl.substring(0, authorityStart) + callbackUrl.substring(userInfoSeparator + 1);
+    }
+
+    private String buildUriString(URI uri, String authority) {
+        StringBuilder url = new StringBuilder();
+        url.append(uri.getScheme()).append("://").append(authority);
+
+        String path = uri.getRawPath();
+        if (path != null) {
+            url.append(path);
+        }
+        String query = uri.getRawQuery();
+        if (query != null) {
+            url.append("?").append(query);
+        }
+        String fragment = uri.getRawFragment();
+        if (fragment != null) {
+            url.append("#").append(fragment);
+        }
+        return url.toString();
     }
 
     private String sanitizeCallbackUrl(@Nullable String url) {
@@ -400,23 +487,18 @@ public class RachioApi {
         }
     }
 
-    /**
-     * Encodes userinfo (username:password) according to RFC 3986.
-     * Only encodes characters that are not unreserved in the userinfo context.
-     *
-     * @param userInfo the raw userinfo string
-     * @return the properly encoded userinfo
-     */
-    private String encodeUserInfo(String userInfo) {
-        // Basic Auth user-info uses the first colon as separator; later colons are part of the password.
-        int firstColon = userInfo.indexOf(':');
-        if (firstColon > 0) {
-            String username = userInfo.substring(0, firstColon);
-            String password = userInfo.substring(firstColon + 1);
-            return encodeURIComponent(username) + ":" + encodeURIComponent(password);
+    private RachioApiException sanitizeWebhookRegistrationException(RachioApiException e, String registrationUrl) {
+        String sanitizedUrl = sanitizeCallbackUrl(registrationUrl);
+        RachioApiResult result = e.getApiResult();
+        result.resultString = result.resultString.replace(registrationUrl, sanitizedUrl);
+
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "Rachio webhook registration failed";
+        } else {
+            message = message.replace(registrationUrl, sanitizedUrl);
         }
-        // Username only (no password)
-        return encodeURIComponent(userInfo);
+        return new RachioApiException(message, result);
     }
 
     /**
@@ -428,15 +510,14 @@ public class RachioApi {
      * @return the encoded component
      */
     private String encodeURIComponent(String component) {
-        // RFC 3986 unreserved characters: A-Z a-z 0-9 - . _ ~
-        // Encode everything else as %XX
         StringBuilder result = new StringBuilder();
-        for (char c : component.toCharArray()) {
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '.'
-                    || c == '_' || c == '~') {
-                result.append(c);
+        for (byte b : component.getBytes(StandardCharsets.UTF_8)) {
+            int value = b & 0xFF;
+            if ((value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z') || (value >= '0' && value <= '9')
+                    || value == '-' || value == '.' || value == '_' || value == '~') {
+                result.append((char) value);
             } else {
-                result.append('%').append(String.format("%02X", (int) c));
+                result.append('%').append(HEX_DIGITS[value >> 4]).append(HEX_DIGITS[value & 0x0F]);
             }
         }
         return result.toString();
