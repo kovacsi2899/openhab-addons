@@ -152,6 +152,25 @@ class RachioApiUIDLookupTest {
     }
 
     @Test
+    void getZoneByUIDPreservesManuallyBoundControllerUID() {
+        RachioCloudZone cloudZone = zone("zone-id", 3);
+        RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);
+        RachioZone zone = Objects.requireNonNull(device.getZones().get("zone-id"));
+        RachioApi api = apiWithDevice(device);
+        ThingUID manualDeviceUID = new ThingUID(THING_TYPE_DEVICE, BRIDGE_UID, "manual-controller");
+        ThingUID customZoneUID = new ThingUID(THING_TYPE_ZONE, BRIDGE_UID, "custom-zone-id");
+        device.setUID(BRIDGE_UID, manualDeviceUID);
+
+        RachioZone foundZone = api.getZoneByUID(BRIDGE_UID, customZoneUID,
+                Map.<String, Object> of(PROPERTY_ZONE_ID, "zone-id"), Collections.emptyMap());
+
+        assertThat(foundZone, is(sameInstance(zone)));
+        assertThat(device.getUID(), is(manualDeviceUID));
+        assertThat(zone.getDevUID(), is(manualDeviceUID));
+        assertThat(zone.getUID(), is(customZoneUID));
+    }
+
+    @Test
     void getZoneByUIDDoesNotUseLegacyFallbackWhenConfiguredZoneIdIsInvalid() {
         RachioCloudZone cloudZone = zone("zone-id", 3);
         RachioDevice device = device("device-id", "ABCDEF123456", "serial-number", cloudZone);

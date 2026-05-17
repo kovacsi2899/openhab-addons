@@ -304,6 +304,16 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         }
     }
 
+    @Override
+    protected void onBridgeOnline() {
+        if (dev == null) {
+            logger.debug("Bridge is ONLINE; retrying controller initialization for '{}'", getThing().getUID());
+            initialize();
+        } else {
+            goOnline();
+        }
+    }
+
     public boolean webhookEvent(RachioEventGsonDTO event) {
         boolean update = true;
         RachioDevice d = dev;

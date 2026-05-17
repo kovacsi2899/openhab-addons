@@ -28,9 +28,9 @@
 		<representation-property>zoneId</representation-property>
 
 		<config-description>
-			<parameter name="zoneId" type="text" required="true">
+			<parameter name="zoneId" type="text" required="false">
 				<label>Zone ID</label>
-				<description>Rachio API zone UUID.</description>
+				<description>Rachio API zone UUID. Required for manually created zone Things.</description>
 			</parameter>
 		</config-description>
 	</thing-type>

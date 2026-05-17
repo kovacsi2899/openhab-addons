@@ -29,6 +29,7 @@ import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
+import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -61,12 +62,17 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
 
     @Override
     public void initialize() {
-        logger.debug("Initializing zone '{}'", this.getThing().getUID().toString());
+        thingId = getThing().getUID().getAsString();
         String configuredZoneId = getThingConfigurationString(PROPERTY_ZONE_ID);
+        logger.debug("Zone initialize entered: thingUid={}, bridgeUid={}, configured zoneId='{}'", getThing().getUID(),
+                getThing().getBridgeUID(), configuredZoneId);
 
         try {
             if (initializeCloudHandler()) {
                 RachioBridgeHandler handler = cloudHandler;
+                Bridge currentBridge = bridge;
+                logger.debug("Zone parent bridge resolved: thingUid={}, bridgeUid={}, bridgeOnline={}",
+                        getThing().getUID(), currentBridge != null ? currentBridge.getUID() : null, isBridgeOnline());
                 zone = handler != null ? handler.getZoneByThing(this.getThing()) : null;
                 RachioZone z = zone;
                 if (z != null && handler != null) {
@@ -75,8 +81,20 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                     RachioDevice d = dev;
                     if (d != null) {
                         thingId = d.name + "[" + z.zoneNumber + "]";
+                        logger.debug(
+                                "Zone model lookup succeeded: thingUid={}, zoneId='{}', zoneName='{}', controllerId='{}'",
+                                getThing().getUID(), z.id, z.name, d.id);
+                    } else {
+                        logger.debug("Zone model lookup found zoneId='{}' for Thing '{}' but no parent controller",
+                                z.id, getThing().getUID());
                     }
+                } else {
+                    logger.debug("Zone model lookup failed: thingUid={}, configured zoneId='{}'", getThing().getUID(),
+                            configuredZoneId);
                 }
+            } else {
+                logger.debug("Zone parent bridge is not available: thingUid={}, bridgeUid={}", getThing().getUID(),
+                        getThing().getBridgeUID());
             }
             if ((bridge == null) || (cloudHandler == null) || (dev == null) || (zone == null)) {
                 String errorMessage = buildZoneResolutionError(configuredZoneId);
@@ -94,6 +112,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 logger.debug("{}: Bridge is offline!", thingId);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
             } else {
+                logger.debug("{}: Zone status set ONLINE", thingId);
                 goOnline();
                 return;
             }
@@ -189,12 +208,15 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
     @Override
     public boolean onThingStateChangedl(@Nullable RachioDevice updatedDev, @Nullable RachioZone updatedZone) {
         RachioZone z = zone;
-        if ((updatedZone != null) && (zone != null) && zone.id.equals(updatedZone.id)) {
-            logger.debug("{}: Update for zone {} received.", thingId, zone.name);
-            zone.update(updatedZone);
+        RachioDevice d = dev;
+        if ((updatedZone != null) && (z != null) && z.id.equals(updatedZone.id)) {
+            logger.debug("{}: Update for zone {} received.", thingId, z.name);
+            z.update(updatedZone);
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
             postChannelData();
-            updateStatus(dev.getStatus());
+            if (d != null) {
+                updateStatus(d.getStatus());
+            }
             return true;
         }
         return false;
@@ -273,6 +295,16 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             updateStatus(d.getStatus());
         }
         postChannelData();
+    }
+
+    @Override
+    protected void onBridgeOnline() {
+        if (dev == null || zone == null) {
+            logger.debug("Bridge is ONLINE; retrying zone initialization for '{}'", getThing().getUID());
+            initialize();
+        } else {
+            goOnline();
+        }
     }
 
     private void updateProperties() {

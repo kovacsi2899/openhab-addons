@@ -107,10 +107,14 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
         super.bridgeStatusChanged(bridgeStatusInfo);
 
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
-            goOnline();
+            onBridgeOnline();
         } else {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
         }
+    }
+
+    protected void onBridgeOnline() {
+        goOnline();
     }
 
     public void shutdown() {

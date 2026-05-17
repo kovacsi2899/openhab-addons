@@ -37,9 +37,10 @@
 		<representation-property>deviceId</representation-property>
 
 		<config-description>
-			<parameter name="deviceId" type="text" required="true">
+			<parameter name="deviceId" type="text" required="false">
 				<label>Controller ID</label>
-				<description>Rachio API controller/device UUID. This is not the MAC address.</description>
+				<description>Rachio API controller/device UUID. This is not the MAC address. Required for manually created
+					controller Things.</description>
 			</parameter>
 		</config-description>
 	</thing-type>

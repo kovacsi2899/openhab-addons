@@ -197,6 +197,7 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     }
 
     private RachioZoneHandler createZone(Thing thing) {
+        logger.debug("Zone handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
         return new RachioZoneHandler(thing);
     }
 }

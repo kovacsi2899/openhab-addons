@@ -437,11 +437,14 @@ public class RachioApi {
 
     private void bindZoneUIDs(RachioDevice dev, RachioZone zone, ThingUID bridgeUID, ThingUID zoneUID) {
         @Nullable
-        ThingUID expectedDevUID = buildExpectedThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
-        if (expectedDevUID != null) {
-            dev.setUID(bridgeUID, expectedDevUID);
+        ThingUID deviceUID = dev.getUID();
+        if (deviceUID == null) {
+            deviceUID = buildExpectedThingUID(THING_TYPE_DEVICE, bridgeUID, dev.getThingID());
+            if (deviceUID != null) {
+                dev.setUID(bridgeUID, deviceUID);
+            }
         }
-        zone.setUID(expectedDevUID, zoneUID);
+        zone.setUID(deviceUID, zoneUID);
     }
 
     private @Nullable String getMatchingDeviceProperty(RachioDevice dev, Map<String, String> properties) {
