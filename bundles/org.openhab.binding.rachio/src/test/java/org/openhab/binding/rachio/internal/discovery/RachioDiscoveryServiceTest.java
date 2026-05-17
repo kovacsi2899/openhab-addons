@@ -15,12 +15,16 @@ package org.openhab.binding.rachio.internal.discovery;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_BASE_STATION_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_DEV_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_SCHEDULE_RULE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_VALVE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_BASESTATION;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEXSCHEDULE;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_VALVE;
 
 import java.util.Objects;
 
@@ -28,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.thing.ThingUID;
 
@@ -73,6 +79,34 @@ class RachioDiscoveryServiceTest {
                 scheduleRule("", "Name", "FIXED")), nullValue());
     }
 
+    @Test
+    void baseStationDiscoveryResultContainsStableBaseStationIdentity() {
+        RachioBaseStation baseStation = baseStation();
+
+        DiscoveryResult result = Objects
+                .requireNonNull(RachioDiscoveryService.buildBaseStationDiscoveryResult(BRIDGE_UID, baseStation));
+
+        assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_BASESTATION, BRIDGE_UID, "base-station-id")));
+        assertThat(result.getBridgeUID(), is(BRIDGE_UID));
+        assertThat(result.getRepresentationProperty(), is(PROPERTY_BASE_STATION_ID));
+        assertThat(result.getProperties().get(PROPERTY_BASE_STATION_ID), is("base-station-id"));
+    }
+
+    @Test
+    void valveDiscoveryResultContainsValveAndBaseStationIdentity() {
+        RachioBaseStation baseStation = baseStation();
+        RachioValve valve = valve();
+
+        DiscoveryResult result = Objects
+                .requireNonNull(RachioDiscoveryService.buildValveDiscoveryResult(BRIDGE_UID, baseStation, valve));
+
+        assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_VALVE, BRIDGE_UID, "valve-id")));
+        assertThat(result.getBridgeUID(), is(BRIDGE_UID));
+        assertThat(result.getRepresentationProperty(), is(PROPERTY_VALVE_ID));
+        assertThat(result.getProperties().get(PROPERTY_VALVE_ID), is("valve-id"));
+        assertThat(result.getProperties().get(PROPERTY_BASE_STATION_ID), is("base-station-id"));
+    }
+
     private RachioDevice device() {
         RachioCloudDevice cloudDevice = new RachioCloudDevice();
         cloudDevice.id = "device-id";
@@ -87,5 +121,20 @@ class RachioDiscoveryServiceTest {
         scheduleRule.name = name;
         scheduleRule.type = type;
         return scheduleRule;
+    }
+
+    private RachioBaseStation baseStation() {
+        RachioBaseStation baseStation = new RachioBaseStation();
+        baseStation.id = "base-station-id";
+        baseStation.name = "Hub";
+        return baseStation;
+    }
+
+    private RachioValve valve() {
+        RachioValve valve = new RachioValve();
+        valve.id = "valve-id";
+        valve.baseStationId = "base-station-id";
+        valve.name = "Garden";
+        return valve;
     }
 }

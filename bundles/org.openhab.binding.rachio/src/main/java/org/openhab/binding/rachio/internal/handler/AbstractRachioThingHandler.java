@@ -67,6 +67,15 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
         return value != null ? value.toString().trim() : "";
     }
 
+    protected String getThingConfigurationOrPropertyString(String parameterName) {
+        String configValue = getThingConfigurationString(parameterName);
+        if (!configValue.isBlank()) {
+            return configValue;
+        }
+        String propertyValue = getThing().getProperties().get(parameterName);
+        return propertyValue != null ? propertyValue.trim() : "";
+    }
+
     protected boolean isBridgeOnline() {
         Bridge currentBridge = bridge;
         return currentBridge != null && currentBridge.getStatus() == ThingStatus.ONLINE;

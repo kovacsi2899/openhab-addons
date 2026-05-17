@@ -54,6 +54,14 @@ import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioProperty;
 import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioPropertyEntityLookupResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioPropertyListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStationListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDefaultRuntimeRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveStartWateringRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveStopWateringRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
@@ -684,6 +692,63 @@ public class RachioApi {
         return findPropertyByEntity(lightingAreaId, "lightingAreaId");
     }
 
+    public List<RachioBaseStation> listBaseStations(String userId) throws RachioApiException {
+        logger.debug("Load Rachio Smart Hose Timer base stations for user '{}'.", userId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + VALVE_LIST_BASE_STATIONS + urlEncode(userId), null,
+                PRIORITY.LOW).resultString;
+        RachioBaseStationListResponse response = RachioBaseStationListResponse.fromJson(json);
+        logger.debug("Loaded {} Rachio Smart Hose Timer base stations for user '{}'.", response.baseStations.size(),
+                userId);
+        return response.baseStations;
+    }
+
+    public RachioBaseStation getBaseStation(String baseStationId) throws RachioApiException {
+        logger.debug("Load Rachio Smart Hose Timer base station '{}'.", baseStationId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + VALVE_GET_BASE_STATION + urlEncode(baseStationId), null,
+                PRIORITY.LOW).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseBaseStation(json);
+    }
+
+    public List<RachioValve> listValves(String baseStationId) throws RachioApiException {
+        logger.debug("Load Rachio Smart Hose Timer valves for base station '{}'.", baseStationId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + VALVE_LIST_VALVES + urlEncode(baseStationId), null,
+                PRIORITY.LOW).resultString;
+        RachioValveListResponse response = RachioValveListResponse.fromJson(json);
+        logger.debug("Loaded {} Rachio Smart Hose Timer valves for base station '{}'.", response.valves.size(),
+                baseStationId);
+        return response.valves;
+    }
+
+    public RachioValve getValve(String valveId) throws RachioApiException {
+        logger.debug("Load Rachio Smart Hose Timer valve '{}'.", valveId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + VALVE_GET_VALVE + urlEncode(valveId), null,
+                PRIORITY.LOW).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseValve(json);
+    }
+
+    public void setValveDefaultRuntime(String valveId, int defaultRuntimeSeconds) throws RachioApiException {
+        if (defaultRuntimeSeconds <= 0) {
+            throw new RachioApiException("Valve default runtime must be greater than 0 seconds.");
+        }
+        logger.debug("Set Smart Hose Timer valve '{}' default runtime to {} sec.", valveId, defaultRuntimeSeconds);
+        httpPut(APIURL_CLOUD_REST_BASE + VALVE_SET_DEFAULT_RUNTIME,
+                buildValveDefaultRuntimePayload(valveId, defaultRuntimeSeconds), PRIORITY.HI);
+    }
+
+    public void startValveWatering(String valveId, int durationSeconds) throws RachioApiException {
+        if (durationSeconds <= 0) {
+            throw new RachioApiException("Valve watering duration must be greater than 0 seconds.");
+        }
+        logger.debug("Start Smart Hose Timer valve '{}' for {} sec.", valveId, durationSeconds);
+        httpPut(APIURL_CLOUD_REST_BASE + VALVE_START_WATERING, buildValveStartWateringPayload(valveId, durationSeconds),
+                PRIORITY.HI);
+    }
+
+    public void stopValveWatering(String valveId) throws RachioApiException {
+        logger.debug("Stop Smart Hose Timer valve '{}'.", valveId);
+        httpPut(APIURL_CLOUD_REST_BASE + VALVE_STOP_WATERING, buildValveStopWateringPayload(valveId), PRIORITY.HI);
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         logger.debug("Update zone moisture level for zone '{}' to {}.", zoneId, level);
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_MOISTURE_LEVEL, buildMoistureLevelPayload(zoneId, level), PRIORITY.HI);
@@ -754,6 +819,18 @@ public class RachioApi {
 
     static String buildSeasonalAdjustmentPayload(String id, double adjustment) {
         return new Gson().toJson(new RachioSeasonalAdjustmentRequest(id, adjustment));
+    }
+
+    static String buildValveDefaultRuntimePayload(String valveId, int defaultRuntimeSeconds) {
+        return new Gson().toJson(new RachioValveDefaultRuntimeRequest(valveId, defaultRuntimeSeconds));
+    }
+
+    static String buildValveStartWateringPayload(String valveId, int durationSeconds) {
+        return new Gson().toJson(new RachioValveStartWateringRequest(valveId, durationSeconds));
+    }
+
+    static String buildValveStopWateringPayload(String valveId) {
+        return new Gson().toJson(new RachioValveStopWateringRequest(valveId));
     }
 
     static String buildPropertyEntityQuery(String entityId, String entityType) throws RachioApiException {

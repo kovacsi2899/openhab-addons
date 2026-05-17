@@ -163,11 +163,16 @@ public class RachioEventGsonDTO {
             deviceId = resourceId;
         }
 
+        RachioWebhookPayload eventPayload = payload;
+        if ("VALVE".equals(resourceType) && resourceId.isBlank() && eventPayload != null
+                && !eventPayload.valveId.isBlank()) {
+            resourceId = eventPayload.valveId;
+        }
+
         if (timestamp.isEmpty()) {
             timestamp = createDate > 0 ? Long.toString(createDate) : "";
         }
 
-        RachioWebhookPayload eventPayload = payload;
         if (eventPayload == null) {
             return;
         }
@@ -312,6 +317,10 @@ public class RachioEventGsonDTO {
         public String startTime = "";
         public String zoneName = "";
         public String zoneNumber = "";
+        public String endReason = "";
+        public String programId = "";
+        public String valveId = "";
+        public @Nullable Boolean flowDetected;
 
         public int getDurationSeconds() {
             return parseInt(durationSeconds);
@@ -323,6 +332,16 @@ public class RachioEventGsonDTO {
 
         public int getZoneNumber() {
             return parseInt(zoneNumber);
+        }
+
+        public boolean getFlowDetected() {
+            @Nullable
+            Boolean flowDetected = this.flowDetected;
+            return flowDetected != null && flowDetected.booleanValue();
+        }
+
+        public boolean hasFlowDetected() {
+            return flowDetected != null;
         }
 
         private static int parseInt(String value) {

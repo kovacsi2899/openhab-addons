@@ -19,7 +19,10 @@ import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.is;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_DEVICE_ZONE_RUN_STARTED;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_SCHEDULE_STARTED;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_VALVE_RUN_END;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_VALVE_RUN_START;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.WEBHOOK_QUERY_CONTROLLER_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.WEBHOOK_QUERY_VALVE_ID;
 
 import java.util.List;
 import java.util.Map;
@@ -119,6 +122,19 @@ class RachioWebhookApiTest {
     }
 
     @Test
+    void valveTargetBuildsResourceAwareListQueryAndPayload() {
+        RachioWebhookTarget target = new RachioWebhookTarget("valve id", RachioWebhookResourceType.VALVE,
+                List.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END));
+
+        assertThat(target.buildListQuery(), is(WEBHOOK_QUERY_VALVE_ID + "=valve+id"));
+        Map<String, Object> payload = target.buildCreatePayload("https://host/rachio/webhook", "external-id");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> resourceId = (Map<String, Object>) payload.get("resourceId");
+        assertThat(resourceId, hasEntry("valveId", "valve id"));
+    }
+
+    @Test
     void exactWebhookMatchIsRetained() {
         RachioWebhookTarget target = RachioWebhookTarget.irrigationController("device-id",
                 List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_SCHEDULE_STARTED));
@@ -160,9 +176,9 @@ class RachioWebhookApiTest {
     @Test
     void valveTargetAcceptsValveEvents() {
         RachioWebhookTarget target = new RachioWebhookTarget("valve-id", RachioWebhookResourceType.VALVE,
-                List.of("VALVE_RUN_START_EVENT", "VALVE_RUN_END_EVENT"));
+                List.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END));
 
-        assertThat(target.getUnsupportedEventTypes(Set.of("VALVE_RUN_START_EVENT", "VALVE_RUN_END_EVENT")).isEmpty(),
+        assertThat(target.getUnsupportedEventTypes(Set.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END)).isEmpty(),
                 is(true));
     }
 

@@ -20,6 +20,8 @@ As a result the following things are created
 - 1 cloud per account (binding supports multiple accounts(
 - 1 device for very controller (binding supports multiple controllers)
 - n zones for each zone on any controller
+- 1 basestation for each Smart Hose Timer Wi-Fi hub
+- n valves for each Smart Hose Timer BaseStation
 
 Example: 2 controllers with 8 zones each under the same account creates 19 things (1xbridge, 2xdevice, 16xzone). 
 
@@ -35,6 +37,8 @@ All devices are connected to this thing, all zones to the corresponding device.
 |zone  |Each zone for each controller creates a `zone` thing, which links to the device thing (and  directly to the bridge thing)|
 |schedule|Each fixed schedule rule can be represented by a `schedule` thing. Discovery creates these when schedule IDs are present in the controller response.|
 |flexschedule|Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response.|
+|basestation|Each Smart Hose Timer Wi-Fi hub can be represented by a read-only `basestation` thing.|
+|valve|Each Smart Hose Timer valve can be represented by a `valve` thing for manual start/stop and default runtime control.|
 
 ###  Configuration
 
@@ -210,6 +214,56 @@ Zone identity is based on the Rachio API zone UUID configured as `zoneId`.
 Discovery fills this automatically.
 For manually created zone Things, set `zoneId` to the Rachio API zone UUID.
 
+### Smart Hose Timer Things
+
+Smart Hose Timer support currently covers BaseStations and Valves.
+Discovery is recommended: after the Cloud bridge is online, Scan / Inbox discovery creates `basestation` Things and the matching `valve` Things.
+Manual creation is also supported when the real Rachio IDs are configured:
+
+```
+Thing basestation hosehub "Hose Timer Hub" [
+    baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+]
+
+Thing valve garden "Garden Hose Valve" [
+    valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+]
+```
+
+BaseStations are lightweight read-only Things.
+
+|Channel|Description|
+|:------|:----------|
+|name|BaseStation name when reported by Rachio.|
+|online|ON when Rachio reports the BaseStation is online or connected.|
+|lastUpdate|Timestamp of last BaseStation state update.|
+
+Valves can be started and stopped from openHAB.
+
+|Channel|Description|
+|:------|:----------|
+|name|Valve name when reported by Rachio.|
+|online|ON when Rachio reports the valve is online or connected.|
+|run|Send ON to start watering, OFF to stop watering.|
+|runTime|Runtime in seconds for the next manual valve start. If 0, the valve default runtime is used, then the bridge `defaultRuntime` fallback.|
+|defaultRuntime|Valve default manual runtime in seconds. Sending a number updates Rachio using `setDefaultRuntime`.|
+|stateMatches|ON when `ValveState.matches` indicates the physical valve has synchronized with the desired cloud-side state.|
+|flowDetected|ON when a valve webhook event or valve state reports flow.|
+|batteryLevel|Battery level when reported by Rachio.|
+|serialNumber|Valve serial number when reported by Rachio.|
+|lastRunType|Run type from the most recent valve webhook event.|
+|lastEndReason|End reason from the most recent valve stop webhook event.|
+|lastUpdate|Timestamp of last valve state update.|
+|lastEvent|Most recent valve webhook event.|
+|lastEventTime|Timestamp of the most recent valve webhook event.|
+
+The Smart Hose Timer API is asynchronous.
+After changing `defaultRuntime`, Rachio may report `stateMatches=OFF` until the physical valve downloads and applies the cloud-side update.
+
+Valve webhook registration uses the resource-aware WebhookService support and subscribes to `VALVE_RUN_START_EVENT` and `VALVE_RUN_END_EVENT` for each initialized Valve Thing when `callbackUrl` is configured.
+Programs, skip overrides, and valve day-view summary endpoints are intentionally left for a later phase.
+
 ### Schedule Things
 
 Fixed schedule rules are represented by `schedule` Things.
@@ -246,7 +300,8 @@ The binding parses Rachio's `listWebhookEventTypes` response as resource-specifi
 Schedule events update controller schedule channels and matching `schedule` Things when present.
 Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
 Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
-Smart Hose Timer and Smart Lighting events are not exposed as user-facing Things or channels in this phase.
+Smart Hose Timer valve run start/end events update matching `valve` Things.
+Smart Hose Timer Program and Smart Lighting events are prepared internally but are not user-facing yet.
 Unsupported resource-family events are safely ignored with DEBUG logging.
 
 ### Property/Home API
@@ -284,6 +339,15 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
 
     Thing flexschedule flex "Flex schedule" @ "Sprinkler" [
         flexScheduleRuleId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+
+    Thing basestation hosehub "Hose Timer Hub" @ "Garden" [
+        baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+
+    Thing valve gardenhose "Garden Hose Valve" @ "Garden" [
+        valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
 }
 ```

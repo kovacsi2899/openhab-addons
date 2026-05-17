@@ -37,16 +37,20 @@ public class RachioBindingConstants {
     public static final ThingTypeUID THING_TYPE_ZONE = new ThingTypeUID(BINDING_ID, "zone");
     public static final ThingTypeUID THING_TYPE_SCHEDULE = new ThingTypeUID(BINDING_ID, "schedule");
     public static final ThingTypeUID THING_TYPE_FLEXSCHEDULE = new ThingTypeUID(BINDING_ID, "flexschedule");
+    public static final ThingTypeUID THING_TYPE_BASESTATION = new ThingTypeUID(BINDING_ID, "basestation");
+    public static final ThingTypeUID THING_TYPE_VALVE = new ThingTypeUID(BINDING_ID, "valve");
 
     public static final Set<ThingTypeUID> SUPPORTED_BRIDGE_THING_TYPES_UIDS = Stream.of(THING_TYPE_CLOUD)
             .collect(Collectors.toSet());
-    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream
-            .of(THING_TYPE_DEVICE, THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE)
+    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream.of(THING_TYPE_DEVICE,
+            THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE, THING_TYPE_BASESTATION, THING_TYPE_VALVE)
             .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_ZONE_THING_TYPES_UIDS = Stream.of(THING_TYPE_ZONE)
             .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_SCHEDULE_THING_TYPES_UIDS = Stream
             .of(THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE).collect(Collectors.toSet());
+    public static final Set<ThingTypeUID> SUPPORTED_HOSE_TIMER_THING_TYPES_UIDS = Stream
+            .of(THING_TYPE_BASESTATION, THING_TYPE_VALVE).collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Stream
             .concat(SUPPORTED_BRIDGE_THING_TYPES_UIDS.stream(), SUPPORTED_DEVICE_THING_TYPES_UIDS.stream())
             .collect(Collectors.toSet());
@@ -79,6 +83,8 @@ public class RachioBindingConstants {
     public static final String PROPERTY_ZONE_ID = "zoneId";
     public static final String PROPERTY_SCHEDULE_RULE_ID = "scheduleRuleId";
     public static final String PROPERTY_FLEX_SCHEDULE_RULE_ID = "flexScheduleRuleId";
+    public static final String PROPERTY_BASE_STATION_ID = "baseStationId";
+    public static final String PROPERTY_VALVE_ID = "valveId";
     public static final String PROPERTY_PERSON_ID = "personId";
     public static final String PROPERTY_PERSON_USER = "accounUserName";
     public static final String PROPERTY_PERSON_NAME = "accountFullName";
@@ -151,6 +157,20 @@ public class RachioBindingConstants {
     public static final String CHANNEL_LAST_UPDATE = "lastUpdate";
     public static final String CHANNEL_LAST_EVENT = "lastEvent";
     public static final String CHANNEL_LAST_EVENTTS = "lastEventTime";
+    public static final String CHANNEL_BASESTATION_NAME = "name";
+    public static final String CHANNEL_BASESTATION_ONLINE = "online";
+
+    public static final String CHANNEL_VALVE_NAME = "name";
+    public static final String CHANNEL_VALVE_ONLINE = "online";
+    public static final String CHANNEL_VALVE_RUN = "run";
+    public static final String CHANNEL_VALVE_RUN_TIME = "runTime";
+    public static final String CHANNEL_VALVE_DEFAULT_RUNTIME = "defaultRuntime";
+    public static final String CHANNEL_VALVE_STATE_MATCHES = "stateMatches";
+    public static final String CHANNEL_VALVE_FLOW_DETECTED = "flowDetected";
+    public static final String CHANNEL_VALVE_BATTERY_LEVEL = "batteryLevel";
+    public static final String CHANNEL_VALVE_SERIAL_NUMBER = "serialNumber";
+    public static final String CHANNEL_VALVE_LAST_RUN_TYPE = "lastRunType";
+    public static final String CHANNEL_VALVE_LAST_END_REASON = "lastEndReason";
 
     // Default for config options / thing settings
     public static int DEFAULT_POLLING_INTERVAL_SEC = 120;
@@ -205,6 +225,14 @@ public class RachioBindingConstants {
     public static final String PROPERTY_QUERY_BASE_STATION_ID = "resource_id.base_station_id";
     public static final String PROPERTY_QUERY_LIGHTING_AREA_ID = "resource_id.lighting_area_id";
 
+    public static final String VALVE_LIST_BASE_STATIONS = "/valve/listBaseStations/";
+    public static final String VALVE_GET_BASE_STATION = "/valve/getBaseStation/";
+    public static final String VALVE_LIST_VALVES = "/valve/listValves/";
+    public static final String VALVE_GET_VALVE = "/valve/getValve/";
+    public static final String VALVE_SET_DEFAULT_RUNTIME = "/valve/setDefaultRuntime";
+    public static final String VALVE_START_WATERING = "/valve/startWatering";
+    public static final String VALVE_STOP_WATERING = "/valve/stopWatering";
+
     public static final String APIURL_ZONE_PUT_START = "zone/start"; // start a zone
     public static final String APIURL_ZONE_PUT_MULTIPLE_START = "zone/start_multiple"; // start multiple zones
     public static final String APIURL_ZONE_PUT_ENABLE = "zone/enable"; // enable a zone
@@ -249,6 +277,8 @@ public class RachioBindingConstants {
     public static final String EVENT_RAIN_SENSOR_DETECTION_OFF = "RAIN_SENSOR_DETECTION_OFF_EVENT";
     public static final String EVENT_RAIN_DELAY_ON = "RAIN_DELAY_ON_EVENT";
     public static final String EVENT_RAIN_DELAY_OFF = "RAIN_DELAY_OFF_EVENT";
+    public static final String EVENT_VALVE_RUN_START = "VALVE_RUN_START_EVENT";
+    public static final String EVENT_VALVE_RUN_END = "VALVE_RUN_END_EVENT";
 
     public static final String SERVLET_WEBHOOK_PATH = "/rachio/webhook";
     public static final String SERVLET_WEBHOOK_APPLICATION_JSON = "application/json";

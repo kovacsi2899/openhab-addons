@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="basestation">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="cloud"/>
+		</supported-bridge-type-refs>
+
+		<label>Rachio Smart Hose Timer BaseStation</label>
+		<description>A Smart Hose Timer Wi-Fi hub.</description>
+
+		<channels>
+			<channel id="name" typeId="basestation_name"/>
+			<channel id="online" typeId="basestation_online"/>
+			<channel id="lastUpdate" typeId="lastUpdate"/>
+		</channels>
+
+		<representation-property>baseStationId</representation-property>
+
+		<config-description>
+			<parameter name="baseStationId" type="text" required="false">
+				<label>BaseStation ID</label>
+				<description>Rachio Smart Hose Timer BaseStation UUID. Required for manually created BaseStation Things.</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<channel-type id="basestation_name">
+		<item-type>String</item-type>
+		<label>Name</label>
+		<description>Smart Hose Timer BaseStation name.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="basestation_online">
+		<item-type>Switch</item-type>
+		<label>Online</label>
+		<description>ON when Rachio reports that the BaseStation is online or connected.</description>
+		<state readOnly="true"/>
+	</channel-type>
+</thing:thing-descriptions>

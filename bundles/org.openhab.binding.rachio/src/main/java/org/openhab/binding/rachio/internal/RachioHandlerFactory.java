@@ -23,10 +23,12 @@ import org.openhab.binding.rachio.internal.api.RachioApi;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.handler.AbstractRachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.AbstractRachioThingHandler;
+import org.openhab.binding.rachio.internal.handler.RachioBaseStationHandler;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
 import org.openhab.binding.rachio.internal.handler.RachioFlexScheduleHandler;
 import org.openhab.binding.rachio.internal.handler.RachioScheduleHandler;
+import org.openhab.binding.rachio.internal.handler.RachioValveHandler;
 import org.openhab.binding.rachio.internal.handler.RachioZoneHandler;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
@@ -96,6 +98,10 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
                 return createSchedule(thing);
             } else if (thingTypeUID.equals(THING_TYPE_FLEXSCHEDULE)) {
                 return createFlexSchedule(thing);
+            } else if (thingTypeUID.equals(THING_TYPE_BASESTATION)) {
+                return createBaseStation(thing);
+            } else if (thingTypeUID.equals(THING_TYPE_VALVE)) {
+                return createValve(thing);
             } else if (SUPPORTED_DEVICE_THING_TYPES_UIDS.contains(thingTypeUID)) {
                 return createDevice(thing);
             }
@@ -215,5 +221,15 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     private RachioFlexScheduleHandler createFlexSchedule(Thing thing) {
         logger.debug("Flex schedule handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
         return new RachioFlexScheduleHandler(thing);
+    }
+
+    private RachioBaseStationHandler createBaseStation(Thing thing) {
+        logger.debug("BaseStation handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
+        return new RachioBaseStationHandler(thing);
+    }
+
+    private RachioValveHandler createValve(Thing thing) {
+        logger.debug("Valve handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
+        return new RachioValveHandler(thing);
     }
 }

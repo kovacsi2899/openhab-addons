@@ -34,11 +34,15 @@ import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioProperty;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioForecastResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
+import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType;
+import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookTarget;
 import org.openhab.binding.rachio.internal.discovery.RachioDiscoveryService;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.core.config.core.Configuration;
@@ -448,6 +452,34 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return rachioApi.findPropertyForLightingArea(lightingAreaId);
     }
 
+    public List<RachioBaseStation> listBaseStations() throws RachioApiException {
+        return rachioApi.listBaseStations(personId);
+    }
+
+    public RachioBaseStation getBaseStation(String baseStationId) throws RachioApiException {
+        return rachioApi.getBaseStation(baseStationId);
+    }
+
+    public List<RachioValve> listValves(String baseStationId) throws RachioApiException {
+        return rachioApi.listValves(baseStationId);
+    }
+
+    public RachioValve getValve(String valveId) throws RachioApiException {
+        return rachioApi.getValve(valveId);
+    }
+
+    public void setValveDefaultRuntime(String valveId, int defaultRuntimeSeconds) throws RachioApiException {
+        rachioApi.setValveDefaultRuntime(valveId, defaultRuntimeSeconds);
+    }
+
+    public void startValveWatering(String valveId, int durationSeconds) throws RachioApiException {
+        rachioApi.startValveWatering(valveId, durationSeconds);
+    }
+
+    public void stopValveWatering(String valveId) throws RachioApiException {
+        rachioApi.stopValveWatering(valveId);
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         rachioApi.setZoneMoistureLevel(zoneId, level);
     }
@@ -632,6 +664,18 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
             rachioApi.registerWebHook(deviceId, getCallbackUrl(), getCallbackUsername(), getCallbackPassword(),
                     getExternalId(), getClearAllCallbacks());
         }
+    }
+
+    public void registerValveWebHook(String valveId) throws RachioApiException {
+        if (getCallbackUrl().isEmpty()) {
+            logger.debug("RachioCloud: No callbackUrl configured.");
+            return;
+        }
+
+        RachioWebhookTarget target = new RachioWebhookTarget(valveId, RachioWebhookResourceType.VALVE,
+                List.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END));
+        rachioApi.registerWebHookTarget(target, getCallbackUrl(), getCallbackUsername(), getCallbackPassword(),
+                getExternalId(), getClearAllCallbacks());
     }
 
     /**

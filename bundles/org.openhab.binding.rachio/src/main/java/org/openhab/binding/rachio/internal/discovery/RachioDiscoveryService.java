@@ -22,9 +22,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.rachio.internal.api.RachioApiException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
@@ -182,6 +185,8 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
             }
             logger.debug("{}  Rachio device initialized.", deviceList.size());
 
+            discoverSmartHoseTimers(handler, bridgeUID);
+
             stopScan();
         } catch (RuntimeException e) {
             logger.warn("Unexpected error while discovering Rachio devices/zones: {}", e.getMessage());
@@ -243,5 +248,57 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         return DiscoveryResultBuilder.create(scheduleThingUID).withProperties(properties)
                 .withRepresentationProperty(PROPERTY_FLEX_SCHEDULE_RULE_ID).withBridge(bridgeUID)
                 .withLabel(dev.name + ": " + scheduleRule.name).build();
+    }
+
+    private void discoverSmartHoseTimers(RachioBridgeHandler handler, ThingUID bridgeUID) {
+        try {
+            for (RachioBaseStation baseStation : handler.listBaseStations()) {
+                @Nullable
+                DiscoveryResult baseStationResult = buildBaseStationDiscoveryResult(bridgeUID, baseStation);
+                if (baseStationResult != null) {
+                    thingDiscovered(baseStationResult);
+                }
+
+                if (baseStation.id.isBlank()) {
+                    continue;
+                }
+                for (RachioValve valve : handler.listValves(baseStation.id)) {
+                    @Nullable
+                    DiscoveryResult valveResult = buildValveDiscoveryResult(bridgeUID, baseStation, valve);
+                    if (valveResult != null) {
+                        thingDiscovered(valveResult);
+                    }
+                }
+            }
+        } catch (RachioApiException e) {
+            logger.debug("Smart Hose Timer discovery skipped: {}", e.getMessage());
+        }
+    }
+
+    static @Nullable DiscoveryResult buildBaseStationDiscoveryResult(ThingUID bridgeUID,
+            RachioBaseStation baseStation) {
+        if (baseStation.id.isBlank()) {
+            return null;
+        }
+        ThingUID baseStationThingUID = new ThingUID(THING_TYPE_BASESTATION, bridgeUID, baseStation.getThingID());
+        Map<String, Object> properties = new HashMap<>(baseStation.fillProperties());
+        return DiscoveryResultBuilder.create(baseStationThingUID).withProperties(properties)
+                .withRepresentationProperty(PROPERTY_BASE_STATION_ID).withBridge(bridgeUID)
+                .withLabel(baseStation.getThingName()).build();
+    }
+
+    static @Nullable DiscoveryResult buildValveDiscoveryResult(ThingUID bridgeUID, RachioBaseStation baseStation,
+            RachioValve valve) {
+        if (valve.id.isBlank()) {
+            return null;
+        }
+        ThingUID valveThingUID = new ThingUID(THING_TYPE_VALVE, bridgeUID, valve.getThingID());
+        Map<String, Object> properties = new HashMap<>(valve.fillProperties());
+        if (valve.baseStationId.isBlank() && !baseStation.id.isBlank()) {
+            properties.put(PROPERTY_BASE_STATION_ID, baseStation.id);
+        }
+        return DiscoveryResultBuilder.create(valveThingUID).withProperties(properties)
+                .withRepresentationProperty(PROPERTY_VALVE_ID).withBridge(bridgeUID)
+                .withLabel(baseStation.getThingName() + ": " + valve.getThingName()).build();
     }
 }

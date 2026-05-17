@@ -15,6 +15,7 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_DEVICE_ZONE_RUN_STARTED;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_VALVE_RUN_START;
 
 import java.util.List;
 
@@ -49,6 +50,19 @@ class RachioWebhookDispatcherTest {
 
         assertThat(dispatcher.dispatch(event), is(true));
         assertThat(irrigationHandler.handled, is(true));
+    }
+
+    @Test
+    void valveEventRoutesByResourceType() {
+        RecordingHandler valveHandler = new RecordingHandler(RachioWebhookResourceType.VALVE);
+        RachioWebhookDispatcher dispatcher = new RachioWebhookDispatcher(List.of(valveHandler));
+        RachioEventGsonDTO event = new RachioEventGsonDTO();
+        event.resourceType = "VALVE";
+        event.resourceId = "valve-id";
+        event.eventType = EVENT_VALVE_RUN_START;
+
+        assertThat(dispatcher.dispatch(event), is(true));
+        assertThat(valveHandler.handled, is(true));
     }
 
     @Test
