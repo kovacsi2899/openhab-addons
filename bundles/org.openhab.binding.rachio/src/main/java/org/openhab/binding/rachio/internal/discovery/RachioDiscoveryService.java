@@ -195,37 +195,53 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
 
     private void discoverScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
         for (RachioCloudScheduleRule scheduleRule : dev.scheduleRules) {
-            if (scheduleRule.id.isBlank()) {
-                continue;
+            @Nullable
+            DiscoveryResult discoveryResult = buildScheduleDiscoveryResult(bridgeUID, dev, scheduleRule);
+            if (discoveryResult != null) {
+                thingDiscovered(discoveryResult);
             }
-            ThingUID scheduleThingUID = new ThingUID(THING_TYPE_SCHEDULE, bridgeUID, scheduleRule.id);
-            Map<String, Object> properties = new HashMap<>();
-            properties.put(PROPERTY_SCHEDULE_RULE_ID, scheduleRule.id);
-            properties.put(PROPERTY_DEV_ID, dev.id);
-            properties.put(PROPERTY_NAME, scheduleRule.name);
-            properties.put("type", scheduleRule.type);
-            DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(scheduleThingUID).withProperties(properties)
-                    .withRepresentationProperty(PROPERTY_SCHEDULE_RULE_ID).withBridge(bridgeUID)
-                    .withLabel(dev.name + ": " + scheduleRule.name).build();
-            thingDiscovered(discoveryResult);
         }
     }
 
     private void discoverFlexScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
         for (RachioCloudScheduleRule scheduleRule : dev.flexScheduleRules) {
-            if (scheduleRule.id.isBlank()) {
-                continue;
+            @Nullable
+            DiscoveryResult discoveryResult = buildFlexScheduleDiscoveryResult(bridgeUID, dev, scheduleRule);
+            if (discoveryResult != null) {
+                thingDiscovered(discoveryResult);
             }
-            ThingUID scheduleThingUID = new ThingUID(THING_TYPE_FLEXSCHEDULE, bridgeUID, scheduleRule.id);
-            Map<String, Object> properties = new HashMap<>();
-            properties.put(PROPERTY_FLEX_SCHEDULE_RULE_ID, scheduleRule.id);
-            properties.put(PROPERTY_DEV_ID, dev.id);
-            properties.put(PROPERTY_NAME, scheduleRule.name);
-            properties.put("type", scheduleRule.type);
-            DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(scheduleThingUID).withProperties(properties)
-                    .withRepresentationProperty(PROPERTY_FLEX_SCHEDULE_RULE_ID).withBridge(bridgeUID)
-                    .withLabel(dev.name + ": " + scheduleRule.name).build();
-            thingDiscovered(discoveryResult);
         }
+    }
+
+    static @Nullable DiscoveryResult buildScheduleDiscoveryResult(ThingUID bridgeUID, RachioDevice dev,
+            RachioCloudScheduleRule scheduleRule) {
+        if (scheduleRule.id.isBlank()) {
+            return null;
+        }
+        ThingUID scheduleThingUID = new ThingUID(THING_TYPE_SCHEDULE, bridgeUID, scheduleRule.id);
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(PROPERTY_SCHEDULE_RULE_ID, scheduleRule.id);
+        properties.put(PROPERTY_DEV_ID, dev.id);
+        properties.put(PROPERTY_NAME, scheduleRule.name);
+        properties.put("type", scheduleRule.type);
+        return DiscoveryResultBuilder.create(scheduleThingUID).withProperties(properties)
+                .withRepresentationProperty(PROPERTY_SCHEDULE_RULE_ID).withBridge(bridgeUID)
+                .withLabel(dev.name + ": " + scheduleRule.name).build();
+    }
+
+    static @Nullable DiscoveryResult buildFlexScheduleDiscoveryResult(ThingUID bridgeUID, RachioDevice dev,
+            RachioCloudScheduleRule scheduleRule) {
+        if (scheduleRule.id.isBlank()) {
+            return null;
+        }
+        ThingUID scheduleThingUID = new ThingUID(THING_TYPE_FLEXSCHEDULE, bridgeUID, scheduleRule.id);
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(PROPERTY_FLEX_SCHEDULE_RULE_ID, scheduleRule.id);
+        properties.put(PROPERTY_DEV_ID, dev.id);
+        properties.put(PROPERTY_NAME, scheduleRule.name);
+        properties.put("type", scheduleRule.type);
+        return DiscoveryResultBuilder.create(scheduleThingUID).withProperties(properties)
+                .withRepresentationProperty(PROPERTY_FLEX_SCHEDULE_RULE_ID).withBridge(bridgeUID)
+                .withLabel(dev.name + ": " + scheduleRule.name).build();
     }
 }

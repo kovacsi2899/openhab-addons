@@ -82,29 +82,35 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         if (command == RefreshType.REFRESH) {
-            refreshFlexScheduleRule();
+            if (refreshFlexScheduleRule()) {
+                updateStatus(ThingStatus.ONLINE);
+            }
         }
     }
 
     @Override
     protected void goOnline() {
-        refreshFlexScheduleRule();
-        updateStatus(ThingStatus.ONLINE);
+        if (refreshFlexScheduleRule()) {
+            updateStatus(ThingStatus.ONLINE);
+        }
     }
 
-    private void refreshFlexScheduleRule() {
+    protected boolean refreshFlexScheduleRule() {
         RachioBridgeHandler handler = cloudHandler;
         if (handler == null) {
-            return;
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
+            return false;
         }
         try {
             scheduleRule = handler.getFlexScheduleRule(flexScheduleRuleId);
             logger.debug("{}: Loaded flex schedule rule '{}'", thingId, flexScheduleRuleId);
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+            return true;
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load flex schedule rule '{}': {}", thingId, flexScheduleRuleId, e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            return false;
         }
     }
 

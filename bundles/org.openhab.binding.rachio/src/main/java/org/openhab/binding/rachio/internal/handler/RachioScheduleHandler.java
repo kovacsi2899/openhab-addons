@@ -90,7 +90,9 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
 
         try {
             if (command == RefreshType.REFRESH) {
-                refreshScheduleRule();
+                if (refreshScheduleRule()) {
+                    updateStatus(ThingStatus.ONLINE);
+                }
                 return;
             }
             if (channel.equals(CHANNEL_SCHEDULE_START) && command == OnOffType.ON) {
@@ -116,23 +118,27 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
 
     @Override
     protected void goOnline() {
-        refreshScheduleRule();
-        updateStatus(ThingStatus.ONLINE);
+        if (refreshScheduleRule()) {
+            updateStatus(ThingStatus.ONLINE);
+        }
     }
 
-    protected void refreshScheduleRule() {
+    protected boolean refreshScheduleRule() {
         RachioBridgeHandler handler = cloudHandler;
         if (handler == null) {
-            return;
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
+            return false;
         }
         try {
             scheduleRule = handler.getScheduleRule(scheduleRuleId);
             logger.debug("{}: Loaded schedule rule '{}'", thingId, scheduleRuleId);
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+            return true;
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load schedule rule '{}': {}", thingId, scheduleRuleId, e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
+            return false;
         }
     }
 

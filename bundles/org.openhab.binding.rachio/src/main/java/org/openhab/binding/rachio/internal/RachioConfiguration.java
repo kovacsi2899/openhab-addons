@@ -84,11 +84,41 @@ public class RachioConfiguration {
                 String str = value;
                 this.clearAllCallbacks = str.toLowerCase().equals("true");
             } else if (key.equalsIgnoreCase(PARAM_EVENT_HISTORY_LOOKBACK_HOURS)) {
-                this.eventHistoryLookbackHours = Math.max(0, Integer.parseInt(value));
+                this.eventHistoryLookbackHours = parseEventHistoryLookbackHours(value);
             } else if (key.equalsIgnoreCase(PARAM_FORECAST_UNITS)) {
-                this.forecastUnits = value.equalsIgnoreCase("US") ? "US" : "METRIC";
+                this.forecastUnits = parseForecastUnits(value);
             }
         }
+    }
+
+    private int parseEventHistoryLookbackHours(String value) {
+        try {
+            int lookbackHours = Integer.parseInt(value.trim());
+            if (lookbackHours < 0) {
+                logger.warn("Invalid Rachio eventHistoryLookbackHours '{}'; using 0 to disable event history polling.",
+                        value);
+                return 0;
+            }
+            if (lookbackHours > MAX_EVENT_HISTORY_LOOKBACK_HOURS) {
+                logger.warn("Rachio eventHistoryLookbackHours '{}' is too large; using maximum {}.", value,
+                        MAX_EVENT_HISTORY_LOOKBACK_HOURS);
+                return MAX_EVENT_HISTORY_LOOKBACK_HOURS;
+            }
+            return lookbackHours;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid Rachio eventHistoryLookbackHours '{}'; using default {}.", value,
+                    DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS);
+            return DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS;
+        }
+    }
+
+    private String parseForecastUnits(String value) {
+        String normalizedValue = value.trim().toUpperCase();
+        if ("METRIC".equals(normalizedValue) || "US".equals(normalizedValue)) {
+            return normalizedValue;
+        }
+        logger.warn("Invalid Rachio forecastUnits '{}'; using default {}.", value, DEFAULT_FORECAST_UNITS);
+        return DEFAULT_FORECAST_UNITS;
     }
 
     private String sanitizeValueForLogging(String key, String value) {

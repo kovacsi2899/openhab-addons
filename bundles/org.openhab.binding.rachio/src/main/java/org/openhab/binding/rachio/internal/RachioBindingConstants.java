@@ -156,6 +156,7 @@ public class RachioBindingConstants {
     public static int DEFAULT_POLLING_INTERVAL_SEC = 120;
     public static int DEFAULT_ZONE_RUNTIME_SEC = 300;
     public static int DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS = 24;
+    public static int MAX_EVENT_HISTORY_LOOKBACK_HOURS = 168;
     public static final String DEFAULT_FORECAST_UNITS = "METRIC";
     public static final int HTTP_TIMOUT_MS = 15000;
     public static int BINDING_DISCOVERY_TIMEOUT_SEC = 60;

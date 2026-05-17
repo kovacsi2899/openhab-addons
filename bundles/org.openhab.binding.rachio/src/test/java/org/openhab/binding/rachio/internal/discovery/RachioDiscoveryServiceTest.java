@@ -1,0 +1,91 @@
+/**
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
+package org.openhab.binding.rachio.internal.discovery;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_DEV_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_SCHEDULE_RULE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEXSCHEDULE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
+
+import java.util.Objects;
+
+import org.junit.jupiter.api.Test;
+import org.openhab.binding.rachio.internal.api.RachioDevice;
+import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
+import org.openhab.core.config.discovery.DiscoveryResult;
+import org.openhab.core.thing.ThingUID;
+
+/**
+ * Tests Rachio schedule discovery result construction.
+ */
+class RachioDiscoveryServiceTest {
+    private static final ThingUID BRIDGE_UID = new ThingUID(THING_TYPE_CLOUD, "bridge");
+
+    @Test
+    void scheduleDiscoveryResultContainsStableScheduleIdentity() {
+        RachioDevice device = device();
+        RachioCloudScheduleRule scheduleRule = scheduleRule("schedule-id", "Morning", "FIXED");
+
+        DiscoveryResult result = Objects
+                .requireNonNull(RachioDiscoveryService.buildScheduleDiscoveryResult(BRIDGE_UID, device, scheduleRule));
+
+        assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_SCHEDULE, BRIDGE_UID, "schedule-id")));
+        assertThat(result.getBridgeUID(), is(BRIDGE_UID));
+        assertThat(result.getRepresentationProperty(), is(PROPERTY_SCHEDULE_RULE_ID));
+        assertThat(result.getProperties().get(PROPERTY_SCHEDULE_RULE_ID), is("schedule-id"));
+        assertThat(result.getProperties().get(PROPERTY_DEV_ID), is("device-id"));
+    }
+
+    @Test
+    void flexScheduleDiscoveryResultContainsStableFlexScheduleIdentity() {
+        RachioDevice device = device();
+        RachioCloudScheduleRule scheduleRule = scheduleRule("flex-id", "Flex", "FLEX");
+
+        DiscoveryResult result = Objects.requireNonNull(
+                RachioDiscoveryService.buildFlexScheduleDiscoveryResult(BRIDGE_UID, device, scheduleRule));
+
+        assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_FLEXSCHEDULE, BRIDGE_UID, "flex-id")));
+        assertThat(result.getBridgeUID(), is(BRIDGE_UID));
+        assertThat(result.getRepresentationProperty(), is(PROPERTY_FLEX_SCHEDULE_RULE_ID));
+        assertThat(result.getProperties().get(PROPERTY_FLEX_SCHEDULE_RULE_ID), is("flex-id"));
+        assertThat(result.getProperties().get(PROPERTY_DEV_ID), is("device-id"));
+    }
+
+    @Test
+    void scheduleDiscoverySkipsBlankScheduleId() {
+        assertThat(RachioDiscoveryService.buildScheduleDiscoveryResult(BRIDGE_UID, device(),
+                scheduleRule("", "Name", "FIXED")), nullValue());
+    }
+
+    private RachioDevice device() {
+        RachioCloudDevice cloudDevice = new RachioCloudDevice();
+        cloudDevice.id = "device-id";
+        cloudDevice.name = "Controller";
+        cloudDevice.macAddress = "ABCDEF123456";
+        return new RachioDevice(cloudDevice);
+    }
+
+    private RachioCloudScheduleRule scheduleRule(String id, String name, String type) {
+        RachioCloudScheduleRule scheduleRule = new RachioCloudScheduleRule();
+        scheduleRule.id = id;
+        scheduleRule.name = name;
+        scheduleRule.type = type;
+        return scheduleRule;
+    }
+}

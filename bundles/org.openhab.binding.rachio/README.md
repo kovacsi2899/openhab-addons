@@ -185,6 +185,10 @@ If controller `runTime` is greater than 0, that value is used for all selected z
 If controller `runTime` is 0, the bridge `defaultRuntime` is used.
 Zone-specific `runTime` values only apply when starting an individual zone from that zone Thing.
 
+Current schedule, forecast, and event history channels use a last-known-value policy.
+If one of these extra read endpoints fails during a refresh, the binding logs the failure and keeps the previously published values.
+A successful current schedule response that reports no running schedule still clears the current schedule channels normally.
+
 ### Zone Thing - represents one zone of a Controller
 
 |Channel      |Description                                                                                                            |
@@ -211,6 +215,7 @@ For manually created zone Things, set `zoneId` to the Rachio API zone UUID.
 Fixed schedule rules are represented by `schedule` Things.
 Discovery creates schedule Things when the Rachio controller payload includes schedule rule IDs.
 Manual schedule creation requires `scheduleRuleId`, the real Rachio schedule rule UUID.
+If the controller payload does not include schedule rule IDs, add schedule Things manually.
 
 |Channel|Description|
 |:------|:----------|
@@ -230,6 +235,7 @@ Manual schedule creation requires `scheduleRuleId`, the real Rachio schedule rul
 Flex schedules are represented by read-only `flexschedule` Things.
 Manual flex schedule creation requires `flexScheduleRuleId`.
 The flex schedule channels mirror the read-only schedule metadata channels.
+Discovery creates flex schedule Things when the Rachio controller payload includes flex schedule rule IDs.
 
 ### Webhook Events
 

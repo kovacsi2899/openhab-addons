@@ -341,8 +341,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             logger.debug("{}: Loaded current schedule for controller '{}': running={}, id='{}'", thingId, d.id,
                     d.currentScheduleRunning, d.currentScheduleId);
         } catch (RachioApiException e) {
-            logger.debug("{}: Unable to load current schedule for controller '{}': {}", thingId, d.id, e.getMessage());
-            d.clearCurrentSchedule();
+            logger.debug("{}: Unable to load current schedule for controller '{}': {}; retaining last known values",
+                    thingId, d.id, e.getMessage());
         }
 
         try {
@@ -350,7 +350,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             logger.debug("{}: Loaded forecast for controller '{}' using {} units", thingId, d.id,
                     handler.getForecastUnits());
         } catch (RachioApiException e) {
-            logger.debug("{}: Unable to load forecast for controller '{}': {}", thingId, d.id, e.getMessage());
+            logger.debug("{}: Unable to load forecast for controller '{}': {}; retaining last known values", thingId,
+                    d.id, e.getMessage());
         }
 
         int lookbackHours = handler.getEventHistoryLookbackHours();
@@ -363,7 +364,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                 logger.debug("{}: Loaded {} recent controller events over {} hours", thingId, events.events.size(),
                         lookbackHours);
             } catch (RachioApiException e) {
-                logger.debug("{}: Unable to load recent events for controller '{}': {}", thingId, d.id, e.getMessage());
+                logger.debug("{}: Unable to load recent events for controller '{}': {}; retaining last known values",
+                        thingId, d.id, e.getMessage());
             }
         } else {
             d.applyApiEvent(null);
