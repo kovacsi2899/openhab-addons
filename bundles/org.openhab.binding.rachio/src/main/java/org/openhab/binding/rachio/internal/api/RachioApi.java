@@ -217,6 +217,19 @@ public class RachioApi {
     }
 
     @Nullable
+    public RachioDevice bindDeviceByRachioId(ThingUID bridgeUID, ThingUID thingUID, String deviceId) {
+        RachioDevice dev = getDeviceByRachioId(deviceId);
+        if (dev != null) {
+            dev.setUID(bridgeUID, thingUID);
+            logger.debug("Mapped requested device UID '{}' to Rachio device '{}' using configured deviceId '{}'",
+                    thingUID, dev.name, deviceId);
+        } else {
+            logger.debug("Unable to map requested device UID '{}' using configured deviceId '{}'", thingUID, deviceId);
+        }
+        return dev;
+    }
+
+    @Nullable
     public RachioDevice getDeviceByRachioId(@Nullable String deviceId) {
         if (deviceId == null || deviceId.isBlank()) {
             return null;

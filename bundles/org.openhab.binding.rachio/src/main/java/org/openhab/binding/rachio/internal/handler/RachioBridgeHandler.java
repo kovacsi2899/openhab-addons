@@ -503,6 +503,11 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     }
 
     @Nullable
+    public RachioDevice getDevByConfiguredDeviceId(Thing thing, String deviceId) {
+        return rachioApi.bindDeviceByRachioId(getThing().getUID(), thing.getUID(), deviceId);
+    }
+
+    @Nullable
     public RachioDevice getDevForZone(RachioZone zone) {
         return rachioApi.getDeviceByZoneRachioId(zone.id);
     }

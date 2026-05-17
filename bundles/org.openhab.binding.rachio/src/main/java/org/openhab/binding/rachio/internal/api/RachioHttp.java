@@ -25,6 +25,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
+import java.util.regex.Pattern;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -44,6 +45,17 @@ public class RachioHttp {
     private static final String HTTP_METHOD_GET = "GET";
     private static final String HTTP_METHOD_POST = "POST";
     private static final String HTTP_METHOD_PUT = "PUT";
+    private static final Pattern URL_USERINFO_PATTERN = Pattern
+            .compile("(?i)\\b([a-z][a-z0-9+.-]*://)([^\\s\"'<>/]*@)");
+    private static final Pattern ESCAPED_URL_USERINFO_PATTERN = Pattern
+            .compile("(?i)\\b([a-z][a-z0-9+.-]*:\\\\/\\\\/)([^\\s\"'<>/\\\\]*@)");
+    private static final Pattern AUTHORIZATION_PATTERN = Pattern
+            .compile("(?i)(authorization\\s*[=:]\\s*(?:bearer\\s+)?)([^\\s,;\"'}]+)");
+    private static final Pattern AUTHORIZATION_JSON_PATTERN = Pattern
+            .compile("(?i)(\"authorization\"\\s*:\\s*\"(?:bearer\\s+)?)([^\"]+)(\")");
+    private static final Pattern BEARER_PATTERN = Pattern.compile("(?i)(bearer\\s+)([A-Za-z0-9._~+/=-]+)");
+    private static final Pattern API_KEY_JSON_PATTERN = Pattern
+            .compile("(?i)(\"(?:api[-_]?key|apikey)\"\\s*:\\s*\")([^\"]+)(\")");
 
     private int apiCalls = 0;
     private String apikey = "";
@@ -144,7 +156,7 @@ public class RachioHttp {
             request.setRequestProperty("User-Agent", SERVLET_WEBHOOK_USER_AGENT);
             request.setRequestProperty("Content-Type", SERVLET_WEBHOOK_APPLICATION_JSON);
             logger.trace("RachioHttp[Call #{}]: Call Rachio cloud service: {} '{}')", apiCalls,
-                    request.getRequestMethod(), result.url);
+                    request.getRequestMethod(), sanitizeForLogging(result.url));
             if (method.equals(HTTP_METHOD_PUT) || method.equals(HTTP_METHOD_POST)) {
                 request.setDoOutput(true);
                 DataOutputStream wr = new DataOutputStream(request.getOutputStream());
@@ -167,10 +179,10 @@ public class RachioHttp {
             }
 
             if ((result.responseCode < HTTP_OK) || (result.responseCode >= HTTP_MULT_CHOICE)) {
-                result.resultString = readResponse(request.getErrorStream());
+                result.resultString = sanitizeForLogging(readResponse(request.getErrorStream()));
                 String message = MessageFormat.format(
                         "RachioHttp: Error sending HTTP {0} request to {1} - http response code={2}, response={3}",
-                        request.getRequestMethod(), url, result.responseCode, result.resultString);
+                        request.getRequestMethod(), sanitizeForLogging(url), result.responseCode, result.resultString);
                 throw new RachioApiException(message, result);
             }
 
@@ -180,11 +192,12 @@ public class RachioHttp {
             }
 
             result.resultString = response.toString();
-            logger.trace("RachioHttp: {} {} - Response='{}'", request.getRequestMethod(), url, result.resultString);
+            logger.trace("RachioHttp: {} {} - Response='{}'", request.getRequestMethod(), sanitizeForLogging(url),
+                    sanitizeForLogging(result.resultString));
 
             return result;
         } catch (RuntimeException | IOException e) {
-            result.resultString = getString(e.toString());
+            result.resultString = sanitizeForLogging(getString(e.toString()));
             if (result.resultString.contains("Server returned HTTP response code: 429")) {
                 result.responseCode = HttpStatus.TOO_MANY_REQUESTS_429;
             }
@@ -204,5 +217,23 @@ public class RachioHttp {
             }
         }
         return response.toString();
+    }
+
+    static String sanitizeForLogging(@Nullable String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+
+        String sanitized = URL_USERINFO_PATTERN.matcher(value).replaceAll("$1***:***@");
+        sanitized = ESCAPED_URL_USERINFO_PATTERN.matcher(sanitized).replaceAll("$1***:***@");
+        sanitized = AUTHORIZATION_PATTERN.matcher(sanitized).replaceAll("$1[redacted]");
+        sanitized = AUTHORIZATION_JSON_PATTERN.matcher(sanitized).replaceAll("$1[redacted]$3");
+        sanitized = BEARER_PATTERN.matcher(sanitized).replaceAll("$1[redacted]");
+        sanitized = API_KEY_JSON_PATTERN.matcher(sanitized).replaceAll("$1[redacted]$3");
+        return sanitizeKnownApiKey(sanitized);
+    }
+
+    private static String sanitizeKnownApiKey(String value) {
+        return value.replaceAll("(?i)((?:api[-_]?key|apikey|access_token)=)([^&\\s\"'}]+)", "$1[redacted]");
     }
 }

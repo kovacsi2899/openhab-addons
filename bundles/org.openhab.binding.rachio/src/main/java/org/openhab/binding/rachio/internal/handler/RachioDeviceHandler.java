@@ -71,7 +71,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             }
 
             RachioBridgeHandler handler = cloudHandler;
-            dev = handler != null ? handler.getDevByThing(this.getThing()) : null;
+            dev = resolveDevice(handler, configuredDeviceId);
             RachioDevice d = dev;
             if (d == null || handler == null) {
                 errorMessage = buildDeviceResolutionError(configuredDeviceId);
@@ -110,13 +110,27 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         }
     }
 
+    private @Nullable RachioDevice resolveDevice(@Nullable RachioBridgeHandler handler, String configuredDeviceId) {
+        if (handler == null) {
+            return null;
+        }
+
+        if (!configuredDeviceId.isBlank()) {
+            logger.debug("Resolving Rachio controller Thing '{}' by configured deviceId '{}'", getThing().getUID(),
+                    configuredDeviceId);
+            return handler.getDevByConfiguredDeviceId(getThing(), configuredDeviceId);
+        }
+
+        logger.debug("Rachio controller Thing '{}' has no configured deviceId; trying legacy property/UID fallback",
+                getThing().getUID());
+        return handler.getDevByThing(getThing());
+    }
+
     private String buildDeviceResolutionError(String configuredDeviceId) {
         if (configuredDeviceId.isBlank()) {
-            return "Unable to resolve Rachio controller for Thing '" + getThing().getUID()
-                    + "': no deviceId is configured and no legacy UID/property mapping matched. The deviceId must be the Rachio controller UUID, not the MAC address.";
+            return "Missing Rachio deviceId. Add the controller via Inbox discovery or configure the Rachio API controller UUID manually.";
         }
-        return "Unable to resolve Rachio controller for Thing '" + getThing().getUID() + "' using configured deviceId '"
-                + configuredDeviceId + "'.";
+        return "Configured Rachio deviceId was not found in the account: '" + configuredDeviceId + "'.";
     }
 
     @Override
