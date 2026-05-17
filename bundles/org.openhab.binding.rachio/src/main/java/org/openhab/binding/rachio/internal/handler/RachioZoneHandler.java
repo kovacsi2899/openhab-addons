@@ -180,6 +180,32 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                     logger.debug("{}: Zone {} will start for {} sec", thingId, currentZone.name, runtime);
                     currentZone.setStartRunTime(runtime);
                 }
+            } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_MOISTURE_LEVEL)) {
+                if (command instanceof DecimalType) {
+                    double level = ((DecimalType) command).doubleValue();
+                    logger.debug("{}: Updating zone '{}' moisture level to {}", thingId, currentZone.name, level);
+                    handler.setZoneMoistureLevel(currentZone.id, level);
+                    currentZone.setMoistureLevel(level);
+                    updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, new DecimalType(BigDecimal.valueOf(level)));
+                    updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+                } else {
+                    logger.debug("Moisture level command value is no DecimalType: {}", command);
+                }
+            } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_MOISTURE_PERCENT)) {
+                if (command instanceof DecimalType) {
+                    double percent = ((DecimalType) command).doubleValue();
+                    if (percent < 0 || percent > 1) {
+                        logger.debug("{}: Invalid moisture percent {}; expected range is 0..1", thingId, percent);
+                        return;
+                    }
+                    logger.debug("{}: Updating zone '{}' moisture percent to {}", thingId, currentZone.name, percent);
+                    handler.setZoneMoisturePercent(currentZone.id, percent);
+                    currentZone.setMoisturePercent(percent);
+                    updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, new DecimalType(BigDecimal.valueOf(percent)));
+                    updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+                } else {
+                    logger.debug("Moisture percent command value is no DecimalType: {}", command);
+                }
             }
         } catch (RachioApiException e) {
             errorMessage = e.toString();
@@ -281,6 +307,10 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_ZONE_RUN_TIME, new DecimalType(new BigDecimal(z.getStartRunTime()).toString()));
             updateChannel(CHANNEL_ZONE_RUN_TOTAL, new DecimalType(new BigDecimal(z.runtime).toString()));
             updateChannel(CHANNEL_ZONE_IMAGEURL, new StringType(z.imageUrl));
+            updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, Double.isNaN(z.getMoistureLevel()) ? UnDefType.UNDEF
+                    : new DecimalType(BigDecimal.valueOf(z.getMoistureLevel())));
+            updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, Double.isNaN(z.getMoisturePercent()) ? UnDefType.UNDEF
+                    : new DecimalType(BigDecimal.valueOf(z.getMoisturePercent())));
             updateChannel(CHANNEL_LAST_EVENT, new StringType(z.getEvent()));
             DateTimeType ts = z.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);

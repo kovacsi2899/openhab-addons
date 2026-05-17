@@ -22,6 +22,10 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioBindingConstants;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudNetworkSettings;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEvent;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioForecastEntry;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioForecastResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioZoneGsonDTO.RachioCloudZone;
 import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
 import org.openhab.core.library.types.DateTimeType;
@@ -62,6 +66,27 @@ public class RachioDevice extends RachioCloudDevice {
     @Nullable
     public RachioCloudNetworkSettings network;
     public String scheduleName = "";
+    public String currentScheduleId = "";
+    public String currentScheduleName = "";
+    public String currentScheduleType = "";
+    public String currentScheduleStartTime = "";
+    public String currentScheduleEndTime = "";
+    public int currentScheduleDuration = 0;
+    public boolean currentScheduleRunning = false;
+    public String lastApiEventType = "";
+    public String lastApiEventTime = "";
+    public String lastApiEventSummary = "";
+    public String forecastSummary = "";
+    public double forecastTodayHigh = Double.NaN;
+    public double forecastTodayLow = Double.NaN;
+    public double forecastPrecipitation = Double.NaN;
+    public double forecastPrecipitationProbability = Double.NaN;
+    public double forecastWind = Double.NaN;
+    public String forecastUpdated = "";
+    public String lastSkipType = "";
+    public String lastSkipScheduleId = "";
+    public String lastSkipStartTime = "";
+    public String lastSkipReason = "";
 
     @SuppressWarnings("unused")
     public RachioDevice(RachioCloudDevice device) {
@@ -349,6 +374,73 @@ public class RachioDevice extends RachioCloudDevice {
 
     public void setNetwork(@Nullable RachioCloudNetworkSettings network) {
         this.network = network;
+    }
+
+    public void applyCurrentSchedule(RachioCurrentScheduleResponse currentSchedule) {
+        currentScheduleId = currentSchedule.getScheduleId();
+        currentScheduleName = currentSchedule.getScheduleName();
+        currentScheduleType = currentSchedule.getScheduleType();
+        currentScheduleStartTime = currentSchedule.getStartTime();
+        currentScheduleEndTime = currentSchedule.getEndTime();
+        currentScheduleDuration = currentSchedule.getDurationSeconds();
+        currentScheduleRunning = currentSchedule.isRunning();
+        if (!currentScheduleRunning) {
+            currentScheduleId = "";
+            currentScheduleName = "";
+            currentScheduleType = "";
+            currentScheduleStartTime = "";
+            currentScheduleEndTime = "";
+            currentScheduleDuration = 0;
+        }
+    }
+
+    public void clearCurrentSchedule() {
+        currentScheduleId = "";
+        currentScheduleName = "";
+        currentScheduleType = "";
+        currentScheduleStartTime = "";
+        currentScheduleEndTime = "";
+        currentScheduleDuration = 0;
+        currentScheduleRunning = false;
+    }
+
+    public void applyApiEvent(@Nullable RachioDeviceEvent event) {
+        if (event == null) {
+            lastApiEventType = "";
+            lastApiEventTime = "";
+            lastApiEventSummary = "";
+            return;
+        }
+        lastApiEventType = event.getEventType();
+        lastApiEventTime = event.getEventTime();
+        lastApiEventSummary = event.getSummary();
+    }
+
+    public void applyForecast(RachioForecastResponse forecast) {
+        forecastSummary = forecast.getSummary();
+        forecastUpdated = forecast.getUpdated();
+        @Nullable
+        RachioForecastEntry today = forecast.getTodayForecast();
+        if (today == null) {
+            forecastTodayHigh = Double.NaN;
+            forecastTodayLow = Double.NaN;
+            forecastPrecipitation = Double.NaN;
+            forecastPrecipitationProbability = Double.NaN;
+            forecastWind = Double.NaN;
+            return;
+        }
+        forecastTodayHigh = today.getHighTemperature();
+        forecastTodayLow = today.getLowTemperature();
+        forecastPrecipitation = today.precipitation;
+        forecastPrecipitationProbability = today.precipitationProbability;
+        forecastWind = today.getWind();
+    }
+
+    public void applySkipEvent(String skipType, String scheduleId, String startTime, String reason) {
+        lastSkipType = skipType;
+        lastSkipScheduleId = scheduleId;
+        lastSkipStartTime = startTime;
+        lastSkipReason = reason;
     }
 
     public String getAllRunZonesJson(int defaultRuntime) {

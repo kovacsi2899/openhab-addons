@@ -46,6 +46,15 @@ import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWe
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudPersonId;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioForecastResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioMoistureLevelRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioMoisturePercentRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleCommandRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioSeasonalAdjustmentRequest;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
@@ -594,6 +603,109 @@ public class RachioApi {
     public void disableZone(String zoneId) throws RachioApiException {
         logger.debug("Disable zone '{}'.", zoneId);
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_DISABLE, "{ \"id\" : \"" + zoneId + "\" }", PRIORITY.HI);
+    }
+
+    public RachioCurrentScheduleResponse getCurrentSchedule(String deviceId) throws RachioApiException {
+        logger.debug("Load current schedule for device '{}'.", deviceId);
+        String json = httpGet(
+                APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId + "/" + APIURL_GET_DEVICE_CURRENT_SCHEDULE, null,
+                PRIORITY.LOW).resultString;
+        @Nullable
+        RachioCurrentScheduleResponse response = new Gson().fromJson(json, RachioCurrentScheduleResponse.class);
+        return response != null ? response : new RachioCurrentScheduleResponse();
+    }
+
+    public RachioDeviceEventListResponse getDeviceEvents(String deviceId, long startTime, long endTime)
+            throws RachioApiException {
+        logger.debug("Load device events for device '{}' from {} to {}.", deviceId, startTime, endTime);
+        String params = "startTime=" + startTime + "&endTime=" + endTime;
+        String json = httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId + "/" + APIURL_GET_DEVICE_EVENT, params,
+                PRIORITY.LOW).resultString;
+        RachioDeviceEventListResponse response = RachioDeviceEventListResponse.fromJson(json);
+        logger.debug("Loaded {} device events for device '{}'.", response.events.size(), deviceId);
+        return response;
+    }
+
+    public RachioForecastResponse getDeviceForecast(String deviceId, String units) throws RachioApiException {
+        String normalizedUnits = units.equalsIgnoreCase("US") ? "US" : "METRIC";
+        logger.debug("Load forecast for device '{}' using {} units.", deviceId, normalizedUnits);
+        String json = httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId + "/" + APIURL_GET_DEVICE_FORECAST,
+                "units=" + urlEncode(normalizedUnits), PRIORITY.LOW).resultString;
+        @Nullable
+        RachioForecastResponse response = new Gson().fromJson(json, RachioForecastResponse.class);
+        return response != null ? response : new RachioForecastResponse();
+    }
+
+    public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
+        logger.debug("Update zone moisture level for zone '{}' to {}.", zoneId, level);
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_MOISTURE_LEVEL, buildMoistureLevelPayload(zoneId, level), PRIORITY.HI);
+    }
+
+    public void setZoneMoisturePercent(String zoneId, double percent) throws RachioApiException {
+        if (percent < 0 || percent > 1) {
+            throw new RachioApiException("Moisture percent must be between 0 and 1.");
+        }
+        logger.debug("Update zone moisture percent for zone '{}' to {}.", zoneId, percent);
+        httpPut(APIURL_BASE + APIURL_ZONE_PUT_MOISTURE_PERCENT, buildMoisturePercentPayload(zoneId, percent),
+                PRIORITY.HI);
+    }
+
+    public RachioScheduleRuleResponse getScheduleRule(String scheduleRuleId) throws RachioApiException {
+        logger.debug("Load schedule rule '{}'.", scheduleRuleId);
+        String json = httpGet(APIURL_BASE + APIURL_GET_SCHEDULE_RULE + "/" + scheduleRuleId, null,
+                PRIORITY.LOW).resultString;
+        @Nullable
+        RachioScheduleRuleResponse response = new Gson().fromJson(json, RachioScheduleRuleResponse.class);
+        return response != null ? response : new RachioScheduleRuleResponse();
+    }
+
+    public RachioFlexScheduleRuleResponse getFlexScheduleRule(String flexScheduleRuleId) throws RachioApiException {
+        logger.debug("Load flex schedule rule '{}'.", flexScheduleRuleId);
+        String json = httpGet(APIURL_BASE + APIURL_GET_FLEX_SCHEDULE_RULE + "/" + flexScheduleRuleId, null,
+                PRIORITY.LOW).resultString;
+        @Nullable
+        RachioFlexScheduleRuleResponse response = new Gson().fromJson(json, RachioFlexScheduleRuleResponse.class);
+        return response != null ? response : new RachioFlexScheduleRuleResponse();
+    }
+
+    public void startScheduleRule(String scheduleRuleId) throws RachioApiException {
+        logger.debug("Start schedule rule '{}'.", scheduleRuleId);
+        httpPut(APIURL_BASE + APIURL_SCHEDULE_RULE_PUT_START, buildScheduleRuleCommandPayload(scheduleRuleId),
+                PRIORITY.HI);
+    }
+
+    public void skipScheduleRule(String scheduleRuleId) throws RachioApiException {
+        logger.debug("Skip schedule rule '{}'.", scheduleRuleId);
+        httpPut(APIURL_BASE + APIURL_SCHEDULE_RULE_PUT_SKIP, buildScheduleRuleCommandPayload(scheduleRuleId),
+                PRIORITY.HI);
+    }
+
+    public void setScheduleRuleSeasonalAdjustment(String scheduleRuleId, double adjustment) throws RachioApiException {
+        logger.debug("Set seasonal adjustment for schedule rule '{}' to {}.", scheduleRuleId, adjustment);
+        httpPut(APIURL_BASE + APIURL_SCHEDULE_RULE_PUT_SEASONAL_ADJUSTMENT,
+                buildSeasonalAdjustmentPayload(scheduleRuleId, adjustment), PRIORITY.HI);
+    }
+
+    public void skipForwardZoneRun(String id) throws RachioApiException {
+        logger.debug("Skip forward zone run for '{}'.", id);
+        httpPut(APIURL_BASE + APIURL_SCHEDULE_RULE_PUT_SKIP_FORWARD_ZONE_RUN, buildScheduleRuleCommandPayload(id),
+                PRIORITY.HI);
+    }
+
+    static String buildMoistureLevelPayload(String zoneId, double level) {
+        return new Gson().toJson(new RachioMoistureLevelRequest(zoneId, level));
+    }
+
+    static String buildMoisturePercentPayload(String zoneId, double percent) {
+        return new Gson().toJson(new RachioMoisturePercentRequest(zoneId, percent));
+    }
+
+    static String buildScheduleRuleCommandPayload(String id) {
+        return new Gson().toJson(new RachioScheduleRuleCommandRequest(id));
+    }
+
+    static String buildSeasonalAdjustmentPayload(String id, double adjustment) {
+        return new Gson().toJson(new RachioSeasonalAdjustmentRequest(id, adjustment));
     }
 
     public void getDeviceInfo(String deviceId) throws RachioApiException {

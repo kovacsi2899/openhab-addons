@@ -33,6 +33,8 @@ All devices are connected to this thing, all zones to the corresponding device.
 |cloud |Each Rachio account is represented by a `cloud` thing. The binding supports multiple accounts at the same time.          |
 |device|Each sprinkler controller is represented by a `device` thing, which links to the cloud thing.                             |
 |zone  |Each zone for each controller creates a `zone` thing, which links to the device thing (and  directly to the bridge thing)|
+|schedule|Each fixed schedule rule can be represented by a `schedule` thing. Discovery creates these when schedule IDs are present in the controller response.|
+|flexschedule|Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response.|
 
 ###  Configuration
 
@@ -58,6 +60,8 @@ Bridge rachio:cloud:1 [
     apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx",
     pollingInterval=180,
     defaultRuntime=120,
+    eventHistoryLookbackHours=24,
+    forecastUnits="METRIC",
     callbackUrl="https://home.myopenhab.org/rachio/webhook",
     callbackUsername="user@example.com",
     callbackPassword="raw-password-with-special-characters",
@@ -75,6 +79,8 @@ Bridge rachio:cloud:1 [
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
+|eventHistoryLookbackHours|Hours of recent controller event history to retrieve. Set to 0 to disable event history polling.|
+|forecastUnits    |Units for the Rachio forecast endpoint: `METRIC` or `US`.|
 |callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. For direct reverse proxies without Basic Auth, use `https://yourhost.example.org/rachio/webhook`.|
 |callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
 |callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
@@ -147,6 +153,27 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |scheduleInfo |Description of current/last executed schedule                                                                          |
 |scheduleStart|Schedule start time                                                                                                    |
 |scheduleStop |Schedule end time                                                                                                      |
+|currentScheduleRunning|ON when Rachio reports a currently running schedule from `/device/{id}/current_schedule`.                     |
+|currentScheduleId|Rachio schedule ID for the currently running schedule.                                                              |
+|currentScheduleName|Name of the currently running schedule.                                                                            |
+|currentScheduleType|Type of the currently running schedule.                                                                            |
+|currentScheduleStartTime|Start time of the currently running schedule.                                                                 |
+|currentScheduleEndTime|End time of the currently running schedule.                                                                     |
+|currentScheduleDuration|Duration of the currently running schedule in seconds.                                                         |
+|lastApiEventType|Type of the latest event retrieved from recent device event history.                                                |
+|lastApiEventTime|Time of the latest event retrieved from recent device event history.                                                |
+|lastApiEventSummary|Summary of the latest event retrieved from recent device event history.                                          |
+|forecastSummary|Forecast summary from Rachio.                                                                                        |
+|forecastTodayHigh|Today's forecast high temperature in the configured forecast units.                                                |
+|forecastTodayLow|Today's forecast low temperature in the configured forecast units.                                                  |
+|forecastPrecipitation|Today's forecast precipitation amount.                                                                         |
+|forecastPrecipitationProbability|Today's forecast precipitation probability.                                                            |
+|forecastWind|Today's forecast wind speed in the configured forecast units.                                                            |
+|forecastUpdated|Timestamp of the forecast data when provided by Rachio.                                                               |
+|lastSkipType|Most recent weather intelligence skip event type.                                                                        |
+|lastSkipScheduleId|Schedule ID associated with the most recent weather intelligence skip event.                                       |
+|lastSkipStartTime|Start time associated with the most recent weather intelligence skip event.                                        |
+|lastSkipReason|Summary or reason from the most recent weather intelligence skip event.                                                |
 
 Controller identity is based on the Rachio API controller UUID configured as `deviceId`.
 Discovery fills this automatically.
@@ -169,6 +196,8 @@ Zone-specific `runTime` values only apply when starting an individual zone from 
 |runTime      |Number of seconds to run the zone when run receives ON command                                                         |
 |runTotal     |Total number of seconds the zone was watering (as returned by the cloud service).                                      |
 |imageUrl     |URL to the zone picture as configured in the App. Rachio supplies default pictures if no image was created.            |
+|moistureLevel|Command channel for `zone/setMoistureLevel`. Send the moisture level in millimeters.                                  |
+|moisturePercent|Command channel for `zone/setMoisturePercent`. Send a number from 0 to 1.                                           |
 |lastUpdate   |Timestamp of last status update                                                                                        |
 |lastEvent    |Last event received from the cloud (requires configuration of event callback)                                          |
 |lastEventTime|Timestamp last event has been received (only if event callback is active)                                              |
@@ -176,6 +205,38 @@ Zone-specific `runTime` values only apply when starting an individual zone from 
 Zone identity is based on the Rachio API zone UUID configured as `zoneId`.
 Discovery fills this automatically.
 For manually created zone Things, set `zoneId` to the Rachio API zone UUID.
+
+### Schedule Things
+
+Fixed schedule rules are represented by `schedule` Things.
+Discovery creates schedule Things when the Rachio controller payload includes schedule rule IDs.
+Manual schedule creation requires `scheduleRuleId`, the real Rachio schedule rule UUID.
+
+|Channel|Description|
+|:------|:----------|
+|name|Schedule rule name.|
+|enabled|ON if the schedule rule is enabled.|
+|type|Schedule rule type.|
+|startTime|Schedule start time when provided by Rachio.|
+|lastRun|Last run time when provided by Rachio.|
+|nextRun|Next run time when provided by Rachio.|
+|zones|Comma-separated Rachio zone IDs associated with the schedule.|
+|seasonalAdjustment|Seasonal adjustment value. Sending a number updates the schedule rule adjustment.|
+|start|Send ON to start the schedule rule.|
+|skip|Send ON to skip the schedule rule.|
+|skipForwardZoneRun|Send ON to skip the currently running zone in the schedule context.|
+|lastUpdate|Timestamp of last schedule state update.|
+
+Flex schedules are represented by read-only `flexschedule` Things.
+Manual flex schedule creation requires `flexScheduleRuleId`.
+The flex schedule channels mirror the read-only schedule metadata channels.
+
+### Webhook Events
+
+The binding registers for the current Smart Irrigation Controller webhook event types exposed by Rachio, including schedule started/stopped/completed, zone run started/stopped/completed/paused, rain/freeze/wind/climate skip notifications, and no-skip notifications.
+Schedule events update controller schedule channels and matching `schedule` Things when present.
+Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
+Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
 
 # Full example
 
@@ -195,6 +256,14 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     ]
     Thing zone XXXXXXXXXXXX-2 "Rachio zone 2" @ "Sprinkler" [
         zoneId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+
+    Thing schedule morning "Morning schedule" @ "Sprinkler" [
+        scheduleRuleId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+
+    Thing flexschedule flex "Flex schedule" @ "Sprinkler" [
+        flexScheduleRuleId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
 }
 ```

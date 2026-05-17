@@ -25,6 +25,8 @@ import org.openhab.binding.rachio.internal.handler.AbstractRachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.AbstractRachioThingHandler;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
+import org.openhab.binding.rachio.internal.handler.RachioFlexScheduleHandler;
+import org.openhab.binding.rachio.internal.handler.RachioScheduleHandler;
 import org.openhab.binding.rachio.internal.handler.RachioZoneHandler;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
@@ -90,6 +92,10 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
                 return createBridge((Bridge) thing);
             } else if (SUPPORTED_ZONE_THING_TYPES_UIDS.contains(thingTypeUID)) {
                 return createZone(thing);
+            } else if (thingTypeUID.equals(THING_TYPE_SCHEDULE)) {
+                return createSchedule(thing);
+            } else if (thingTypeUID.equals(THING_TYPE_FLEXSCHEDULE)) {
+                return createFlexSchedule(thing);
             } else if (SUPPORTED_DEVICE_THING_TYPES_UIDS.contains(thingTypeUID)) {
                 return createDevice(thing);
             }
@@ -199,5 +205,15 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     private RachioZoneHandler createZone(Thing thing) {
         logger.debug("Zone handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
         return new RachioZoneHandler(thing);
+    }
+
+    private RachioScheduleHandler createSchedule(Thing thing) {
+        logger.debug("Schedule handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
+        return new RachioScheduleHandler(thing);
+    }
+
+    private RachioFlexScheduleHandler createFlexSchedule(Thing thing) {
+        logger.debug("Flex schedule handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
+        return new RachioFlexScheduleHandler(thing);
     }
 }

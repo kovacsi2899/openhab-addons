@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="flexschedule">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="cloud"/>
+		</supported-bridge-type-refs>
+
+		<label>Rachio Flex Schedule Rule</label>
+		<description>A read-only Rachio flex schedule rule.</description>
+
+		<channels>
+			<channel id="name" typeId="schedule_name"/>
+			<channel id="enabled" typeId="schedule_enabled"/>
+			<channel id="type" typeId="schedule_type"/>
+			<channel id="startTime" typeId="schedule_startTime"/>
+			<channel id="lastRun" typeId="schedule_lastRun"/>
+			<channel id="nextRun" typeId="schedule_nextRun"/>
+			<channel id="zones" typeId="schedule_zones"/>
+			<channel id="seasonalAdjustment" typeId="schedule_seasonalAdjustment"/>
+			<channel id="lastUpdate" typeId="lastUpdate"/>
+		</channels>
+
+		<representation-property>flexScheduleRuleId</representation-property>
+
+		<config-description>
+			<parameter name="flexScheduleRuleId" type="text" required="false">
+				<label>Flex Schedule Rule ID</label>
+				<description>Rachio API flex schedule rule UUID. Required for manually created flex schedule Things.</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+</thing:thing-descriptions>

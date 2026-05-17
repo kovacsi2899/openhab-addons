@@ -31,6 +31,11 @@ import org.openhab.binding.rachio.internal.api.RachioApiException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioForecastResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
 import org.openhab.binding.rachio.internal.discovery.RachioDiscoveryService;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.core.config.core.Configuration;
@@ -251,6 +256,10 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
                             zoneList.put(entry.getKey(), entry.getValue());
                         }
                     }
+                    RachioDeviceHandler deviceHandler = dev.getThingHandler();
+                    if (deviceHandler != null) {
+                        deviceHandler.refreshSmartIrrigationReadExtensions(false);
+                    }
                 }
             }
         } catch (RachioApiException e) {
@@ -399,6 +408,51 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         }
     }
 
+    public RachioCurrentScheduleResponse getCurrentSchedule(String deviceId) throws RachioApiException {
+        return rachioApi.getCurrentSchedule(deviceId);
+    }
+
+    public RachioDeviceEventListResponse getDeviceEvents(String deviceId, long startTime, long endTime)
+            throws RachioApiException {
+        return rachioApi.getDeviceEvents(deviceId, startTime, endTime);
+    }
+
+    public RachioForecastResponse getDeviceForecast(String deviceId, String units) throws RachioApiException {
+        return rachioApi.getDeviceForecast(deviceId, units);
+    }
+
+    public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
+        rachioApi.setZoneMoistureLevel(zoneId, level);
+    }
+
+    public void setZoneMoisturePercent(String zoneId, double percent) throws RachioApiException {
+        rachioApi.setZoneMoisturePercent(zoneId, percent);
+    }
+
+    public RachioScheduleRuleResponse getScheduleRule(String scheduleRuleId) throws RachioApiException {
+        return rachioApi.getScheduleRule(scheduleRuleId);
+    }
+
+    public RachioFlexScheduleRuleResponse getFlexScheduleRule(String flexScheduleRuleId) throws RachioApiException {
+        return rachioApi.getFlexScheduleRule(flexScheduleRuleId);
+    }
+
+    public void startScheduleRule(String scheduleRuleId) throws RachioApiException {
+        rachioApi.startScheduleRule(scheduleRuleId);
+    }
+
+    public void skipScheduleRule(String scheduleRuleId) throws RachioApiException {
+        rachioApi.skipScheduleRule(scheduleRuleId);
+    }
+
+    public void setScheduleRuleSeasonalAdjustment(String scheduleRuleId, double adjustment) throws RachioApiException {
+        rachioApi.setScheduleRuleSeasonalAdjustment(scheduleRuleId, adjustment);
+    }
+
+    public void skipForwardZoneRun(String id) throws RachioApiException {
+        rachioApi.skipForwardZoneRun(id);
+    }
+
     //
     // ------ Read Thing config
     //
@@ -464,6 +518,14 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      */
     public int getDefaultRuntime() {
         return thingConfig.defaultRuntime;
+    }
+
+    public int getEventHistoryLookbackHours() {
+        return thingConfig.eventHistoryLookbackHours;
+    }
+
+    public String getForecastUnits() {
+        return thingConfig.forecastUnits;
     }
 
     //
@@ -557,14 +619,23 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
             if (deviceList == null) {
                 return false;
             }
+            boolean handled = false;
             for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
                 RachioDevice dev = de.getValue();
                 if (dev.id.equalsIgnoreCase(event.deviceId) && (dev.getThingHandler() != null)) {
                     RachioDeviceHandler th = dev.getThingHandler();
                     if (th != null) {
-                        return th.webhookEvent(event);
+                        handled |= th.webhookEvent(event);
                     }
                 }
+            }
+            for (RachioStatusListener listener : rachioStatusListeners) {
+                if (listener instanceof RachioScheduleHandler scheduleHandler) {
+                    handled |= scheduleHandler.webhookEvent(event);
+                }
+            }
+            if (handled) {
+                return true;
             }
             logger.debug("RachioCloud: Event {}.{} for unknown device {}: {}", event.category, event.type,
                     event.deviceId, event.summary);

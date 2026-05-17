@@ -20,6 +20,8 @@
 			<channel id="runTime" typeId="zone_runTime"/>
 			<channel id="runTotal" typeId="zone_runTotal"/>
 			<channel id="imageUrl" typeId="zone_imageUrl"/>
+			<channel id="moistureLevel" typeId="zone_moistureLevel"/>
+			<channel id="moisturePercent" typeId="zone_moisturePercent"/>
 			<channel id="lastUpdate" typeId="lastUpdate"/>
 			<channel id="lastEvent" typeId="lastEvent"/>
 			<channel id="lastEventTime" typeId="lastEventTime"/>
@@ -78,5 +80,15 @@
 		<item-type>String</item-type>
 		<label>Image URL</label>
 		<description>URL for the zone picture/image.</description>
+	</channel-type>
+	<channel-type id="zone_moistureLevel">
+		<item-type>Number</item-type>
+		<label>Moisture Level</label>
+		<description>Command channel for setting the zone moisture level in millimeters.</description>
+	</channel-type>
+	<channel-type id="zone_moisturePercent">
+		<item-type>Number</item-type>
+		<label>Moisture Percent</label>
+		<description>Command channel for setting the zone moisture percent. Valid range is 0 to 1.</description>
 	</channel-type>
 </thing:thing-descriptions>

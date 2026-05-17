@@ -47,6 +47,8 @@ public class RachioZone extends RachioCloudZone {
     protected String lastEvent = "";
     @Nullable
     protected DateTimeType lastEventTime;
+    protected double moistureLevel = Double.NaN;
+    protected double moisturePercent = Double.NaN;
 
     /**
      * Use reflection to shallow copy simple type fields with matching names from one object to another
@@ -167,5 +169,21 @@ public class RachioZone extends RachioCloudZone {
 
     public @Nullable DateTimeType getEventTime() {
         return lastEventTime;
+    }
+
+    public void setMoistureLevel(double moistureLevel) {
+        this.moistureLevel = moistureLevel;
+    }
+
+    public double getMoistureLevel() {
+        return moistureLevel;
+    }
+
+    public void setMoisturePercent(double moisturePercent) {
+        this.moisturePercent = moisturePercent;
+    }
+
+    public double getMoisturePercent() {
+        return moisturePercent;
     }
 }

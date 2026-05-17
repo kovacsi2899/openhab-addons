@@ -44,6 +44,8 @@ public class RachioConfiguration {
     public String callbackUsername = "";
     public String callbackPassword = "";
     public Boolean clearAllCallbacks = false;
+    public int eventHistoryLookbackHours = DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS;
+    public String forecastUnits = DEFAULT_FORECAST_UNITS;
 
     public void updateConfig(@Nullable Map<String, @Nullable Object> config) {
         if (config == null) {
@@ -81,6 +83,10 @@ public class RachioConfiguration {
             } else if (key.equalsIgnoreCase(PARAM_CLEAR_CALLBACK)) {
                 String str = value;
                 this.clearAllCallbacks = str.toLowerCase().equals("true");
+            } else if (key.equalsIgnoreCase(PARAM_EVENT_HISTORY_LOOKBACK_HOURS)) {
+                this.eventHistoryLookbackHours = Math.max(0, Integer.parseInt(value));
+            } else if (key.equalsIgnoreCase(PARAM_FORECAST_UNITS)) {
+                this.forecastUnits = value.equalsIgnoreCase("US") ? "US" : "METRIC";
             }
         }
     }

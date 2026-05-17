@@ -25,6 +25,27 @@
 			<channel id="runTime" typeId="dev_runTime"/>
 			<channel id="rainDelay" typeId="dev_rainDelay"/>
 			<channel id="rainSensorTripped" typeId="dev_rainSensorTripped"/>
+			<channel id="currentScheduleId" typeId="dev_currentScheduleId"/>
+			<channel id="currentScheduleName" typeId="dev_currentScheduleName"/>
+			<channel id="currentScheduleType" typeId="dev_currentScheduleType"/>
+			<channel id="currentScheduleStartTime" typeId="dev_currentScheduleStartTime"/>
+			<channel id="currentScheduleEndTime" typeId="dev_currentScheduleEndTime"/>
+			<channel id="currentScheduleDuration" typeId="dev_currentScheduleDuration"/>
+			<channel id="currentScheduleRunning" typeId="dev_currentScheduleRunning"/>
+			<channel id="lastApiEventType" typeId="dev_lastApiEventType"/>
+			<channel id="lastApiEventTime" typeId="dev_lastApiEventTime"/>
+			<channel id="lastApiEventSummary" typeId="dev_lastApiEventSummary"/>
+			<channel id="forecastSummary" typeId="dev_forecastSummary"/>
+			<channel id="forecastTodayHigh" typeId="dev_forecastTodayHigh"/>
+			<channel id="forecastTodayLow" typeId="dev_forecastTodayLow"/>
+			<channel id="forecastPrecipitation" typeId="dev_forecastPrecipitation"/>
+			<channel id="forecastPrecipitationProbability" typeId="dev_forecastPrecipitationProbability"/>
+			<channel id="forecastWind" typeId="dev_forecastWind"/>
+			<channel id="forecastUpdated" typeId="dev_forecastUpdated"/>
+			<channel id="lastSkipType" typeId="dev_lastSkipType"/>
+			<channel id="lastSkipScheduleId" typeId="dev_lastSkipScheduleId"/>
+			<channel id="lastSkipStartTime" typeId="dev_lastSkipStartTime"/>
+			<channel id="lastSkipReason" typeId="dev_lastSkipReason"/>
 			<channel id="lastUpdate" typeId="lastUpdate"/>
 			<channel id="lastEvent" typeId="lastEvent"/>
 			<channel id="lastEventTime" typeId="lastEventTime"/>
@@ -113,6 +134,133 @@
 		<description>Latitude of the device location</description>
 		<state readOnly="true" pattern="%s">
 		</state>
+	</channel-type>
+
+	<channel-type id="dev_currentScheduleId" advanced="true">
+		<item-type>String</item-type>
+		<label>Current Schedule ID</label>
+		<description>Rachio schedule ID for the currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleName">
+		<item-type>String</item-type>
+		<label>Current Schedule Name</label>
+		<description>Name of the currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleType">
+		<item-type>String</item-type>
+		<label>Current Schedule Type</label>
+		<description>Type of the currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleStartTime">
+		<item-type>DateTime</item-type>
+		<label>Current Schedule Start</label>
+		<description>Start time of the currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleEndTime">
+		<item-type>DateTime</item-type>
+		<label>Current Schedule End</label>
+		<description>End time of the currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleDuration">
+		<item-type>Number</item-type>
+		<label>Current Schedule Duration</label>
+		<description>Duration of the currently running schedule in seconds.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_currentScheduleRunning">
+		<item-type>Switch</item-type>
+		<label>Current Schedule Running</label>
+		<description>ON when Rachio reports a currently running schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastApiEventType">
+		<item-type>String</item-type>
+		<label>Last API Event Type</label>
+		<description>Type of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastApiEventTime">
+		<item-type>DateTime</item-type>
+		<label>Last API Event Time</label>
+		<description>Time of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastApiEventSummary">
+		<item-type>String</item-type>
+		<label>Last API Event Summary</label>
+		<description>Summary of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastSummary">
+		<item-type>String</item-type>
+		<label>Forecast Summary</label>
+		<description>Summary from the Rachio forecast endpoint.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastTodayHigh">
+		<item-type>Number</item-type>
+		<label>Forecast High</label>
+		<description>Today's forecast high temperature.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastTodayLow">
+		<item-type>Number</item-type>
+		<label>Forecast Low</label>
+		<description>Today's forecast low temperature.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastPrecipitation">
+		<item-type>Number</item-type>
+		<label>Forecast Precipitation</label>
+		<description>Today's forecast precipitation amount.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastPrecipitationProbability">
+		<item-type>Number</item-type>
+		<label>Precipitation Probability</label>
+		<description>Today's forecast precipitation probability.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastWind">
+		<item-type>Number</item-type>
+		<label>Forecast Wind</label>
+		<description>Today's forecast wind speed.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_forecastUpdated">
+		<item-type>DateTime</item-type>
+		<label>Forecast Updated</label>
+		<description>Timestamp of the forecast data when provided by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastSkipType">
+		<item-type>String</item-type>
+		<label>Last Skip Type</label>
+		<description>Most recent weather intelligence skip event type.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastSkipScheduleId" advanced="true">
+		<item-type>String</item-type>
+		<label>Last Skip Schedule ID</label>
+		<description>Schedule ID associated with the most recent weather intelligence skip event.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastSkipStartTime">
+		<item-type>DateTime</item-type>
+		<label>Last Skip Start</label>
+		<description>Start time associated with the most recent weather intelligence skip event.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_lastSkipReason">
+		<item-type>String</item-type>
+		<label>Last Skip Reason</label>
+		<description>Summary or reason from the most recent weather intelligence skip event.</description>
+		<state readOnly="true"/>
 	</channel-type>
 
 	<channel-type id="scheduleName">

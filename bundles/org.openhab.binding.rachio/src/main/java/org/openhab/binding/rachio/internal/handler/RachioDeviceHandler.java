@@ -16,6 +16,9 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -25,6 +28,7 @@ import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioZoneStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -35,6 +39,7 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
+import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,10 +52,12 @@ import org.slf4j.LoggerFactory;
  */
 @NonNullByDefault
 public class RachioDeviceHandler extends AbstractRachioThingHandler {
+    private static final long READ_EXTENSION_REFRESH_INTERVAL_MS = 15 * 60 * 1000L;
     private final Logger logger = LoggerFactory.getLogger(RachioDeviceHandler.class);
 
     @Nullable
     RachioDevice dev;
+    private long lastReadExtensionRefresh = 0;
 
     public RachioDeviceHandler(Thing thing) {
         super(thing);
@@ -258,6 +265,29 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                     new DecimalType(new BigDecimal(d.rainDelay).toString()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_STRIPPED,
                     d.rainSensorTripped ? OnOffType.ON : OnOffType.OFF);
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_ID, stringOrUndef(d.currentScheduleId));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_NAME, stringOrUndef(d.currentScheduleName));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_TYPE, stringOrUndef(d.currentScheduleType));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_START, dateTimeOrUndef(d.currentScheduleStartTime));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_END, dateTimeOrUndef(d.currentScheduleEndTime));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_DURATION,
+                    new DecimalType(new BigDecimal(d.currentScheduleDuration).toString()));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_RUNNING, d.currentScheduleRunning ? OnOffType.ON : OnOffType.OFF);
+            updateChannel(CHANNEL_LAST_API_EVENT_TYPE, stringOrUndef(d.lastApiEventType));
+            updateChannel(CHANNEL_LAST_API_EVENT_TIME, dateTimeOrUndef(d.lastApiEventTime));
+            updateChannel(CHANNEL_LAST_API_EVENT_SUMMARY, stringOrUndef(d.lastApiEventSummary));
+            updateChannel(CHANNEL_FORECAST_SUMMARY, stringOrUndef(d.forecastSummary));
+            updateChannel(CHANNEL_FORECAST_TODAY_HIGH, decimalOrUndef(d.forecastTodayHigh));
+            updateChannel(CHANNEL_FORECAST_TODAY_LOW, decimalOrUndef(d.forecastTodayLow));
+            updateChannel(CHANNEL_FORECAST_PRECIPITATION, decimalOrUndef(d.forecastPrecipitation));
+            updateChannel(CHANNEL_FORECAST_PRECIPITATION_PROBABILITY,
+                    decimalOrUndef(d.forecastPrecipitationProbability));
+            updateChannel(CHANNEL_FORECAST_WIND, decimalOrUndef(d.forecastWind));
+            updateChannel(CHANNEL_FORECAST_UPDATED, dateTimeOrUndef(d.forecastUpdated));
+            updateChannel(CHANNEL_LAST_SKIP_TYPE, stringOrUndef(d.lastSkipType));
+            updateChannel(CHANNEL_LAST_SKIP_SCHEDULE_ID, stringOrUndef(d.lastSkipScheduleId));
+            updateChannel(CHANNEL_LAST_SKIP_START, dateTimeOrUndef(d.lastSkipStartTime));
+            updateChannel(CHANNEL_LAST_SKIP_REASON, stringOrUndef(d.lastSkipReason));
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENT, new StringType(d.getEvent()));
             DateTimeType ts = d.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);
@@ -291,6 +321,57 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         return false;
     }
 
+    public void refreshSmartIrrigationReadExtensions(boolean force) {
+        RachioBridgeHandler handler = cloudHandler;
+        RachioDevice d = dev;
+        if (handler == null || d == null) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (!force && (now - lastReadExtensionRefresh) < READ_EXTENSION_REFRESH_INTERVAL_MS) {
+            logger.trace("{}: Smart Irrigation read extension refresh skipped; last refresh was {} ms ago", thingId,
+                    now - lastReadExtensionRefresh);
+            return;
+        }
+        lastReadExtensionRefresh = now;
+
+        try {
+            d.applyCurrentSchedule(handler.getCurrentSchedule(d.id));
+            logger.debug("{}: Loaded current schedule for controller '{}': running={}, id='{}'", thingId, d.id,
+                    d.currentScheduleRunning, d.currentScheduleId);
+        } catch (RachioApiException e) {
+            logger.debug("{}: Unable to load current schedule for controller '{}': {}", thingId, d.id, e.getMessage());
+            d.clearCurrentSchedule();
+        }
+
+        try {
+            d.applyForecast(handler.getDeviceForecast(d.id, handler.getForecastUnits()));
+            logger.debug("{}: Loaded forecast for controller '{}' using {} units", thingId, d.id,
+                    handler.getForecastUnits());
+        } catch (RachioApiException e) {
+            logger.debug("{}: Unable to load forecast for controller '{}': {}", thingId, d.id, e.getMessage());
+        }
+
+        int lookbackHours = handler.getEventHistoryLookbackHours();
+        if (lookbackHours > 0) {
+            try {
+                long endTime = System.currentTimeMillis();
+                long startTime = endTime - (lookbackHours * 60L * 60L * 1000L);
+                RachioDeviceEventListResponse events = handler.getDeviceEvents(d.id, startTime, endTime);
+                d.applyApiEvent(events.getLatestEvent());
+                logger.debug("{}: Loaded {} recent controller events over {} hours", thingId, events.events.size(),
+                        lookbackHours);
+            } catch (RachioApiException e) {
+                logger.debug("{}: Unable to load recent events for controller '{}': {}", thingId, d.id, e.getMessage());
+            }
+        } else {
+            d.applyApiEvent(null);
+            logger.trace("{}: Event history polling is disabled", thingId);
+        }
+        postChannelData();
+    }
+
     @Override
     public void shutdown() {
         if (dev != null) {
@@ -303,6 +384,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
     protected void goOnline() {
         updateProperties();
         postChannelData();
+        refreshSmartIrrigationReadExtensions(true);
         RachioDevice d = dev;
         if (d != null) {
             updateStatus(d.getStatus());
@@ -419,6 +501,20 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                 logger.info("{}: Status {} for schedule {}: {} (start={}, end={}, duration={}min)", thingId,
                         event.subType, event.scheduleName, event.summary, event.startTime, event.endTime,
                         event.durationInMinutes);
+                d.currentScheduleId = event.scheduleId;
+                d.currentScheduleName = event.scheduleName;
+                d.currentScheduleType = event.scheduleType;
+                d.currentScheduleStartTime = event.startTime;
+                d.currentScheduleEndTime = event.endTime;
+                d.currentScheduleDuration = event.duration;
+                d.currentScheduleRunning = event.subType.equals("SCHEDULE_STARTED");
+                if (event.subType.equals("SCHEDULE_STOPPED") || event.subType.equals("SCHEDULE_COMPLETED")) {
+                    d.clearCurrentSchedule();
+                }
+                if (event.subType.startsWith("WEATHER_INTELLIGENCE")) {
+                    d.applySkipEvent(event.eventType.isBlank() ? event.subType : event.eventType, event.scheduleId,
+                            event.startTime, event.summary);
+                }
                 updateChannel(CHANNEL_SCHED_NAME, new StringType(event.scheduleName));
                 updateChannel(CHANNEL_SCHED_INFO, new StringType(event.summary));
                 if (!event.startTime.isEmpty()) {
@@ -464,6 +560,35 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             handler.refreshDeviceStatus(RachioBridgeHandler.RefreshReason.WEBHOOK_RECONCILIATION);
         } else {
             logger.debug("{}: Unable to refresh rain delay state because cloud handler is not initialized.", thingId);
+        }
+    }
+
+    private State stringOrUndef(String value) {
+        return value.isBlank() ? UnDefType.UNDEF : new StringType(value);
+    }
+
+    private State decimalOrUndef(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return UnDefType.UNDEF;
+        }
+        return new DecimalType(BigDecimal.valueOf(value));
+    }
+
+    private State dateTimeOrUndef(String value) {
+        if (value.isBlank()) {
+            return UnDefType.UNDEF;
+        }
+        try {
+            if (value.chars().allMatch(Character::isDigit)) {
+                long epoch = Long.parseLong(value);
+                long epochMillis = value.length() > 10 ? epoch : epoch * 1000L;
+                return new DateTimeType(
+                        ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
+            }
+            return new DateTimeType(value);
+        } catch (RuntimeException e) {
+            logger.trace("{}: Unable to parse DateTime channel value '{}'", thingId, value);
+            return UnDefType.UNDEF;
         }
     }
 
