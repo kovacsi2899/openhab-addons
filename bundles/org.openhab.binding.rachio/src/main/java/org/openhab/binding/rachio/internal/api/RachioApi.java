@@ -30,10 +30,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Mac;
@@ -44,7 +46,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioBindingConstants;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebHookEntry;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebHookList;
-import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebhookEventTypeList;
+import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebhookEventTypesResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudPersonId;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
@@ -61,6 +63,7 @@ import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleCommandRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioSeasonalAdjustmentRequest;
+import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType;
 import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookTarget;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
@@ -790,16 +793,26 @@ public class RachioApi {
             @Nullable String externalId, Boolean clearAllCallbacks) throws RachioApiException {
         logger.debug("Register webhook for device '{}', externalId={}, clearAllCallbacks={}", deviceId, externalId,
                 clearAllCallbacks);
+        Map<RachioWebhookResourceType, Set<String>> supportedEventTypes = getSupportedWebhookEventTypeMap();
         RachioWebhookTarget target = RachioWebhookTarget.irrigationController(deviceId,
-                getIrrigationControllerEventTypes());
-        registerWebHookTarget(target, callbackUrl, callbackUsername, callbackPassword, externalId, clearAllCallbacks);
+                getIrrigationControllerEventTypes(supportedEventTypes));
+        registerWebHookTarget(target, callbackUrl, callbackUsername, callbackPassword, externalId, clearAllCallbacks,
+                supportedEventTypes);
     }
 
     public void registerWebHookTarget(RachioWebhookTarget target, String callbackUrl, String callbackUsername,
             String callbackPassword, @Nullable String externalId, Boolean clearAllCallbacks) throws RachioApiException {
+        registerWebHookTarget(target, callbackUrl, callbackUsername, callbackPassword, externalId, clearAllCallbacks,
+                getSupportedWebhookEventTypeMap());
+    }
+
+    private void registerWebHookTarget(RachioWebhookTarget target, String callbackUrl, String callbackUsername,
+            String callbackPassword, @Nullable String externalId, Boolean clearAllCallbacks,
+            Map<RachioWebhookResourceType, Set<String>> supportedEventTypes) throws RachioApiException {
         if (!target.getResourceType().isKnown() || target.getResourceId().isBlank()) {
             throw new RachioApiException("Webhook target must have a known resource type and non-empty resource ID.");
         }
+        target = validateWebhookTargetEventTypes(target, supportedEventTypes);
         String registrationUrl;
         try {
             registrationUrl = buildWebhookRegistrationUrl(callbackUrl, callbackUsername, callbackPassword);
@@ -1005,13 +1018,15 @@ public class RachioApi {
         return knownExternalIds;
     }
 
-    private List<String> getIrrigationControllerEventTypes() {
+    private List<String> getIrrigationControllerEventTypes(
+            Map<RachioWebhookResourceType, Set<String>> supportedEventTypesByResourceType) {
         List<String> eventTypes = new ArrayList<>(List.of(EVENT_DEVICE_ZONE_RUN_STARTED, EVENT_DEVICE_ZONE_RUN_STOPPED,
                 EVENT_DEVICE_ZONE_RUN_COMPLETED, EVENT_DEVICE_ZONE_RUN_PAUSED, EVENT_SCHEDULE_STARTED,
                 EVENT_SCHEDULE_STOPPED, EVENT_SCHEDULE_COMPLETED, EVENT_RAIN_SKIP, EVENT_CLIMATE_SKIP,
                 EVENT_FREEZE_SKIP, EVENT_WIND_SKIP, EVENT_NO_SKIP));
 
-        List<String> supportedEventTypes = getSupportedWebhookEventTypes();
+        Set<String> supportedEventTypes = supportedEventTypesByResourceType
+                .getOrDefault(RachioWebhookResourceType.IRRIGATION_CONTROLLER, Set.of());
         if (supportedEventTypes.contains(EVENT_RAIN_SENSOR_DETECTION_ON)) {
             eventTypes.add(EVENT_RAIN_SENSOR_DETECTION_ON);
         }
@@ -1028,24 +1043,88 @@ public class RachioApi {
         return eventTypes;
     }
 
-    private List<String> getSupportedWebhookEventTypes() {
+    private Map<RachioWebhookResourceType, Set<String>> getSupportedWebhookEventTypeMap() {
         try {
-            return listWebhookEventTypes();
+            return listWebhookEventTypeMap();
         } catch (RachioApiException e) {
             logger.debug("Unable to query supported webhook event types: {}", e.getMessage());
-            return new ArrayList<>();
+            return Map.of();
         }
     }
 
     public List<String> listWebhookEventTypes() throws RachioApiException {
+        Map<RachioWebhookResourceType, Set<String>> eventTypesByResourceType = listWebhookEventTypeMap();
+        LinkedHashSet<String> eventTypes = new LinkedHashSet<>();
+        for (Set<String> resourceEventTypes : eventTypesByResourceType.values()) {
+            eventTypes.addAll(resourceEventTypes);
+        }
+        return new ArrayList<>(eventTypes);
+    }
+
+    public Map<RachioWebhookResourceType, Set<String>> listWebhookEventTypeMap() throws RachioApiException {
         String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null, PRIORITY.MED).resultString;
-        List<String> eventTypes = parseWebhookEventTypeList(json);
-        logger.debug("Loaded {} supported Rachio webhook event types.", eventTypes.size());
-        return eventTypes;
+        Map<RachioWebhookResourceType, Set<String>> eventTypesByResourceType = parseWebhookEventTypeMap(json);
+        logger.debug("Loaded Rachio webhook event types: {}", formatWebhookEventTypeCounts(eventTypesByResourceType));
+        return eventTypesByResourceType;
     }
 
     static List<String> parseWebhookEventTypeList(String json) {
-        return RachioApiWebhookEventTypeList.fromJson(json).eventTypes;
+        LinkedHashSet<String> eventTypes = new LinkedHashSet<>();
+        for (Set<String> resourceEventTypes : parseWebhookEventTypeMap(json).values()) {
+            eventTypes.addAll(resourceEventTypes);
+        }
+        return new ArrayList<>(eventTypes);
+    }
+
+    static Map<RachioWebhookResourceType, Set<String>> parseWebhookEventTypeMap(String json) {
+        return RachioApiWebhookEventTypesResponse.fromJson(json).toResourceEventTypeMap();
+    }
+
+    private String formatWebhookEventTypeCounts(Map<RachioWebhookResourceType, Set<String>> eventTypesByResourceType) {
+        if (eventTypesByResourceType.isEmpty()) {
+            return "none";
+        }
+        List<String> counts = new ArrayList<>();
+        for (Map.Entry<RachioWebhookResourceType, Set<String>> entry : eventTypesByResourceType.entrySet()) {
+            String resourceType = entry.getKey() == RachioWebhookResourceType.UNKNOWN ? "UNKNOWN"
+                    : entry.getKey().getApiValue();
+            counts.add(resourceType + "=" + entry.getValue().size());
+        }
+        return String.join(", ", counts);
+    }
+
+    private RachioWebhookTarget validateWebhookTargetEventTypes(RachioWebhookTarget target,
+            Map<RachioWebhookResourceType, Set<String>> supportedEventTypesByResourceType) throws RachioApiException {
+        if (supportedEventTypesByResourceType.isEmpty()) {
+            logger.debug("Webhook event type catalog is unavailable; using configured event types for target '{}'",
+                    target.describe());
+            return target;
+        }
+
+        Set<String> supportedEventTypes = supportedEventTypesByResourceType.get(target.getResourceType());
+        if (supportedEventTypes == null || supportedEventTypes.isEmpty()) {
+            supportedEventTypes = supportedEventTypesByResourceType.get(RachioWebhookResourceType.UNKNOWN);
+        }
+        if (supportedEventTypes == null || supportedEventTypes.isEmpty()) {
+            throw new RachioApiException("Webhook event type catalog has no entries for resource type '"
+                    + target.getResourceType().getApiValue() + "'.");
+        }
+
+        Set<String> unsupportedEventTypes = target.getUnsupportedEventTypes(supportedEventTypes);
+        if (unsupportedEventTypes.isEmpty()) {
+            return target;
+        }
+
+        RachioWebhookTarget filteredTarget = target.filterEventTypes(supportedEventTypes);
+        if (filteredTarget.getEventTypes().isEmpty()) {
+            throw new RachioApiException("Webhook target '" + target.describe()
+                    + "' has no event types supported for resource type '" + target.getResourceType().getApiValue()
+                    + "'. Unsupported event types: " + unsupportedEventTypes);
+        }
+
+        logger.warn("Ignoring unsupported webhook event types for target '{}': {}", target.describe(),
+                unsupportedEventTypes);
+        return filteredTarget;
     }
 
     private boolean reconcileExistingWebHooks(String json, RachioWebhookTarget target, String callbackUrl,

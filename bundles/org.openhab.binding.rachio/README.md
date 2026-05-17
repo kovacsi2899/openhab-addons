@@ -242,6 +242,7 @@ Discovery creates flex schedule Things when the Rachio controller payload includ
 The binding registers for the current Smart Irrigation Controller webhook event types exposed by Rachio, including schedule started/stopped/completed, zone run started/stopped/completed/paused, rain/freeze/wind/climate skip notifications, and no-skip notifications.
 Webhook registration is resource-aware internally: the binding now models each desired webhook target by Rachio resource type, resource ID, and event type set.
 Existing Smart Irrigation Controller behavior is unchanged, while the shared webhook infrastructure is prepared for future Smart Hose Timer and Smart Lighting resources.
+The binding parses Rachio's `listWebhookEventTypes` response as resource-specific groups and uses that catalog to avoid registering event types against the wrong resource family.
 Schedule events update controller schedule channels and matching `schedule` Things when present.
 Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
 Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
@@ -254,6 +255,7 @@ The binding includes internal support for Rachio's modern Property Service on `h
 This is infrastructure for future multi-product support and does not currently create user-facing Property/Home Things.
 The implemented API layer can list properties for a user, retrieve a property by ID, and look up a property by documented entity resource identifiers.
 Current internal lookup helpers cover the documented location, base station, and lighting area entity IDs.
+No controller, valve, or lighting-controller Property lookup helpers are exposed until Rachio documents those direct lookup parameters.
 Future Smart Hose Timer and Smart Lighting support can build on this without changing existing controller, zone, schedule, or flex schedule Things.
 
 # Full example

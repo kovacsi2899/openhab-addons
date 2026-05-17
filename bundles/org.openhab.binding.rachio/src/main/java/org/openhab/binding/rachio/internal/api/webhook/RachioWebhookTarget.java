@@ -45,6 +45,10 @@ public class RachioWebhookTarget {
         return new RachioWebhookTarget(deviceId, RachioWebhookResourceType.IRRIGATION_CONTROLLER, eventTypes);
     }
 
+    public RachioWebhookTarget withEventTypes(Collection<String> eventTypes) {
+        return new RachioWebhookTarget(resourceId, resourceType, eventTypes);
+    }
+
     public String getResourceId() {
         return resourceId;
     }
@@ -85,6 +89,18 @@ public class RachioWebhookTarget {
         }
         return actualEventTypes.size() == eventTypes.size() && actualEventTypes.containsAll(eventTypes)
                 && eventTypes.containsAll(actualEventTypes);
+    }
+
+    public Set<String> getUnsupportedEventTypes(Collection<String> supportedEventTypes) {
+        LinkedHashSet<String> unsupportedEventTypes = new LinkedHashSet<>(eventTypes);
+        unsupportedEventTypes.removeAll(supportedEventTypes);
+        return unsupportedEventTypes;
+    }
+
+    public RachioWebhookTarget filterEventTypes(Collection<String> supportedEventTypes) {
+        LinkedHashSet<String> filteredEventTypes = new LinkedHashSet<>(eventTypes);
+        filteredEventTypes.retainAll(supportedEventTypes);
+        return withEventTypes(filteredEventTypes);
     }
 
     public String describe() {
