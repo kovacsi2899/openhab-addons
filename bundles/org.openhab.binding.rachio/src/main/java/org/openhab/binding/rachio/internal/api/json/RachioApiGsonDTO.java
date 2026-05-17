@@ -13,8 +13,17 @@
 package org.openhab.binding.rachio.internal.api.json;
 
 import java.util.ArrayList;
+import java.util.List;
 
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 /**
  * {@link RachioApiGsonDTO} maps some API results to a Java object (using GSon).
@@ -53,7 +62,91 @@ public class RachioApiGsonDTO {
     public static class RachioApiWebHookResourceId {
         public String irrigationControllerId = "";
         public String valveId = "";
+        public String programId = "";
         public String lightingControllerId = "";
+        public String lightingZoneId = "";
+        public String lightingSceneId = "";
+        public String lightingProgramId = "";
+
+        public String getResourceId(RachioWebhookResourceType resourceType) {
+            switch (resourceType) {
+                case IRRIGATION_CONTROLLER:
+                    return irrigationControllerId;
+                case VALVE:
+                    return valveId;
+                case PROGRAM:
+                    return programId;
+                case LIGHTING_CONTROLLER:
+                    return lightingControllerId;
+                case LIGHTING_ZONE:
+                    return lightingZoneId;
+                case LIGHTING_SCENE:
+                    return lightingSceneId;
+                case LIGHTING_PROGRAM:
+                    return lightingProgramId;
+                case UNKNOWN:
+                default:
+                    return "";
+            }
+        }
+    }
+
+    public static class RachioApiWebhookEventTypeList {
+        private static final Gson GSON = new Gson();
+        public ArrayList<String> eventTypes = new ArrayList<>();
+
+        public static RachioApiWebhookEventTypeList fromJson(String json) {
+            RachioApiWebhookEventTypeList response = new RachioApiWebhookEventTypeList();
+            JsonElement root = JsonParser.parseString(json);
+            if (root.isJsonArray()) {
+                response.eventTypes.addAll(parseEventTypes(root.getAsJsonArray()));
+            } else if (root.isJsonObject()) {
+                JsonObject object = root.getAsJsonObject();
+                for (String arrayName : List.of("eventTypes", "items", "data", "results")) {
+                    JsonElement arrayElement = object.get(arrayName);
+                    if (arrayElement != null && arrayElement.isJsonArray()) {
+                        response.eventTypes.addAll(parseEventTypes(arrayElement.getAsJsonArray()));
+                    }
+                }
+            }
+            return response;
+        }
+
+        private static List<String> parseEventTypes(JsonArray entries) {
+            List<String> supportedTypes = new ArrayList<>();
+            for (@Nullable
+            JsonElement entry : entries) {
+                if (entry == null) {
+                    continue;
+                }
+                if (entry.isJsonPrimitive()) {
+                    supportedTypes.add(entry.getAsString());
+                } else if (entry.isJsonObject()) {
+                    @Nullable
+                    RachioApiWebhookEventType eventType = GSON.fromJson(entry, RachioApiWebhookEventType.class);
+                    if (eventType != null && !eventType.getEventType().isBlank()) {
+                        supportedTypes.add(eventType.getEventType());
+                    }
+                }
+            }
+            return supportedTypes;
+        }
+    }
+
+    public static class RachioApiWebhookEventType {
+        public String eventType = "";
+        public String name = "";
+        public String type = "";
+
+        public String getEventType() {
+            if (!eventType.isBlank()) {
+                return eventType;
+            }
+            if (!name.isBlank()) {
+                return name;
+            }
+            return type;
+        }
     }
 
     public static class RachioEventProperty {

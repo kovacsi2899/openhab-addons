@@ -21,7 +21,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -31,6 +33,7 @@ import org.openhab.binding.rachio.internal.api.RachioApiException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioProperty;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
@@ -421,6 +424,30 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return rachioApi.getDeviceForecast(deviceId, units);
     }
 
+    public List<RachioProperty> listProperties(String userId) throws RachioApiException {
+        return rachioApi.listProperties(userId);
+    }
+
+    public RachioProperty getProperty(String propertyId) throws RachioApiException {
+        return rachioApi.getProperty(propertyId);
+    }
+
+    public Optional<RachioProperty> findPropertyByEntity(String entityId, String entityType) throws RachioApiException {
+        return rachioApi.findPropertyByEntity(entityId, entityType);
+    }
+
+    public Optional<RachioProperty> findPropertyForLocation(String locationId) throws RachioApiException {
+        return rachioApi.findPropertyForLocation(locationId);
+    }
+
+    public Optional<RachioProperty> findPropertyForBaseStation(String baseStationId) throws RachioApiException {
+        return rachioApi.findPropertyForBaseStation(baseStationId);
+    }
+
+    public Optional<RachioProperty> findPropertyForLightingArea(String lightingAreaId) throws RachioApiException {
+        return rachioApi.findPropertyForLightingArea(lightingAreaId);
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         rachioApi.setZoneMoistureLevel(zoneId, level);
     }
@@ -615,30 +642,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      */
     public boolean webHookEvent(RachioEventGsonDTO event) {
         try {
-            HashMap<String, RachioDevice> deviceList = getDevices();
-            if (deviceList == null) {
-                return false;
-            }
-            boolean handled = false;
-            for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
-                RachioDevice dev = de.getValue();
-                if (dev.id.equalsIgnoreCase(event.deviceId) && (dev.getThingHandler() != null)) {
-                    RachioDeviceHandler th = dev.getThingHandler();
-                    if (th != null) {
-                        handled |= th.webhookEvent(event);
-                    }
-                }
-            }
-            for (RachioStatusListener listener : rachioStatusListeners) {
-                if (listener instanceof RachioScheduleHandler scheduleHandler) {
-                    handled |= scheduleHandler.webhookEvent(event);
-                }
-            }
-            if (handled) {
-                return true;
-            }
-            logger.debug("RachioCloud: Event {}.{} for unknown device {}: {}", event.category, event.type,
-                    event.deviceId, event.summary);
+            return RachioWebhookDispatcher.createDefault(this).dispatch(event);
         } catch (RuntimeException e) {
             logger.debug("RachioCloud: Unable to process event {}.{} for device {}", event.category, event.type,
                     event.deviceId, e);

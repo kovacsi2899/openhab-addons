@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.Mac;
@@ -43,9 +44,14 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioBindingConstants;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebHookEntry;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebHookList;
+import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioApiWebhookEventTypeList;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudPersonId;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioCloudStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
+import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioProperty;
+import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioPropertyEntityLookupResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioPropertyListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
@@ -55,6 +61,7 @@ import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleCommandRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioSeasonalAdjustmentRequest;
+import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookTarget;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
@@ -636,6 +643,44 @@ public class RachioApi {
         return response != null ? response : new RachioForecastResponse();
     }
 
+    public List<RachioProperty> listProperties(String userId) throws RachioApiException {
+        logger.debug("Load Rachio properties for user '{}'.", userId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROPERTY_LIST + urlEncode(userId), null,
+                PRIORITY.LOW).resultString;
+        RachioPropertyListResponse response = RachioPropertyListResponse.fromJson(json);
+        logger.debug("Loaded {} Rachio properties for user '{}'.", response.properties.size(), userId);
+        return response.properties;
+    }
+
+    public RachioProperty getProperty(String propertyId) throws RachioApiException {
+        logger.debug("Load Rachio property '{}'.", propertyId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROPERTY_GET + urlEncode(propertyId), null,
+                PRIORITY.LOW).resultString;
+        @Nullable
+        RachioProperty property = RachioPropertyGsonDTO.parseProperty(json);
+        return property != null ? property : new RachioProperty();
+    }
+
+    public Optional<RachioProperty> findPropertyByEntity(String entityId, String entityType) throws RachioApiException {
+        String query = buildPropertyEntityQuery(entityId, entityType);
+        logger.debug("Find Rachio property by entity type '{}'.", entityType);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROPERTY_FIND_BY_ENTITY, query, PRIORITY.LOW).resultString;
+        RachioPropertyEntityLookupResponse response = RachioPropertyEntityLookupResponse.fromJson(json);
+        return Optional.ofNullable(response.getProperty());
+    }
+
+    public Optional<RachioProperty> findPropertyForLocation(String locationId) throws RachioApiException {
+        return findPropertyByEntity(locationId, "locationId");
+    }
+
+    public Optional<RachioProperty> findPropertyForBaseStation(String baseStationId) throws RachioApiException {
+        return findPropertyByEntity(baseStationId, "baseStationId");
+    }
+
+    public Optional<RachioProperty> findPropertyForLightingArea(String lightingAreaId) throws RachioApiException {
+        return findPropertyByEntity(lightingAreaId, "lightingAreaId");
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         logger.debug("Update zone moisture level for zone '{}' to {}.", zoneId, level);
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_MOISTURE_LEVEL, buildMoistureLevelPayload(zoneId, level), PRIORITY.HI);
@@ -708,6 +753,35 @@ public class RachioApi {
         return new Gson().toJson(new RachioSeasonalAdjustmentRequest(id, adjustment));
     }
 
+    static String buildPropertyEntityQuery(String entityId, String entityType) throws RachioApiException {
+        String queryParameter = propertyEntityQueryParameter(entityType);
+        if (entityId.isBlank()) {
+            throw new RachioApiException("Property entity id must not be empty.");
+        }
+        return queryParameter + "=" + urlEncode(entityId);
+    }
+
+    private static String propertyEntityQueryParameter(String entityType) throws RachioApiException {
+        String normalizedType = entityType.trim().replace("-", "").replace("_", "").replace(".", "").toLowerCase();
+        switch (normalizedType) {
+            case "location":
+            case "locationid":
+            case "resourceidlocationid":
+                return PROPERTY_QUERY_LOCATION_ID;
+            case "basestation":
+            case "basestationid":
+            case "resourceidbasestationid":
+                return PROPERTY_QUERY_BASE_STATION_ID;
+            case "lightingarea":
+            case "lightingareaid":
+            case "resourceidlightingareaid":
+                return PROPERTY_QUERY_LIGHTING_AREA_ID;
+            default:
+                throw new RachioApiException(
+                        "Unsupported PropertyService entity type. Expected locationId, baseStationId, or lightingAreaId.");
+        }
+    }
+
     public void getDeviceInfo(String deviceId) throws RachioApiException {
         httpGet(APIURL_BASE + APIURL_GET_DEVICE + "/" + deviceId, null, PRIORITY.MED);
     }
@@ -716,36 +790,43 @@ public class RachioApi {
             @Nullable String externalId, Boolean clearAllCallbacks) throws RachioApiException {
         logger.debug("Register webhook for device '{}', externalId={}, clearAllCallbacks={}", deviceId, externalId,
                 clearAllCallbacks);
+        RachioWebhookTarget target = RachioWebhookTarget.irrigationController(deviceId,
+                getIrrigationControllerEventTypes());
+        registerWebHookTarget(target, callbackUrl, callbackUsername, callbackPassword, externalId, clearAllCallbacks);
+    }
 
+    public void registerWebHookTarget(RachioWebhookTarget target, String callbackUrl, String callbackUsername,
+            String callbackPassword, @Nullable String externalId, Boolean clearAllCallbacks) throws RachioApiException {
+        if (!target.getResourceType().isKnown() || target.getResourceId().isBlank()) {
+            throw new RachioApiException("Webhook target must have a known resource type and non-empty resource ID.");
+        }
         String registrationUrl;
         try {
             registrationUrl = buildWebhookRegistrationUrl(callbackUrl, callbackUsername, callbackPassword);
         } catch (RachioApiException e) {
-            logger.warn("Failed to build callback URL for device '{}': {}", deviceId, e.getMessage());
+            logger.warn("Failed to build callback URL for webhook target '{}': {}", target.describe(), e.getMessage());
             throw e;
         }
 
-        logger.debug("Register WebHook for controller '{}'", deviceId);
-        List<String> eventTypes = getIrrigationControllerEventTypes();
+        String expectedExternalId = externalId != null ? externalId : "";
+        logger.debug("Register WebHook for target '{}'", target.describe());
         try {
-            String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST,
-                    WEBHOOK_QUERY_CONTROLLER_ID + "=" + urlEncode(deviceId), PRIORITY.MED).resultString;
-            boolean matchingWebhookExists = deleteExistingWebHooks(json, deviceId, registrationUrl,
-                    externalId != null ? externalId : "", getKnownExternalIds(externalId), clearAllCallbacks,
-                    eventTypes);
+            String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST, target.buildListQuery(),
+                    PRIORITY.MED).resultString;
+            boolean matchingWebhookExists = reconcileExistingWebHooks(json, target, registrationUrl, expectedExternalId,
+                    getKnownExternalIds(externalId), clearAllCallbacks);
             if (matchingWebhookExists) {
-                logger.debug("Retain existing matching webhook for controller '{}'; createWebhook is not needed",
-                        deviceId);
+                logger.debug("Retain existing matching webhook for target '{}'; createWebhook is not needed",
+                        target.describe());
                 return;
             }
         } catch (RuntimeException e) {
             logger.debug("Deleting WebHook(s) failed: {}", e.getMessage());
         }
 
-        Map<String, Object> jsonData = Map.of("resourceId", Map.of("irrigationControllerId", deviceId), "externalId",
-                externalId != null ? externalId : "", "url", registrationUrl, "eventTypes", eventTypes);
         try {
-            httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE, new Gson().toJson(jsonData), PRIORITY.HI);
+            httpPost(APIURL_CLOUD_REST_BASE + WEBHOOK_CREATE,
+                    new Gson().toJson(target.buildCreatePayload(registrationUrl, expectedExternalId)), PRIORITY.HI);
         } catch (RachioApiException e) {
             throw sanitizeWebhookRegistrationException(e, registrationUrl);
         }
@@ -949,104 +1030,65 @@ public class RachioApi {
 
     private List<String> getSupportedWebhookEventTypes() {
         try {
-            String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null, PRIORITY.MED).resultString;
-            return parseWebhookEventTypeList(json);
+            return listWebhookEventTypes();
         } catch (RachioApiException e) {
             logger.debug("Unable to query supported webhook event types: {}", e.getMessage());
             return new ArrayList<>();
         }
     }
 
-    private List<String> parseWebhookEventTypeList(String json) {
-        Gson gson = new Gson();
-        JsonElement root = JsonParser.parseString(json);
-        JsonArray entries;
-        if (root.isJsonArray()) {
-            entries = root.getAsJsonArray();
-        } else if (root.isJsonObject()) {
-            JsonElement eventTypes = root.getAsJsonObject().get("eventTypes");
-            if ((eventTypes == null) || !eventTypes.isJsonArray()) {
-                eventTypes = root.getAsJsonObject().get("data");
-            }
-            if ((eventTypes == null) || !eventTypes.isJsonArray()) {
-                return new ArrayList<>();
-            }
-            entries = eventTypes.getAsJsonArray();
-        } else {
-            return new ArrayList<>();
-        }
-
-        List<String> supportedTypes = new ArrayList<>();
-        for (JsonElement entry : entries) {
-            if (entry == null || !entry.isJsonPrimitive()) {
-                continue;
-            }
-            supportedTypes.add(entry.getAsString());
-        }
-        return supportedTypes;
+    public List<String> listWebhookEventTypes() throws RachioApiException {
+        String json = httpGet(APIURL_CLOUD_REST_BASE + WEBHOOK_LIST_EVENT_TYPES, null, PRIORITY.MED).resultString;
+        List<String> eventTypes = parseWebhookEventTypeList(json);
+        logger.debug("Loaded {} supported Rachio webhook event types.", eventTypes.size());
+        return eventTypes;
     }
 
-    private boolean deleteExistingWebHooks(String json, String deviceId, String callbackUrl, String expectedExternalId,
-            Collection<String> externalIds, Boolean clearAllCallbacks, List<String> expectedEventTypes) {
+    static List<String> parseWebhookEventTypeList(String json) {
+        return RachioApiWebhookEventTypeList.fromJson(json).eventTypes;
+    }
+
+    private boolean reconcileExistingWebHooks(String json, RachioWebhookTarget target, String callbackUrl,
+            String expectedExternalId, Collection<String> externalIds, Boolean clearAllCallbacks) {
         boolean deleteAll = Boolean.TRUE.equals(clearAllCallbacks);
         boolean matchingWebhookRetained = false;
         List<RachioApiWebHookEntry> webhooks = parseWebHookList(json);
-        logger.debug("Registered webhook count for controller '{}': {}", deviceId, webhooks.size());
+        logger.debug("Registered webhook count for target '{}': {}", target.describe(), webhooks.size());
         for (RachioApiWebHookEntry whe : webhooks) {
-            logger.debug("WebHook: id='{}', url='{}', externalId='{}', controllerId='{}'", whe.id,
+            logger.debug("WebHook: id='{}', url='{}', externalId='{}', resourceId='{}'", whe.id,
                     sanitizeCallbackUrl(whe.url), whe.externalId,
-                    whe.resourceId == null ? null : whe.resourceId.irrigationControllerId);
+                    whe.resourceId == null ? null : whe.resourceId.getResourceId(target.getResourceType()));
             boolean matchesExternalId = externalIds.stream().anyMatch(id -> Objects.equals(whe.externalId, id));
-            boolean matchesExpectedWebhook = webhookMatchesExpected(whe, deviceId, callbackUrl, expectedExternalId,
-                    expectedEventTypes);
+            boolean matchesExpectedWebhook = target.matches(whe, callbackUrl, expectedExternalId);
             if (deleteAll) {
                 try {
-                    logger.debug("Delete existing webhook '{}' for controller '{}' because clearAllCallbacks=true",
-                            whe.id, deviceId);
+                    logger.debug("Delete existing webhook '{}' for target '{}' because clearAllCallbacks=true", whe.id,
+                            target.describe());
                     httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null, PRIORITY.MED);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
             } else if (matchesExpectedWebhook && !matchingWebhookRetained) {
                 matchingWebhookRetained = true;
-                logger.debug("Retain existing matching webhook '{}' for controller '{}'", whe.id, deviceId);
+                logger.debug("Retain existing matching webhook '{}' for target '{}'", whe.id, target.describe());
             } else if (Objects.equals(whe.url, callbackUrl) || matchesExternalId) {
                 try {
                     logger.debug(
-                            "Delete stale or duplicate webhook '{}' for controller '{}' because it matches this binding instance",
-                            whe.id, deviceId);
+                            "Delete stale or duplicate webhook '{}' for target '{}' because it matches this binding instance",
+                            whe.id, target.describe());
                     httpDelete(APIURL_CLOUD_REST_BASE + WEBHOOK_DELETE + whe.id, null, PRIORITY.MED);
                 } catch (RachioApiException e) {
                     logger.debug("Deleting WebHook '{}' failed: {}", whe.id, e.getMessage());
                 }
             } else {
-                logger.debug("Retain existing webhook '{}' for controller '{}'; not owned by this binding instance",
-                        whe.id, deviceId);
+                logger.debug("Retain existing webhook '{}' for target '{}'; not owned by this binding instance", whe.id,
+                        target.describe());
             }
         }
         return matchingWebhookRetained;
     }
 
-    private boolean webhookMatchesExpected(RachioApiWebHookEntry webhook, String deviceId, String callbackUrl,
-            String expectedExternalId, List<String> expectedEventTypes) {
-        return Objects.equals(webhook.url, callbackUrl) && Objects.equals(webhook.externalId, expectedExternalId)
-                && webhookResourceMatches(webhook, deviceId)
-                && webhookEventTypesMatch(webhook.eventTypes, expectedEventTypes);
-    }
-
-    private boolean webhookResourceMatches(RachioApiWebHookEntry webhook, String deviceId) {
-        return webhook.resourceId != null && Objects.equals(webhook.resourceId.irrigationControllerId, deviceId);
-    }
-
-    private boolean webhookEventTypesMatch(@Nullable List<String> actualEventTypes, List<String> expectedEventTypes) {
-        if (actualEventTypes == null || actualEventTypes.isEmpty()) {
-            return true;
-        }
-        return actualEventTypes.size() == expectedEventTypes.size() && actualEventTypes.containsAll(expectedEventTypes)
-                && expectedEventTypes.containsAll(actualEventTypes);
-    }
-
-    private List<RachioApiWebHookEntry> parseWebHookList(String json) {
+    static List<RachioApiWebHookEntry> parseWebHookList(String json) {
         Gson gson = new Gson();
         JsonElement root = JsonParser.parseString(json);
         JsonArray entries;

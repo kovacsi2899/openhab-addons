@@ -240,9 +240,21 @@ Discovery creates flex schedule Things when the Rachio controller payload includ
 ### Webhook Events
 
 The binding registers for the current Smart Irrigation Controller webhook event types exposed by Rachio, including schedule started/stopped/completed, zone run started/stopped/completed/paused, rain/freeze/wind/climate skip notifications, and no-skip notifications.
+Webhook registration is resource-aware internally: the binding now models each desired webhook target by Rachio resource type, resource ID, and event type set.
+Existing Smart Irrigation Controller behavior is unchanged, while the shared webhook infrastructure is prepared for future Smart Hose Timer and Smart Lighting resources.
 Schedule events update controller schedule channels and matching `schedule` Things when present.
 Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
 Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
+Smart Hose Timer and Smart Lighting events are not exposed as user-facing Things or channels in this phase.
+Unsupported resource-family events are safely ignored with DEBUG logging.
+
+### Property/Home API
+
+The binding includes internal support for Rachio's modern Property Service on `https://cloud-rest.rach.io`.
+This is infrastructure for future multi-product support and does not currently create user-facing Property/Home Things.
+The implemented API layer can list properties for a user, retrieve a property by ID, and look up a property by documented entity resource identifiers.
+Current internal lookup helpers cover the documented location, base station, and lighting area entity IDs.
+Future Smart Hose Timer and Smart Lighting support can build on this without changing existing controller, zone, schedule, or flex schedule Things.
 
 # Full example
 
@@ -408,7 +420,7 @@ Navigate to the Rachio Cloud Connector thing settings and set the callback URL.
 Check the openHAB logs to verify successful webhook registration:
 
 ```
-DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Register WebHook for controller 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Register WebHook for target 'IRRIGATION_CONTROLLER:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 DEBUG org.openhab.binding.rachio.internal.api.RachioApi - Webhook successfully registered with new WebhookService API
 ```
 

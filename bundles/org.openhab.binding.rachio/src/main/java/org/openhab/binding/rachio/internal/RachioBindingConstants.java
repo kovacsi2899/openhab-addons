@@ -184,6 +184,12 @@ public class RachioBindingConstants {
 
     // New WebhookService endpoints (cloud-rest.rach.io)
     public static final String WEBHOOK_QUERY_CONTROLLER_ID = "resource_id.irrigation_controller_id";
+    public static final String WEBHOOK_QUERY_VALVE_ID = "resource_id.valve_id";
+    public static final String WEBHOOK_QUERY_PROGRAM_ID = "resource_id.program_id";
+    public static final String WEBHOOK_QUERY_LIGHTING_CONTROLLER_ID = "resource_id.lighting_controller_id";
+    public static final String WEBHOOK_QUERY_LIGHTING_ZONE_ID = "resource_id.lighting_zone_id";
+    public static final String WEBHOOK_QUERY_LIGHTING_SCENE_ID = "resource_id.lighting_scene_id";
+    public static final String WEBHOOK_QUERY_LIGHTING_PROGRAM_ID = "resource_id.lighting_program_id";
     public static final String WEBHOOK_CREATE = "/webhook/createWebhook";
     public static final String WEBHOOK_GET = "/webhook/getWebhook/";
     public static final String WEBHOOK_LIST = "/webhook/listWebhooks";
@@ -191,6 +197,13 @@ public class RachioBindingConstants {
     public static final String WEBHOOK_DELETE = "/webhook/deleteWebhook/";
     public static final String WEBHOOK_DELETE_ALL = "/webhook/deleteAllWebhooks";
     public static final String WEBHOOK_LIST_EVENT_TYPES = "/webhook/listWebhookEventTypes";
+
+    public static final String PROPERTY_GET = "/property/getProperty/";
+    public static final String PROPERTY_LIST = "/property/listProperties/";
+    public static final String PROPERTY_FIND_BY_ENTITY = "/property/findPropertyByEntity";
+    public static final String PROPERTY_QUERY_LOCATION_ID = "resource_id.location_id";
+    public static final String PROPERTY_QUERY_BASE_STATION_ID = "resource_id.base_station_id";
+    public static final String PROPERTY_QUERY_LIGHTING_AREA_ID = "resource_id.lighting_area_id";
 
     public static final String APIURL_ZONE_PUT_START = "zone/start"; // start a zone
     public static final String APIURL_ZONE_PUT_MULTIPLE_START = "zone/start_multiple"; // start multiple zones
