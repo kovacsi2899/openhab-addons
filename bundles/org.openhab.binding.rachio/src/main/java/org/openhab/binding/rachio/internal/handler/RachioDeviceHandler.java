@@ -192,8 +192,13 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RUN)) {
                 if (command == OnOffType.ON) {
-                    logger.debug("START watering zones '{}' ('' = ALL)", d.getRunZones());
-                    handler.runMultipleZones(d.getAllRunZonesJson(handler.getDefaultRuntime()));
+                    int defaultRuntime = handler.getDefaultRuntime();
+                    int controllerRuntime = d.getRunTime();
+                    int effectiveRuntime = d.getMultiZoneRunTime(defaultRuntime);
+                    logger.debug(
+                            "Starting multiple zones '{}' with controller runtime {} sec (fallback default {} sec, effective {} sec)",
+                            d.getRunZones(), controllerRuntime, defaultRuntime, effectiveRuntime);
+                    handler.runMultipleZones(d.getAllRunZonesJson(defaultRuntime));
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_STOP)) {
                 if (command == OnOffType.ON) {

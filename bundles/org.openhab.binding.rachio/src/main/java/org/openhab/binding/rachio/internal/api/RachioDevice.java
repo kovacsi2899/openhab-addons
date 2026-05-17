@@ -330,6 +330,10 @@ public class RachioDevice extends RachioCloudDevice {
         runTime = time;
     }
 
+    public int getMultiZoneRunTime(int defaultRuntime) {
+        return runTime > 0 ? runTime : defaultRuntime;
+    }
+
     public void setEvent(String event, DateTimeType ts) {
         lastEvent = event;
         lastEventTime = ts;
@@ -349,6 +353,8 @@ public class RachioDevice extends RachioCloudDevice {
 
     public String getAllRunZonesJson(int defaultRuntime) {
         boolean flAll = runList.isEmpty() || runList.equalsIgnoreCase("ALL");
+        int runtime = getMultiZoneRunTime(defaultRuntime);
+        StringBuilder resolvedDurations = new StringBuilder();
 
         String list = runList + ","; // make sure last entry is terminated by ','
         String json = "{ \"zones\" : [";
@@ -356,7 +362,10 @@ public class RachioDevice extends RachioCloudDevice {
             @Nullable
             RachioZone zone = ze.getValue();
             if (flAll || (list.contains(zone.zoneNumber + ",") && (zone.getEnabled() == OnOffType.ON))) {
-                int runtime = zone.getStartRunTime() > 0 ? zone.getStartRunTime() : defaultRuntime;
+                if (resolvedDurations.length() > 0) {
+                    resolvedDurations.append(", ");
+                }
+                resolvedDurations.append("zone ").append(zone.zoneNumber).append(" = ").append(runtime).append(" sec");
                 if (json.contains("\"id\"")) {
                     json = json + ", ";
                 }
@@ -364,6 +373,7 @@ public class RachioDevice extends RachioCloudDevice {
             }
         }
         json = json + "] }";
+        logger.debug("Resolved multi-zone durations: {}", resolvedDurations);
         return json;
     }
 

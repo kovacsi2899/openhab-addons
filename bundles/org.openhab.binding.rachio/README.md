@@ -137,7 +137,7 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |stop         |ON: Stop watering for all zones (command), OFF: normal operation                                                       |
 |run          |ON: Start watering selected/all zones (defined in runZones)                                                            |
 |runZones     |Zones to run at a time - list, e.g: "1,3" = run zone 1 and 3; "" means: run all zones                                  |
-|runTime      |Run time of all zones                                                                                                  |
+|runTime      |Controller-level run time, in seconds, for the multi-zone `run` command                                                |
 |rainDelay    |> 0: Rain delay scheduled for x sec; =0: Currently not in rain delay mode                                              |
 |rainSensorTripped|ON: Rain sensor has tripped (rain detected)                                                                        |
 |lastUpdate   |Timestamp of last status update                                                                                        |
@@ -152,6 +152,11 @@ Controller identity is based on the Rachio API controller UUID configured as `de
 Discovery fills this automatically.
 For manually created controller Things, set `deviceId` to the Rachio API device UUID.
 The MAC address may still appear in discovered Thing UIDs for compatibility, but it is not the API controller ID.
+
+When starting zones from the controller Thing with `runZones` and `run`, the controller `runTime` channel controls the duration for every selected zone.
+If controller `runTime` is greater than 0, that value is used for all selected zones.
+If controller `runTime` is 0, the bridge `defaultRuntime` is used.
+Zone-specific `runTime` values only apply when starting an individual zone from that zone Thing.
 
 ### Zone Thing - represents one zone of a Controller
 
