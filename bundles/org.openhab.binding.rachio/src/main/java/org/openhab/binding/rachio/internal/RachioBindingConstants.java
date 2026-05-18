@@ -103,6 +103,9 @@ public class RachioBindingConstants {
     public static final String CHANNEL_DEVICE_STOP = "stop";
     public static final String CHANNEL_DEVICE_RAIN_DELAY = "rainDelay";
     public static final String CHANNEL_DEVICE_RAIN_STRIPPED = "rainSensorTripped";
+    public static final String CHANNEL_DEVICE_ACTIVE_ZONE_NUMBER = "activeZoneNumber";
+    public static final String CHANNEL_DEVICE_ACTIVE_ZONE_NAME = "activeZoneName";
+    public static final String CHANNEL_DEVICE_ACTIVE_ZONE_ID = "activeZoneId";
 
     public static final String CHANNEL_CURRENT_SCHEDULE_ID = "currentScheduleId";
     public static final String CHANNEL_CURRENT_SCHEDULE_NAME = "currentScheduleName";
@@ -138,7 +141,20 @@ public class RachioBindingConstants {
     public static final String CHANNEL_ZONE_RUN = "run";
     public static final String CHANNEL_ZONE_RUN_TIME = "runTime";
     public static final String CHANNEL_ZONE_RUN_TOTAL = "runTotal";
+    public static final String CHANNEL_ZONE_AVAILABLE_WATER = "availableWater";
     public static final String CHANNEL_ZONE_IMAGEURL = "imageUrl";
+    public static final String CHANNEL_ZONE_IMAGE = "image";
+    public static final String CHANNEL_ZONE_DEPTH_OF_WATER = "depthOfWater";
+    public static final String CHANNEL_ZONE_SATURATED_DEPTH_OF_WATER = "saturatedDepthOfWater";
+    public static final String CHANNEL_ZONE_MANAGEMENT_ALLOWED_DEPLETION = "managementAllowedDepletion";
+    public static final String CHANNEL_ZONE_ROOT_ZONE_DEPTH = "rootZoneDepth";
+    public static final String CHANNEL_ZONE_EFFICIENCY = "efficiency";
+    public static final String CHANNEL_ZONE_YARD_AREA_SQUARE_FEET = "yardAreaSquareFeet";
+    public static final String CHANNEL_ZONE_LAST_WATERED_DATE = "lastWateredDate";
+    public static final String CHANNEL_ZONE_FIXED_RUNTIME = "fixedRuntime";
+    public static final String CHANNEL_ZONE_MAX_RUNTIME = "maxRuntime";
+    public static final String CHANNEL_ZONE_RUNTIME_NO_MULTIPLIER = "runtimeNoMultiplier";
+    public static final String CHANNEL_ZONE_SCHEDULE_DATA_MODIFIED = "scheduleDataModified";
     public static final String CHANNEL_ZONE_MOISTURE_LEVEL = "moistureLevel";
     public static final String CHANNEL_ZONE_MOISTURE_PERCENT = "moisturePercent";
 

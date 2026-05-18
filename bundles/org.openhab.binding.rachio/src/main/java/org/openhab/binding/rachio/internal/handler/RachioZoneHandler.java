@@ -16,6 +16,9 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -24,10 +27,13 @@ import org.openhab.binding.rachio.internal.RachioBindingConstants;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
+import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioZoneStatus;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.core.io.net.http.HttpUtil;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.RawType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -36,6 +42,7 @@ import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
+import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,12 +56,18 @@ import org.slf4j.LoggerFactory;
 
 @NonNullByDefault
 public class RachioZoneHandler extends AbstractRachioThingHandler {
+    private static final int MAX_ZONE_IMAGE_SIZE_BYTES = 5_000_000;
+
     private final Logger logger = LoggerFactory.getLogger(RachioZoneHandler.class);
     private OnOffType zoneRunState = OnOffType.OFF;
     @Nullable
     private RachioDevice dev;
     @Nullable
     private RachioZone zone;
+    private String cachedImageUrl = "";
+    @Nullable
+    private RawType cachedImage;
+    private String failedImageUrl = "";
 
     public RachioZoneHandler(Thing thing) {
         super(thing);
@@ -254,13 +267,18 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
 
     public boolean webhookEvent(RachioEventGsonDTO event) {
         boolean update = false;
+        RachioZone z = zone;
+        if (z == null) {
+            return false;
+        }
         try {
 
             String zoneName = event.zoneName;
             String evt = event.subType.isEmpty() ? event.type : event.subType;
-            zone.setEvent(evt, getTimestamp()); // and funnel all zone events to the device
+            z.setEvent(evt, getTimestamp()); // and funnel all zone events to the device
             if (event.type.equals("ZONE_STATUS")) {
-                String state = event.zoneRunStatus != null ? event.zoneRunStatus.state : event.subType;
+                RachioZoneStatus runStatus = event.zoneRunStatus;
+                String state = runStatus != null ? runStatus.state : event.subType;
                 if (state.equals("ZONE_STARTED")) {
                     logger.info("{}: Zone {} STARTED watering ({}).", thingId, zoneName, event.timestamp);
                     zoneRunState = OnOffType.ON;
@@ -278,7 +296,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 }
                 update = true;
             } else if (event.subType.equals("ZONE_DELTA")) {
-                logger.info("{}: DELTA Event for zone {}: {}.{}", thingId, zone.name, event.category, event.action);
+                logger.info("{}: DELTA Event for zone {}: {}.{}", thingId, z.name, event.category, event.action);
                 update = true;
             } else {
                 logger.debug("{}: Unhandled event type {}.{} for zone {}", thingId, event.type, event.subType,
@@ -306,7 +324,20 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_ZONE_RUN, zoneRunState);
             updateChannel(CHANNEL_ZONE_RUN_TIME, new DecimalType(new BigDecimal(z.getStartRunTime()).toString()));
             updateChannel(CHANNEL_ZONE_RUN_TOTAL, new DecimalType(new BigDecimal(z.runtime).toString()));
+            updateChannel(CHANNEL_ZONE_AVAILABLE_WATER, decimalOrNull(z.availableWater));
             updateChannel(CHANNEL_ZONE_IMAGEURL, new StringType(z.imageUrl));
+            updateZoneImageChannel(z);
+            updateChannel(CHANNEL_ZONE_DEPTH_OF_WATER, decimalOrNull(z.depthOfWater));
+            updateChannel(CHANNEL_ZONE_SATURATED_DEPTH_OF_WATER, decimalOrNull(z.saturatedDepthOfWater));
+            updateChannel(CHANNEL_ZONE_MANAGEMENT_ALLOWED_DEPLETION, decimalOrNull(z.managementAllowedDepletion));
+            updateChannel(CHANNEL_ZONE_ROOT_ZONE_DEPTH, decimalOrNull(z.rootZoneDepth));
+            updateChannel(CHANNEL_ZONE_EFFICIENCY, decimalOrNull(z.efficiency));
+            updateChannel(CHANNEL_ZONE_YARD_AREA_SQUARE_FEET, new DecimalType(z.yardAreaSquareFeet));
+            updateChannel(CHANNEL_ZONE_LAST_WATERED_DATE, epochMillisOrNull(z.lastWateredDate));
+            updateChannel(CHANNEL_ZONE_FIXED_RUNTIME, new DecimalType(z.fixedRuntime));
+            updateChannel(CHANNEL_ZONE_MAX_RUNTIME, new DecimalType(z.maxRuntime));
+            updateChannel(CHANNEL_ZONE_RUNTIME_NO_MULTIPLIER, new DecimalType(z.runtimeNoMultiplier));
+            updateChannel(CHANNEL_ZONE_SCHEDULE_DATA_MODIFIED, z.scheduleDataModified ? OnOffType.ON : OnOffType.OFF);
             updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, Double.isNaN(z.getMoistureLevel()) ? UnDefType.UNDEF
                     : new DecimalType(BigDecimal.valueOf(z.getMoistureLevel())));
             updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, Double.isNaN(z.getMoisturePercent()) ? UnDefType.UNDEF
@@ -315,6 +346,67 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             DateTimeType ts = z.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);
         }
+    }
+
+    private void updateZoneImageChannel(RachioZone z) {
+        String imageUrl = z.getImageDownloadUrl();
+        if (imageUrl.isBlank()) {
+            cachedImageUrl = "";
+            cachedImage = null;
+            failedImageUrl = "";
+            updateChannel(CHANNEL_ZONE_IMAGE, UnDefType.NULL);
+            return;
+        }
+
+        RawType image = cachedImage;
+        if (imageUrl.equals(cachedImageUrl) && image != null) {
+            updateChannel(CHANNEL_ZONE_IMAGE, image);
+            return;
+        }
+        if (imageUrl.equals(failedImageUrl)) {
+            return;
+        }
+
+        try {
+            image = downloadZoneImage(imageUrl);
+            if (image == null) {
+                failedImageUrl = imageUrl;
+                if (cachedImage == null) {
+                    updateChannel(CHANNEL_ZONE_IMAGE, UnDefType.NULL);
+                }
+                logger.debug("{}: Unable to download image for zone '{}' from '{}'", thingId, z.name, imageUrl);
+                return;
+            }
+            cachedImageUrl = imageUrl;
+            cachedImage = image;
+            failedImageUrl = "";
+            updateChannel(CHANNEL_ZONE_IMAGE, image);
+        } catch (RuntimeException e) {
+            failedImageUrl = imageUrl;
+            if (cachedImage == null) {
+                updateChannel(CHANNEL_ZONE_IMAGE, UnDefType.NULL);
+            }
+            logger.debug("{}: Unable to update image for zone '{}' from '{}': {}", thingId, z.name, imageUrl,
+                    e.getMessage());
+        }
+    }
+
+    protected @Nullable RawType downloadZoneImage(String imageUrl) {
+        return HttpUtil.downloadImage(imageUrl, true, MAX_ZONE_IMAGE_SIZE_BYTES);
+    }
+
+    static State decimalOrNull(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return UnDefType.NULL;
+        }
+        return new DecimalType(BigDecimal.valueOf(value));
+    }
+
+    static State epochMillisOrNull(long epochMillis) {
+        if (epochMillis <= 0) {
+            return UnDefType.NULL;
+        }
+        return new DateTimeType(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
     }
 
     @Override

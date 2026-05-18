@@ -25,6 +25,9 @@
 			<channel id="runTime" typeId="dev_runTime"/>
 			<channel id="rainDelay" typeId="dev_rainDelay"/>
 			<channel id="rainSensorTripped" typeId="dev_rainSensorTripped"/>
+			<channel id="activeZoneNumber" typeId="dev_activeZoneNumber"/>
+			<channel id="activeZoneName" typeId="dev_activeZoneName"/>
+			<channel id="activeZoneId" typeId="dev_activeZoneId"/>
 			<channel id="currentScheduleId" typeId="dev_currentScheduleId"/>
 			<channel id="currentScheduleName" typeId="dev_currentScheduleName"/>
 			<channel id="currentScheduleType" typeId="dev_currentScheduleType"/>
@@ -126,6 +129,24 @@
 		<item-type>Switch</item-type>
 		<label>Rain Sensor Tripped</label>
 		<description>Indicates whether the rain sensor is currently tripped.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_activeZoneNumber">
+		<item-type>Number</item-type>
+		<label>Active Zone Number</label>
+		<description>Zone number of the currently active watering run, populated from webhook zone run events.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_activeZoneName">
+		<item-type>String</item-type>
+		<label>Active Zone Name</label>
+		<description>Name of the currently active watering zone, populated from webhook zone run events.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="dev_activeZoneId" advanced="true">
+		<item-type>String</item-type>
+		<label>Active Zone ID</label>
+		<description>Rachio zone ID of the currently active watering zone, populated from webhook zone run events.</description>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_latitude" advanced="true">

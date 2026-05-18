@@ -150,6 +150,9 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |runTime      |Controller-level run time, in seconds, for the multi-zone `run` command                                                |
 |rainDelay    |> 0: Rain delay scheduled for x sec; =0: Currently not in rain delay mode                                              |
 |rainSensorTripped|ON: Rain sensor has tripped (rain detected)                                                                        |
+|activeZoneNumber|Zone number currently watering, populated from zone run webhook events.                                             |
+|activeZoneName|Zone name currently watering, populated from zone run webhook events.                                                 |
+|activeZoneId|Rachio zone UUID currently watering, populated from zone run webhook events.                                            |
 |lastUpdate   |Timestamp of last status update                                                                                        |
 |lastEvent    |Last event received from the cloud (requires configuration of event callback)                                          |
 |lastEventTime|Timestamp last event has been received (only if event callback is active)                                              |
@@ -189,6 +192,10 @@ If controller `runTime` is greater than 0, that value is used for all selected z
 If controller `runTime` is 0, the bridge `defaultRuntime` is used.
 Zone-specific `runTime` values only apply when starting an individual zone from that zone Thing.
 
+The `activeZoneNumber`, `activeZoneName`, and `activeZoneId` channels are event-driven.
+They are set when Rachio sends a zone-run-started webhook event, preserved during pause events, and cleared when the zone run is stopped or completed.
+After an openHAB restart they may remain empty until the next relevant webhook event.
+
 Current schedule, forecast, and event history channels use a last-known-value policy.
 If one of these extra read endpoints fails during a refresh, the binding logs the failure and keeps the previously published values.
 A successful current schedule response that reports no running schedule still clears the current schedule channels normally.
@@ -203,7 +210,20 @@ A successful current schedule response that reports no running schedule still cl
 |run          |ON: The zone starts watering. If runTime is = 0 the defaultRuntime will be used. OFF: Zone stops watering.             |
 |runTime      |Number of seconds to run the zone when run receives ON command                                                         |
 |runTotal     |Total number of seconds the zone was watering (as returned by the cloud service).                                      |
+|availableWater|Available water value returned by Rachio for the zone.                                                               |
 |imageUrl     |URL to the zone picture as configured in the App. Rachio supplies default pictures if no image was created.            |
+|image        |Native openHAB Image channel for the zone picture.                                                                    |
+|depthOfWater |Depth of water value returned by Rachio.                                                                               |
+|saturatedDepthOfWater|Saturated depth of water value returned by Rachio.                                                            |
+|managementAllowedDepletion|Management allowed depletion value returned by Rachio.                                                    |
+|rootZoneDepth|Root zone depth value returned by Rachio.                                                                              |
+|efficiency   |Efficiency value returned by Rachio.                                                                                   |
+|yardAreaSquareFeet|Yard area in square feet as returned by Rachio.                                                                  |
+|lastWateredDate|Timestamp when Rachio reports the zone was last watered.                                                            |
+|fixedRuntime |Fixed runtime value returned by Rachio.                                                                                |
+|maxRuntime   |Maximum runtime value returned by Rachio.                                                                              |
+|runtimeNoMultiplier|Runtime without multiplier value returned by Rachio.                                                          |
+|scheduleDataModified|ON when Rachio reports modified schedule data for the zone.                                                    |
 |moistureLevel|Command channel for `zone/setMoistureLevel`. Send the moisture level in millimeters.                                  |
 |moisturePercent|Command channel for `zone/setMoisturePercent`. Send a number from 0 to 1.                                           |
 |lastUpdate   |Timestamp of last status update                                                                                        |
@@ -213,6 +233,9 @@ A successful current schedule response that reports no running schedule still cl
 Zone identity is based on the Rachio API zone UUID configured as `zoneId`.
 Discovery fills this automatically.
 For manually created zone Things, set `zoneId` to the Rachio API zone UUID.
+The existing `imageUrl` channel remains available for URL-based integrations.
+The `image` channel downloads the same zone picture as native openHAB image data and can be linked to an `Image` Item.
+If an image cannot be downloaded, the zone remains online and the URL channel is still updated.
 
 ### Smart Hose Timer Things
 
@@ -368,6 +391,9 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Number   RachioC04DAC_RunTime       "Run Time"           {channel="rachio:device:1:XXXXXXXXXXXX:runTime"}
     Number   RachioC04DAC_RainDelay     "Rain Delay"         {channel="rachio:device:1:XXXXXXXXXXXX:rainDelay"}
     Switch   RachioC04DAC_RainSensorTr  "Rain Sensor"        {channel="rachio:device:1:XXXXXXXXXXXX:rainSensorTripped"}
+    Number   RachioC04DAC_ActiveZoneNo  "Active Zone Number" {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneNumber"}
+    String   RachioC04DAC_ActiveZone    "Active Zone"        {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneName"}
+    String   RachioC04DAC_ActiveZoneId  "Active Zone ID"     {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneId"}
     String   RachioC04DAC_lastEvent     "Last Event"         {channel="rachio:device:1:XXXXXXXXXXXX:lastEvent"}
     DateTime RachioC04DAC_lastEventTime "Last Event Time"    {channel="rachio:device:1:XXXXXXXXXXXX:lastEventTime"}
     DateTime RachioC04DAC_lastUpdate    LastUpdate"          {channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate"}
@@ -380,6 +406,7 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Number   RachioZone1_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTime"}
     Number   RachioZone1_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTotal"}
     String   RachioZone1_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-1:imageUrl"}
+    Image    RachioZone1_Image          "Zone Image"      {channel="rachio:zone:1:XXXXXXXXXXXX-1:image"}
     String   RachioZone1_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEvent"}
     DateTime RachioZone1_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEventTime"}
     DateTime RachioZone1_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastUpdate"}
@@ -392,6 +419,7 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     Number   RachioZone2_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTime"}
     Number   RachioZone2_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTotal"}
     String   RachioZone2_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-2:imageUrl"}
+    Image    RachioZone2_Image          "Zone Image"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:image"}
     String   RachioZone2_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent"}
     DateTime RachioZone2_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime"}
     DateTime RachioZone2_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate"}

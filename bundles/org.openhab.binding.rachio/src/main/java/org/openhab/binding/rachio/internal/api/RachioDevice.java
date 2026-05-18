@@ -87,6 +87,9 @@ public class RachioDevice extends RachioCloudDevice {
     public String lastSkipScheduleId = "";
     public String lastSkipStartTime = "";
     public String lastSkipReason = "";
+    public int activeZoneNumber = -1;
+    public String activeZoneName = "";
+    public String activeZoneId = "";
 
     @SuppressWarnings("unused")
     public RachioDevice(RachioCloudDevice device) {
@@ -441,6 +444,33 @@ public class RachioDevice extends RachioCloudDevice {
         lastSkipScheduleId = scheduleId;
         lastSkipStartTime = startTime;
         lastSkipReason = reason;
+    }
+
+    public boolean applyActiveZoneEvent(String state, int zoneNumber, @Nullable RachioZone zone) {
+        if ("ZONE_STARTED".equals(state)) {
+            activeZoneNumber = zoneNumber > 0 ? zoneNumber : (zone != null ? zone.zoneNumber : -1);
+            if (zone != null) {
+                activeZoneName = zone.name;
+                activeZoneId = zone.id;
+            } else {
+                activeZoneName = "";
+                activeZoneId = "";
+            }
+            return true;
+        }
+
+        if ("ZONE_STOPPED".equals(state) || "ZONE_COMPLETED".equals(state)) {
+            clearActiveZone();
+            return true;
+        }
+
+        return false;
+    }
+
+    public void clearActiveZone() {
+        activeZoneNumber = -1;
+        activeZoneName = "";
+        activeZoneId = "";
     }
 
     public String getAllRunZonesJson(int defaultRuntime) {

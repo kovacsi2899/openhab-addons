@@ -71,6 +71,60 @@ class RachioDeviceRunZonesTest {
         assertThat(json, not(containsString("\"duration\" : 60")));
     }
 
+    @Test
+    void activeZoneEventStoresResolvedZoneIdentity() {
+        RachioDevice device = deviceWithZones(zone("zone-6-id", 6));
+        RachioZone zone = Objects.requireNonNull(device.getZoneByNumber(6));
+
+        assertThat(device.applyActiveZoneEvent("ZONE_STARTED", 6, zone), is(true));
+
+        assertThat(device.activeZoneNumber, is(6));
+        assertThat(device.activeZoneName, is("Zone 6"));
+        assertThat(device.activeZoneId, is("zone-6-id"));
+    }
+
+    @Test
+    void activeZonePauseEventDoesNotClearCurrentZone() {
+        RachioDevice device = deviceWithZones(zone("zone-6-id", 6));
+        RachioZone zone = Objects.requireNonNull(device.getZoneByNumber(6));
+        device.applyActiveZoneEvent("ZONE_STARTED", 6, zone);
+
+        assertThat(device.applyActiveZoneEvent("ZONE_CYCLING", 6, zone), is(false));
+
+        assertThat(device.activeZoneNumber, is(6));
+        assertThat(device.activeZoneName, is("Zone 6"));
+        assertThat(device.activeZoneId, is("zone-6-id"));
+    }
+
+    @Test
+    void activeZoneStopAndCompleteEventsClearCurrentZone() {
+        RachioDevice device = deviceWithZones(zone("zone-6-id", 6));
+        RachioZone zone = Objects.requireNonNull(device.getZoneByNumber(6));
+        device.applyActiveZoneEvent("ZONE_STARTED", 6, zone);
+
+        assertThat(device.applyActiveZoneEvent("ZONE_STOPPED", 6, zone), is(true));
+        assertThat(device.activeZoneNumber, is(-1));
+        assertThat(device.activeZoneName, is(""));
+        assertThat(device.activeZoneId, is(""));
+
+        device.applyActiveZoneEvent("ZONE_STARTED", 6, zone);
+        assertThat(device.applyActiveZoneEvent("ZONE_COMPLETED", 6, zone), is(true));
+        assertThat(device.activeZoneNumber, is(-1));
+        assertThat(device.activeZoneName, is(""));
+        assertThat(device.activeZoneId, is(""));
+    }
+
+    @Test
+    void activeZoneEventKeepsZoneNumberWhenZoneCannotBeResolved() {
+        RachioDevice device = deviceWithZones(zone("zone-6-id", 6));
+
+        assertThat(device.applyActiveZoneEvent("ZONE_STARTED", 7, null), is(true));
+
+        assertThat(device.activeZoneNumber, is(7));
+        assertThat(device.activeZoneName, is(""));
+        assertThat(device.activeZoneId, is(""));
+    }
+
     private RachioDevice deviceWithZones(RachioCloudZone... zones) {
         RachioCloudDevice cloudDevice = new RachioCloudDevice();
         cloudDevice.id = "device-id";

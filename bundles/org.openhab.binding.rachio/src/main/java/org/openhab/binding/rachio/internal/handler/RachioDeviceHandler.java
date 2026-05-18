@@ -265,6 +265,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                     new DecimalType(new BigDecimal(d.rainDelay).toString()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_STRIPPED,
                     d.rainSensorTripped ? OnOffType.ON : OnOffType.OFF);
+            updateChannel(CHANNEL_DEVICE_ACTIVE_ZONE_NUMBER,
+                    d.activeZoneNumber > 0 ? new DecimalType(d.activeZoneNumber) : UnDefType.NULL);
+            updateChannel(CHANNEL_DEVICE_ACTIVE_ZONE_NAME, stringOrNull(d.activeZoneName));
+            updateChannel(CHANNEL_DEVICE_ACTIVE_ZONE_ID, stringOrNull(d.activeZoneId));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_ID, stringOrUndef(d.currentScheduleId));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_NAME, stringOrUndef(d.currentScheduleName));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_TYPE, stringOrUndef(d.currentScheduleType));
@@ -431,8 +435,18 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             }
 
             boolean devicePauseChanged = false;
+            boolean activeZoneChanged = false;
             if (etype.equals("ZONE_STATUS")) {
-                String state = event.zoneRunStatus != null ? event.zoneRunStatus.state : event.subType;
+                RachioZoneStatus runStatus = event.zoneRunStatus;
+                String state = runStatus != null ? runStatus.state : event.subType;
+                int zoneNumber = runStatus != null ? runStatus.zoneNumber : event.zoneNumber;
+                if ("ZONE_STARTED".equals(state) || "ZONE_STOPPED".equals(state) || "ZONE_COMPLETED".equals(state)) {
+                    if ("ZONE_STARTED".equals(state) && zone == null && zoneNumber > 0) {
+                        logger.debug("{}: Active zone run started for zone number {}, but no matching zone was found",
+                                thingId, zoneNumber);
+                    }
+                    activeZoneChanged = d.applyActiveZoneEvent(state, zoneNumber, zone);
+                }
                 if ("ZONE_CYCLING".equals(state)) {
                     if (!d.paused) {
                         logger.info("{}: Device detected external pause for zone {}.", thingId,
@@ -451,7 +465,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                 }
             }
 
-            if (zoneUpdated && !devicePauseChanged) {
+            if (zoneUpdated && !devicePauseChanged && !activeZoneChanged) {
                 return true;
             }
 
@@ -567,6 +581,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
 
     private State stringOrUndef(String value) {
         return value.isBlank() ? UnDefType.UNDEF : new StringType(value);
+    }
+
+    private State stringOrNull(String value) {
+        return value.isBlank() ? UnDefType.NULL : new StringType(value);
     }
 
     private State decimalOrUndef(double value) {

@@ -49,6 +49,7 @@ public class RachioZone extends RachioCloudZone {
     protected DateTimeType lastEventTime;
     protected double moistureLevel = Double.NaN;
     protected double moisturePercent = Double.NaN;
+    protected String imageDownloadUrl = "";
 
     /**
      * Use reflection to shallow copy simple type fields with matching names from one object to another
@@ -59,6 +60,7 @@ public class RachioZone extends RachioCloudZone {
     public RachioZone(RachioCloudZone zone, String uniqueId) {
         try {
             RachioApi.copyMatchingFields(zone, this);
+            imageDownloadUrl = zone.imageUrl;
             if (zone.imageUrl.startsWith(SERVLET_IMAGE_URL_BASE)) {
                 // when trying to load the imageUrl Rachio doesn't add a ".png" and doesn't set the mime type. As a
                 // result the binding provides a servlet, which acts like a proxy. We redirect the load request to the
@@ -92,7 +94,13 @@ public class RachioZone extends RachioCloudZone {
         if ((czone == null) || (zoneNumber != czone.zoneNumber) || (enabled != czone.enabled)
                 || (availableWater != czone.availableWater) || (efficiency != czone.efficiency)
                 || (lastWateredDate != czone.lastWateredDate) || (depthOfWater != czone.depthOfWater)
-                || (runtime != czone.runtime)) {
+                || (saturatedDepthOfWater != czone.saturatedDepthOfWater)
+                || (managementAllowedDepletion != czone.managementAllowedDepletion)
+                || (rootZoneDepth != czone.rootZoneDepth) || (yardAreaSquareFeet != czone.yardAreaSquareFeet)
+                || (scheduleDataModified != czone.scheduleDataModified) || (fixedRuntime != czone.fixedRuntime)
+                || (maxRuntime != czone.maxRuntime) || (runtimeNoMultiplier != czone.runtimeNoMultiplier)
+                || (runtime != czone.runtime) || !imageUrl.equals(czone.imageUrl)
+                || !imageDownloadUrl.equals(czone.imageDownloadUrl)) {
             return false;
         }
         return true;
@@ -106,9 +114,19 @@ public class RachioZone extends RachioCloudZone {
         enabled = updatedZone.enabled;
         availableWater = updatedZone.availableWater;
         efficiency = updatedZone.efficiency;
+        saturatedDepthOfWater = updatedZone.saturatedDepthOfWater;
+        managementAllowedDepletion = updatedZone.managementAllowedDepletion;
+        rootZoneDepth = updatedZone.rootZoneDepth;
+        yardAreaSquareFeet = updatedZone.yardAreaSquareFeet;
         depthOfWater = updatedZone.depthOfWater;
+        fixedRuntime = updatedZone.fixedRuntime;
+        maxRuntime = updatedZone.maxRuntime;
+        runtimeNoMultiplier = updatedZone.runtimeNoMultiplier;
+        scheduleDataModified = updatedZone.scheduleDataModified;
         runtime = updatedZone.runtime;
         lastWateredDate = updatedZone.lastWateredDate;
+        imageUrl = updatedZone.imageUrl;
+        imageDownloadUrl = updatedZone.imageDownloadUrl;
     }
 
     public void setUID(@Nullable ThingUID deviceUID, @Nullable ThingUID zoneUID) {
@@ -136,6 +154,10 @@ public class RachioZone extends RachioCloudZone {
         properties.put(PROPERTY_NAME, name);
         properties.put(PROPERTY_ZONE_ID, id);
         return properties;
+    }
+
+    public String getImageDownloadUrl() {
+        return imageDownloadUrl.isBlank() ? imageUrl : imageDownloadUrl;
     }
 
     public OnOffType getEnabled() {
