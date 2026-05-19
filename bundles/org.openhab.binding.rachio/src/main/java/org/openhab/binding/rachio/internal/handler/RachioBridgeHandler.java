@@ -25,6 +25,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -76,6 +78,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     private RachioConfiguration bindingConfig = new RachioConfiguration();
     private RachioConfiguration thingConfig = new RachioConfiguration();
     private String personId = "";
+    private final Set<RachioDiscoveryService> discoveryServices = new CopyOnWriteArraySet<>();
 
     public enum RefreshReason {
         SCHEDULED_POLL,
@@ -134,6 +137,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
             logger.info("RachioCloud: Connector initialized");
             updateStatus(ThingStatus.ONLINE);
+            triggerPostInitializationDiscovery();
         } catch (RachioApiException e) {
             errorMessage = e.toString();
             if (e.getApiResult().isResponseRateLimit()) {
@@ -165,6 +169,32 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     @Override
     public Collection<Class<? extends ThingHandlerService>> getServices() {
         return Collections.singleton(RachioDiscoveryService.class);
+    }
+
+    public void registerDiscoveryService(RachioDiscoveryService discoveryService) {
+        discoveryServices.add(discoveryService);
+        if (getThing().getStatus() == ThingStatus.ONLINE && getDevices() != null) {
+            logger.debug(
+                    "RachioCloud: Discovery service registered after cloud initialization; triggering automatic discovery");
+            discoveryService.discoverFromCurrentCloudState("service registration");
+        }
+    }
+
+    public void unregisterDiscoveryService(RachioDiscoveryService discoveryService) {
+        discoveryServices.remove(discoveryService);
+    }
+
+    private void triggerPostInitializationDiscovery() {
+        if (discoveryServices.isEmpty()) {
+            logger.debug(
+                    "RachioCloud: Post-initialization discovery trigger skipped; discovery service is not registered yet");
+            return;
+        }
+
+        logger.debug("RachioCloud: Triggering automatic post-initialization discovery using current cloud state");
+        for (RachioDiscoveryService discoveryService : discoveryServices) {
+            discoveryService.discoverFromCurrentCloudState("post-initialization");
+        }
     }
 
     /**

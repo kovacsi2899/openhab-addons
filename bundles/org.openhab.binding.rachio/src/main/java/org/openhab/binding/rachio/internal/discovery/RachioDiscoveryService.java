@@ -82,6 +82,10 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
     @Override
     @Deactivate
     public void deactivate() {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler != null) {
+            handler.unregisterDiscoveryService(this);
+        }
         super.deactivate();
     }
 
@@ -93,8 +97,17 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
 
     @Override
     public void setThingHandler(@Nullable ThingHandler handler) {
+        RachioBridgeHandler currentHandler = cloudHandler;
+        if (currentHandler != null) {
+            currentHandler.unregisterDiscoveryService(this);
+        }
+
         if (handler instanceof RachioBridgeHandler) {
-            this.cloudHandler = (RachioBridgeHandler) handler;
+            RachioBridgeHandler rachioHandler = (RachioBridgeHandler) handler;
+            this.cloudHandler = rachioHandler;
+            rachioHandler.registerDiscoveryService(this);
+        } else {
+            this.cloudHandler = null;
         }
     }
 
@@ -111,6 +124,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         if (discoveryJob == null || discoveryJob.isCancelled()) {
             discoveryJob = scheduler.scheduleWithFixedDelay(this::discover, 10, DISCOVERY_REFRESH_SEC,
                     TimeUnit.SECONDS);
+            this.discoveryJob = discoveryJob;
         }
     }
 
@@ -119,11 +133,29 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         Future<?> scanTask = this.scanTask;
         if (scanTask == null || scanTask.isDone()) {
             logger.debug("Starting Rachio discovery scan");
-            scanTask = scheduler.submit(this::discover);
+            scanTask = scheduler.submit((Runnable) this::discover);
+            this.scanTask = scanTask;
         }
     }
 
     protected synchronized void discover() {
+        discover("scan");
+    }
+
+    public synchronized void discoverFromCurrentCloudState(String reason) {
+        Future<?> scanTask = this.scanTask;
+        if (scanTask == null || scanTask.isDone()) {
+            logger.debug("Starting automatic Rachio discovery from current cloud state ({})", reason);
+            scanTask = scheduler.submit((Runnable) () -> discover("automatic " + reason));
+            this.scanTask = scanTask;
+        } else {
+            logger.debug(
+                    "Automatic Rachio discovery from current cloud state ({}) skipped; discovery is already running",
+                    reason);
+        }
+    }
+
+    private synchronized void discover(String source) {
         try {
             RachioBridgeHandler handler = cloudHandler;
             if (handler == null) {
@@ -140,7 +172,9 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                 logger.debug("Discovery: Rachio Cloud access not initialized yet!");
                 return;
             }
-            logger.debug("Found {} devices.", deviceList.size());
+            DiscoveryCounts counts = new DiscoveryCounts();
+            logger.debug("RachioDiscovery: {} discovered {} irrigation controller device(s).", source,
+                    deviceList.size());
             for (HashMap.Entry<String, RachioDevice> de : deviceList.entrySet()) {
                 RachioDevice dev = de.getValue();
                 logger.debug("Check Rachio device with ID '{}'", dev.id);
@@ -158,6 +192,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                         .withRepresentationProperty(PROPERTY_DEV_ID).withBridge(bridgeUID).withLabel(dev.getThingName())
                         .build();
                 thingDiscovered(discoveryResult);
+                counts.controllers++;
 
                 HashMap<String, RachioZone> zoneList = dev.getZones();
                 logger.debug("Found {} zones for this device.", zoneList.size());
@@ -179,16 +214,22 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                                 .withBridge(bridgeUID).withLabel(dev.name + "[" + zone.zoneNumber + "]: " + zone.name)
                                 .build();
                         thingDiscovered(zoneDiscoveryResult);
+                        counts.zones++;
                     } else {
                         logger.debug("Zone#{} '{}' is disabled, skip thing creation", zone.name, zone.id);
                     }
                 }
-                discoverScheduleRules(bridgeUID, dev);
-                discoverFlexScheduleRules(bridgeUID, dev);
+                counts.schedules += discoverScheduleRules(bridgeUID, dev);
+                counts.flexSchedules += discoverFlexScheduleRules(bridgeUID, dev);
             }
             logger.debug("{}  Rachio device initialized.", deviceList.size());
 
-            discoverSmartHoseTimers(handler, bridgeUID);
+            counts.add(discoverSmartHoseTimers(handler, bridgeUID));
+
+            logger.debug(
+                    "RachioDiscovery: {} discovery emitted controllers={}, zones={}, schedules={}, flexSchedules={}, baseStations={}, valves={}, valvePrograms={}",
+                    source, counts.controllers, counts.zones, counts.schedules, counts.flexSchedules,
+                    counts.baseStations, counts.valves, counts.valvePrograms);
 
             stopScan();
         } catch (RuntimeException e) {
@@ -201,24 +242,30 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         super.stopScan();
     }
 
-    private void discoverScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
+    private int discoverScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
+        int count = 0;
         for (RachioCloudScheduleRule scheduleRule : dev.scheduleRules) {
             @Nullable
             DiscoveryResult discoveryResult = buildScheduleDiscoveryResult(bridgeUID, dev, scheduleRule);
             if (discoveryResult != null) {
                 thingDiscovered(discoveryResult);
+                count++;
             }
         }
+        return count;
     }
 
-    private void discoverFlexScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
+    private int discoverFlexScheduleRules(ThingUID bridgeUID, RachioDevice dev) {
+        int count = 0;
         for (RachioCloudScheduleRule scheduleRule : dev.flexScheduleRules) {
             @Nullable
             DiscoveryResult discoveryResult = buildFlexScheduleDiscoveryResult(bridgeUID, dev, scheduleRule);
             if (discoveryResult != null) {
                 thingDiscovered(discoveryResult);
+                count++;
             }
         }
+        return count;
     }
 
     static @Nullable DiscoveryResult buildScheduleDiscoveryResult(ThingUID bridgeUID, RachioDevice dev,
@@ -253,13 +300,15 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                 .withLabel(dev.name + ": " + scheduleRule.name).build();
     }
 
-    private void discoverSmartHoseTimers(RachioBridgeHandler handler, ThingUID bridgeUID) {
+    private DiscoveryCounts discoverSmartHoseTimers(RachioBridgeHandler handler, ThingUID bridgeUID) {
+        DiscoveryCounts counts = new DiscoveryCounts();
         try {
             for (RachioBaseStation baseStation : handler.listBaseStations()) {
                 @Nullable
                 DiscoveryResult baseStationResult = buildBaseStationDiscoveryResult(bridgeUID, baseStation);
                 if (baseStationResult != null) {
                     thingDiscovered(baseStationResult);
+                    counts.baseStations++;
                 }
 
                 if (baseStation.id.isBlank()) {
@@ -274,6 +323,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                         if (programResult != null) {
                             thingDiscovered(programResult);
                             discoveredProgramIds.add(program.id);
+                            counts.valvePrograms++;
                         }
                     }
                 } catch (RachioApiException e) {
@@ -285,6 +335,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                     DiscoveryResult valveResult = buildValveDiscoveryResult(bridgeUID, baseStation, valve);
                     if (valveResult != null) {
                         thingDiscovered(valveResult);
+                        counts.valves++;
                     }
                     if (valve.id.isBlank()) {
                         continue;
@@ -300,6 +351,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                             if (programResult != null) {
                                 thingDiscovered(programResult);
                                 discoveredProgramIds.add(program.id);
+                                counts.valvePrograms++;
                             }
                         }
                     } catch (RachioApiException e) {
@@ -311,6 +363,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         } catch (RachioApiException e) {
             logger.debug("Smart Hose Timer discovery skipped: {}", e.getMessage());
         }
+        return counts;
     }
 
     static @Nullable DiscoveryResult buildBaseStationDiscoveryResult(ThingUID bridgeUID,
@@ -353,5 +406,25 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         return DiscoveryResultBuilder.create(programThingUID).withProperties(properties)
                 .withRepresentationProperty(PROPERTY_VALVE_PROGRAM_ID).withBridge(bridgeUID)
                 .withLabel(baseStation.getThingName() + ": " + program.getThingName()).build();
+    }
+
+    private static class DiscoveryCounts {
+        private int controllers;
+        private int zones;
+        private int schedules;
+        private int flexSchedules;
+        private int baseStations;
+        private int valves;
+        private int valvePrograms;
+
+        private void add(DiscoveryCounts other) {
+            controllers += other.controllers;
+            zones += other.zones;
+            schedules += other.schedules;
+            flexSchedules += other.flexSchedules;
+            baseStations += other.baseStations;
+            valves += other.valves;
+            valvePrograms += other.valvePrograms;
+        }
     }
 }

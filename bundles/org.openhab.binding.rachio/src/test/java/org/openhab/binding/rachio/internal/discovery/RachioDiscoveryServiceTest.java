@@ -15,6 +15,7 @@ package org.openhab.binding.rachio.internal.discovery;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.verify;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_BASE_STATION_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_DEV_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
@@ -31,12 +32,14 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_T
 import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudDevice;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
+import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.thing.ThingUID;
 
@@ -124,6 +127,18 @@ class RachioDiscoveryServiceTest {
         assertThat(result.getProperties().get(PROPERTY_VALVE_PROGRAM_ID), is("program-id"));
         assertThat(result.getProperties().get(PROPERTY_VALVE_ID), is("valve-id"));
         assertThat(result.getProperties().get(PROPERTY_BASE_STATION_ID), is("base-station-id"));
+    }
+
+    @Test
+    void discoveryServiceRegistersAndUnregistersWithBridgeHandler() {
+        RachioDiscoveryService service = new RachioDiscoveryService();
+        RachioBridgeHandler bridgeHandler = Mockito.mock(RachioBridgeHandler.class);
+
+        service.setThingHandler(bridgeHandler);
+        service.setThingHandler(null);
+
+        verify(bridgeHandler).registerDiscoveryService(service);
+        verify(bridgeHandler).unregisterDiscoveryService(service);
     }
 
     private RachioDevice device() {
