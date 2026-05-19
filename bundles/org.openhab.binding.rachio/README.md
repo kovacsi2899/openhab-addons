@@ -14,12 +14,14 @@ In fact all Apps (including this binding) control the same device.
 The binding implements monitoring and control functions, but no configuration etc. 
 To change configuration you could use the Rachio smartphone app or website.
 
-Once the binding is able to connect to the Cloud API it will start the auto-discovery of all controller and zones under this account. 
-As a result the following things are created
+Once the binding is able to connect to the Cloud API it automatically starts discovery for supported resources under this account.
+As a result the following things can appear in the Inbox:
 
-- 1 cloud per account (binding supports multiple accounts(
-- 1 device for very controller (binding supports multiple controllers)
+- 1 cloud per account (binding supports multiple accounts)
+- 1 device for every controller (binding supports multiple controllers)
 - n zones for each zone on any controller
+- n schedules for fixed schedule rules returned by the Rachio controller API
+- n flex schedules for flex schedule rules returned by the Rachio controller API
 - 1 basestation for each Smart Hose Timer Wi-Fi hub
 - n valves for each Smart Hose Timer BaseStation
 - n valve programs for Smart Hose Timer schedules returned by the Rachio Program API
@@ -55,7 +57,8 @@ All devices are connected to this thing, all zones to the corresponding device.
 To receive events from the Rachio Cloud service set the callbackUrl to a public HTTPS URL that forwards to `/rachio/webhook`, for example `https://host.example.org/rachio/webhook`.
 - save
 
-Now the binding is able to connect to the cloud and start discovery devices and zones.
+After the bridge connects successfully, supported Things are discovered automatically and appear in the Inbox.
+Use Scan later if you want to refresh discovery results manually.
 
 **Option B: Using .things file**
 
@@ -91,7 +94,7 @@ Bridge rachio:cloud:1 [
 |forecastUnits    |Units for the Rachio forecast endpoint: `METRIC` or `US`.|
 |hoseSummaryLookbackDays|Days of recent Smart Hose Timer Summary day-view data to retrieve for valve and program run state. Default is 2; set to 0 to skip historical runs.|
 |hoseSummaryLookaheadDays|Days of upcoming Smart Hose Timer Summary day-view data to retrieve for planned runs and skip controls. Default is 7.|
-|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. For direct reverse proxies without Basic Auth, use `https://yourhost.example.org/rachio/webhook`.|
+|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. Prefer openHAB Cloud / myopenHAB.org or a properly authenticated reverse proxy; do not expose an unauthenticated openHAB endpoint directly to the Internet.|
 |callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
 |callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
 |clearAllCallbacks|The binding dynamically registers the callback. It also supports multiple applications registered to receive events, e.g. a 2nd OH device with the binding providing the same functionality. If for any reason your device setup changes (e.g. new ip address) you need to clear the registered URL once to avoid the "old URL" still receiving events. This also allows to move for a test setup to the regular setup.|
@@ -103,10 +106,11 @@ The bridge thing doesn't have any channels.
 Recommended: use Inbox discovery.
 
 1. Add and configure the Rachio Cloud bridge.
-2. Run Scan / Inbox discovery.
+2. Wait for the bridge to initialize successfully.
 3. Accept the discovered controller and zone Things.
 
-Discovery creates stable openHAB Thing UIDs and provides the real Rachio API identifiers automatically.
+Discovery runs automatically after successful bridge initialization, creates stable openHAB Thing UIDs, and provides the real Rachio API identifiers automatically.
+Use Scan as an optional re-run if you add Rachio resources later or want to refresh the Inbox.
 
 Manual creation is also supported.
 The local openHAB Thing ID may be chosen freely, but the controller Thing must be configured with the real Rachio controller UUID in `deviceId`.
@@ -135,6 +139,8 @@ For users of [openHAB Cloud](https://www.openhab.org/docs/configuration/openhab-
    - Test that `https://home.myopenhab.org/rachio/webhook` is reachable with Basic Auth
    - Check openHAB logs for successful webhook registration
    - Verify that Rachio events appear in openHAB without delays
+
+Webhook forwarding through openHAB Cloud / myopenHAB.org does not require exposing any Items in the Cloud Connector configuration.
 
 The username and password are entered as raw values. The binding percent-encodes them internally before registering the webhook URL with Rachio, so you do not need to manually encode `@`, `?`, `#`, `/`, or similar URI-reserved characters.
 
@@ -246,7 +252,8 @@ If an image cannot be downloaded, the zone remains online and the URL channel is
 ### Smart Hose Timer Things
 
 Smart Hose Timer support covers BaseStations, Valves, and Valve Programs.
-Discovery is recommended: after the Cloud bridge is online, Scan / Inbox discovery creates `basestation` Things, matching `valve` Things, and `valveprogram` Things where the Rachio Program API returns program IDs.
+Discovery is recommended: after the Cloud bridge is online, automatic Inbox discovery creates `basestation` Things, matching `valve` Things, and `valveprogram` Things where the Rachio Program API returns program IDs.
+Use Scan as an optional manual refresh.
 Manual creation is also supported when the real Rachio IDs are configured:
 
 ```
@@ -401,7 +408,7 @@ Future Smart Hose Timer and Smart Lighting support can build on this without cha
 ## Thing Definition
 
 ```
-Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  pollingInterval=60, defaultRuntime=120  ]
+Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  pollingInterval=180, defaultRuntime=120  ]
 {
     // Controller
     Thing device XXXXXXXXXXXX "Rachio-XXXXXX" @ "Sprinkler" [
@@ -462,7 +469,7 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     String   RachioC04DAC_ActiveZoneId  "Active Zone ID"     {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneId"}
     String   RachioC04DAC_lastEvent     "Last Event"         {channel="rachio:device:1:XXXXXXXXXXXX:lastEvent"}
     DateTime RachioC04DAC_lastEventTime "Last Event Time"    {channel="rachio:device:1:XXXXXXXXXXXX:lastEventTime"}
-    DateTime RachioC04DAC_lastUpdate    LastUpdate"          {channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate"}
+    DateTime RachioC04DAC_lastUpdate    "Last Update"        {channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate"}
 
     // Zone1
     String   RachioZone1_Name           "Zone Name"       {channel="rachio:zone:1:XXXXXXXXXXXX-1:name"}

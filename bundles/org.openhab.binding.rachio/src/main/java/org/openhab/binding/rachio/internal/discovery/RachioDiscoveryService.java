@@ -67,12 +67,6 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
     @Nullable
     private RachioBridgeHandler cloudHandler;
 
-    /**
-     * Activate the bundle: save properties
-     *
-     * @param componentContext
-     * @param configProperties set of properties from cfg (use same names as in thing config)
-     */
     @Override
     @Activate
     public void activate() {
@@ -216,7 +210,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                         thingDiscovered(zoneDiscoveryResult);
                         counts.zones++;
                     } else {
-                        logger.debug("Zone#{} '{}' is disabled, skip thing creation", zone.name, zone.id);
+                        logger.debug("Zone#{} '{}' is disabled, skip thing creation", zone.zoneNumber, zone.name);
                     }
                 }
                 counts.schedules += discoverScheduleRules(bridgeUID, dev);

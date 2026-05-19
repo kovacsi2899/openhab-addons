@@ -104,7 +104,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
     /**
      * Initialize the bridge/cloud handler. Creates a connection to the Rachio Cloud, reads devices + zones and
-     * initialized the Thing mapping.
+     * initializes the Thing mapping.
      */
     @Override
     public void initialize() {
@@ -267,7 +267,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
                             notifyThingStateChanged(checkDev, null);
                         }
                     } else {
-                        logger.trace("RachioCloud: Device {} was not updaterd", checkDev.id);
+                        logger.trace("RachioCloud: Device {} was not updated", checkDev.id);
                     }
 
                     HashMap<String, RachioZone> zoneList = dev.getZones();
@@ -336,7 +336,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
                     "RachioCloud: Unable to connect to Rachio Cloud: apikey not set, check services/rachio.cfg!");
         }
 
-        // initialiaze API access, may throw an exception
+        // initialize API access, may throw an exception
         api.initialize(thingConfig.apikey, this.getThing().getUID(), getPriority(refreshReason));
         personId = api.getPersonId();
     }
@@ -357,7 +357,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * puts the device into standby mode = disable watering, schedules etc.
      *
      * @param deviceId: Device (ID retrieved from initialization)
-     * @return true: successful, failed (check http error code)
      */
     public void disableDevice(String deviceId) throws RachioApiException {
         rachioApi.disableDevice(deviceId);
@@ -367,7 +366,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * puts the device into run mode = watering, schedules etc.
      *
      * @param deviceId: Device (ID retrieved from initialization)
-     * @return true: successful, failed (check http error code)
      */
     public void enableDevice(String deviceId) throws RachioApiException {
         rachioApi.enableDevice(deviceId);
@@ -377,8 +375,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * Stop watering for all zones, disable schedule etc. - puts the device into standby mode
      *
      * @param deviceId: Device (ID retrieved from initialization)
-     * @return true: successful, failed (check http error code)
-     * @return
      */
     public void stopWatering(String deviceId) throws RachioApiException {
         rachioApi.stopWatering(deviceId);
@@ -389,7 +385,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      *
      * @param deviceId: Device (ID retrieved from initialization)
      * @param delayTime: Number of seconds for the rain delay cycle
-     * @return true: successful, failed (check http error code)
      */
     public void startRainDelay(String deviceId, int delayTime) throws RachioApiException {
         rachioApi.rainDelay(deviceId, delayTime);
@@ -420,7 +415,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * Start watering for multiple zones.
      *
      * @param zoneListJson: Contains a list of { "id": n} with the zone ids to start
-     * @return true: successful, failed (check http error code)
      */
     public void runMultipleZones(String zoneListJson) throws RachioApiException {
         rachioApi.runMultilpeZones(zoneListJson);
@@ -431,7 +425,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      *
      * @param zoneId: Rachio Cloud Zone ID
      * @param runTime: Number of seconds to run
-     * @return true: successful, failed (check http error code)
      */
     public void startZone(String zoneId, int runTime) throws RachioApiException {
         rachioApi.runZone(zoneId, runTime);
@@ -728,8 +721,8 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     /**
      * return RachioZone for given Zone Thing UID
      *
-     * @param thingUID
-     * @return
+     * @param thingUID Zone Thing UID
+     * @return matching RachioZone, or null when no zone matches
      */
     @Nullable
     public RachioZone getZoneByUID(@Nullable ThingUID thingUID) {
@@ -747,7 +740,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * and zone events.
      *
      * @param deviceId: Matching device ID (as retrieved from device initialization)
-     * @return true: successful, false: failed (check http error code)
      */
     public void registerWebHook(String deviceId) throws RachioApiException {
         if (getCallbackUrl().isEmpty()) {
@@ -785,8 +777,8 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     /**
      * Handle inbound WebHook event (dispatch to device handler)
      *
-     * @param event
-     * @return
+     * @param event inbound Rachio webhook event
+     * @return true if the event was dispatched to a matching handler
      */
     public boolean webHookEvent(RachioEventGsonDTO event) {
         try {
