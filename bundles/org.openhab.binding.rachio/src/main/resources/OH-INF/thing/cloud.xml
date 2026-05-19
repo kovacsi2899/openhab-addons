@@ -46,6 +46,18 @@
 					<option value="US">US</option>
 				</options>
 			</parameter>
+			<parameter name="hoseSummaryLookbackDays" type="integer" min="0" max="31" step="1">
+				<label>Hose Timer Summary Lookback</label>
+				<description>Days of recent Smart Hose Timer summary data to retrieve.</description>
+				<required>false</required>
+				<default>2</default>
+			</parameter>
+			<parameter name="hoseSummaryLookaheadDays" type="integer" min="0" max="31" step="1">
+				<label>Hose Timer Summary Lookahead</label>
+				<description>Days of upcoming Smart Hose Timer summary data to retrieve.</description>
+				<required>false</required>
+				<default>7</default>
+			</parameter>
 			<parameter name="callbackUrl" type="text">
 				<label>Callback URL</label>
 				<description>Public HTTPS URL for Rachio webhook events. In the recommended Basic Auth configuration,

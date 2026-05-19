@@ -15,11 +15,17 @@ package org.openhab.binding.rachio.internal.api;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.time.Instant;
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStationListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgramListResponse;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -117,5 +123,110 @@ class RachioSmartHoseTimerApiTest {
         JsonObject json = JsonParser.parseString(RachioApi.buildValveStopWateringPayload("valve-id")).getAsJsonObject();
 
         assertThat(json.get("valveId").getAsString(), is("valve-id"));
+    }
+
+    @Test
+    void valveProgramListResponseParsesV2Programs() {
+        String json = """
+                {
+                  "programs": [
+                    {
+                      "id":"program-id",
+                      "name":"Morning Hose",
+                      "enabled":true,
+                      "programType":"FIXED",
+                      "resourceId":{"valveId":"valve-id","baseStationId":"base-station-id"},
+                      "durationSeconds":900,
+                      "daysOfWeek":["MONDAY","WEDNESDAY"]
+                    }
+                  ]
+                }
+                """;
+
+        RachioValveProgramListResponse response = RachioValveProgramListResponse.fromJson(json);
+
+        assertThat(response.programs.size(), is(1));
+        RachioValveProgram program = response.programs.get(0);
+        assertThat(program.id, is("program-id"));
+        assertThat(program.getThingName(), is("Morning Hose"));
+        assertThat(program.getValveId(), is("valve-id"));
+        assertThat(program.getBaseStationId(), is("base-station-id"));
+        assertThat(program.getDurationSeconds(), is(900));
+        assertThat(program.getDaysOfWeek(), is("[\"MONDAY\",\"WEDNESDAY\"]"));
+    }
+
+    @Test
+    void valveDayViewsResponseFindsUpcomingSkippedAndCompletedRuns() {
+        String yesterday = Instant.now().minusSeconds(86400).toString();
+        String tomorrow = Instant.now().plusSeconds(86400).toString();
+        String nextWeek = Instant.now().plusSeconds(604800).toString();
+        String json = """
+                {
+                  "dayViews": [
+                    {
+                      "plannedRuns": [
+                        {
+                          "plannedRunId":"planned-next",
+                          "programId":"program-id",
+                          "valveId":"valve-id",
+                          "plannedRunStartTime":"%s",
+                          "durationSeconds":600,
+                          "skipped":false
+                        },
+                        {
+                          "plannedRunId":"planned-skipped",
+                          "programId":"program-id",
+                          "valveId":"valve-id",
+                          "plannedRunStartTime":"%s",
+                          "durationSeconds":300,
+                          "skipped":true
+                        }
+                      ],
+                      "completedRuns": [
+                        {
+                          "plannedRunId":"completed-run",
+                          "programId":"program-id",
+                          "valveId":"valve-id",
+                          "startTime":"%s",
+                          "durationSeconds":120,
+                          "status":"COMPLETED"
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """.formatted(tomorrow, nextWeek, yesterday);
+
+        RachioValveDayViewsResponse response = RachioValveDayViewsResponse.fromJson(json);
+
+        assertThat(response.dayViews.size(), is(1));
+        assertThat(response.findNextPlannedRun().orElseThrow().getPlannedRunId(), is("planned-next"));
+        assertThat(response.findNextSkippedRun().orElseThrow().getPlannedRunId(), is("planned-skipped"));
+        assertThat(response.findLastCompletedRun().orElseThrow().getPlannedRunId(), is("completed-run"));
+    }
+
+    @Test
+    void valveDayViewsPayloadContainsResourceIdAndDateWindow() {
+        JsonObject json = JsonParser.parseString(RachioApi.buildValveDayViewsPayload("valve-id",
+                LocalDate.parse("2026-05-01"), LocalDate.parse("2026-05-08"))).getAsJsonObject();
+
+        assertThat(json.getAsJsonObject("start").get("date").getAsString(), is("2026-05-01"));
+        assertThat(json.getAsJsonObject("end").get("date").getAsString(), is("2026-05-08"));
+        assertThat(json.getAsJsonObject("resourceId").get("valveId").getAsString(), is("valve-id"));
+    }
+
+    @Test
+    void skipOverridePayloadsContainDocumentedIdentifiers() {
+        JsonObject programSkip = JsonParser
+                .parseString(RachioApi.buildProgramSkipOverridePayload("program-id", "2026-05-20T06:00:00Z"))
+                .getAsJsonObject();
+        JsonObject plannedRunSkip = JsonParser
+                .parseString(RachioApi.buildPlannedRunSkipOverridePayload("planned-run-id", "2026-05-20"))
+                .getAsJsonObject();
+
+        assertThat(programSkip.get("programId").getAsString(), is("program-id"));
+        assertThat(programSkip.get("timestamp").getAsString(), is("2026-05-20T06:00:00Z"));
+        assertThat(plannedRunSkip.get("plannedRunId").getAsString(), is("planned-run-id"));
+        assertThat(plannedRunSkip.get("date").getAsString(), is("2026-05-20"));
     }
 }

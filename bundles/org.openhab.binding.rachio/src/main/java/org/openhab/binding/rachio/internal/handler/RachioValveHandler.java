@@ -16,6 +16,9 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -25,6 +28,8 @@ import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO.RachioWebhookPayload;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayRun;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -58,6 +63,12 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
     private Boolean lastFlowDetected;
     private String lastRunType = "";
     private String lastEndReason = "";
+    @Nullable
+    private RachioValveDayRun nextPlannedRun;
+    @Nullable
+    private RachioValveDayRun nextSkippedRun;
+    @Nullable
+    private RachioValveDayRun lastCompletedRun;
     private boolean statusListenerRegistered = false;
 
     public RachioValveHandler(Thing thing) {
@@ -149,6 +160,16 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
                 } else {
                     logger.debug("{}: defaultRuntime command value is not numeric: {}", thingId, command);
                 }
+            } else if (CHANNEL_VALVE_SKIP_NEXT_PLANNED_RUN.equals(channel)) {
+                if (command == OnOffType.ON) {
+                    skipNextPlannedRun(handler, currentValve);
+                    updateChannel(CHANNEL_VALVE_SKIP_NEXT_PLANNED_RUN, OnOffType.OFF);
+                }
+            } else if (CHANNEL_VALVE_CANCEL_NEXT_PLANNED_RUN_SKIP.equals(channel)) {
+                if (command == OnOffType.ON) {
+                    cancelNextPlannedRunSkip(handler, currentValve);
+                    updateChannel(CHANNEL_VALVE_CANCEL_NEXT_PLANNED_RUN_SKIP, OnOffType.OFF);
+                }
             }
         } catch (RachioApiException e) {
             errorMessage = e.toString();
@@ -198,6 +219,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
             if (initialLoad || getThing().getStatus() != ThingStatus.ONLINE) {
                 handler.registerValveWebHook(currentValve.id);
             }
+            refreshSummary(currentValve.id);
             logger.debug("{}: Valve model lookup succeeded: valveId='{}', baseStationId='{}'", thingId, currentValve.id,
                     currentValve.baseStationId);
             goOnline();
@@ -220,6 +242,75 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
     public boolean handlesValveId(String valveId) {
         RachioValve currentValve = valve;
         return currentValve != null && currentValve.id.equalsIgnoreCase(valveId);
+    }
+
+    private void refreshSummary(String valveId) {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler == null) {
+            return;
+        }
+        try {
+            RachioValveDayViewsResponse summary = handler.getValveDayViews(valveId);
+            nextPlannedRun = summary.findNextPlannedRun().orElse(null);
+            nextSkippedRun = summary.findNextSkippedRun().orElse(null);
+            lastCompletedRun = summary.findLastCompletedRun().orElse(null);
+            logger.debug("{}: Loaded Smart Hose Timer summary for valve '{}': {} day views", thingId, valveId,
+                    summary.dayViews.size());
+        } catch (RachioApiException e) {
+            logger.debug("{}: Unable to load Smart Hose Timer summary for valve '{}': {}; retaining last known values",
+                    thingId, valveId, e.getMessage());
+        }
+    }
+
+    private void skipNextPlannedRun(RachioBridgeHandler handler, RachioValve currentValve) throws RachioApiException {
+        refreshSummary(currentValve.id);
+        RachioValveDayRun run = nextPlannedRun;
+        if (run == null) {
+            throw new RachioApiException("No upcoming Smart Hose Timer planned run is available to skip.");
+        }
+        applySkipOverride(handler, run, true);
+        refreshSummary(currentValve.id);
+        postChannelData();
+    }
+
+    private void cancelNextPlannedRunSkip(RachioBridgeHandler handler, RachioValve currentValve)
+            throws RachioApiException {
+        refreshSummary(currentValve.id);
+        RachioValveDayRun run = nextSkippedRun;
+        if (run == null) {
+            throw new RachioApiException("No upcoming skipped Smart Hose Timer planned run is available to cancel.");
+        }
+        applySkipOverride(handler, run, false);
+        refreshSummary(currentValve.id);
+        postChannelData();
+    }
+
+    static void applySkipOverride(RachioBridgeHandler handler, RachioValveDayRun run, boolean create)
+            throws RachioApiException {
+        String plannedRunId = run.getPlannedRunId();
+        String date = run.getSkipOverrideDate();
+        if (!plannedRunId.isBlank() && !date.isBlank()) {
+            if (create) {
+                handler.createPlannedRunSkipOverride(plannedRunId, date);
+            } else {
+                handler.deletePlannedRunSkipOverride(plannedRunId, date);
+            }
+            return;
+        }
+
+        String programId = run.getProgramId();
+        String timestamp = run.getStartTime();
+        if (!programId.isBlank() && !timestamp.isBlank()) {
+            if (create) {
+                handler.createSkipOverride(programId, timestamp);
+            } else {
+                handler.deleteSkipOverride(programId, timestamp);
+            }
+            return;
+        }
+
+        throw new RachioApiException(
+                "Unable to manage Smart Hose Timer skip override because Summary day-view identifiers are missing.");
     }
 
     public boolean webhookEvent(RachioEventGsonDTO event) {
@@ -284,9 +375,31 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_SERIAL_NUMBER, stringOrUndef(currentValve.serialNumber));
         updateChannel(CHANNEL_VALVE_LAST_RUN_TYPE, stringOrUndef(lastRunType));
         updateChannel(CHANNEL_VALVE_LAST_END_REASON, stringOrUndef(lastEndReason));
+        postSummaryChannelData();
         updateChannel(CHANNEL_LAST_EVENT, stringOrUndef(lastEvent));
         DateTimeType eventTime = lastEventTime;
         updateChannel(CHANNEL_LAST_EVENTTS, eventTime != null ? eventTime : UnDefType.UNDEF);
+    }
+
+    private void postSummaryChannelData() {
+        RachioValveDayRun nextRun = nextPlannedRun;
+        updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_TIME,
+                nextRun != null ? dateTimeOrUndef(nextRun.getStartTime()) : UnDefType.UNDEF);
+        updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_DURATION,
+                nextRun != null ? new DecimalType(BigDecimal.valueOf(nextRun.getDurationSeconds())) : UnDefType.UNDEF);
+        updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_PROGRAM_ID,
+                nextRun != null ? stringOrUndef(nextRun.getProgramId()) : UnDefType.UNDEF);
+        updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_SKIPPED,
+                nextRun != null ? nextRun.isSkipped() ? OnOffType.ON : OnOffType.OFF : UnDefType.UNDEF);
+
+        RachioValveDayRun completedRun = lastCompletedRun;
+        updateChannel(CHANNEL_VALVE_LAST_COMPLETED_RUN_TIME,
+                completedRun != null ? dateTimeOrUndef(completedRun.getStartTime()) : UnDefType.UNDEF);
+        updateChannel(CHANNEL_VALVE_LAST_COMPLETED_RUN_DURATION,
+                completedRun != null ? new DecimalType(BigDecimal.valueOf(completedRun.getDurationSeconds()))
+                        : UnDefType.UNDEF);
+        updateChannel(CHANNEL_VALVE_LAST_RUN_STATUS,
+                completedRun != null ? stringOrUndef(completedRun.getStatus()) : UnDefType.UNDEF);
     }
 
     @Override
@@ -355,5 +468,23 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
 
     private State stringOrUndef(String value) {
         return value.isBlank() ? UnDefType.UNDEF : new StringType(value);
+    }
+
+    private State dateTimeOrUndef(String value) {
+        if (value.isBlank()) {
+            return UnDefType.UNDEF;
+        }
+        try {
+            if (value.chars().allMatch(Character::isDigit)) {
+                long epoch = Long.parseLong(value);
+                long epochMillis = value.length() > 10 ? epoch : epoch * 1000L;
+                return new DateTimeType(
+                        ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
+            }
+            return new DateTimeType(value);
+        } catch (RuntimeException e) {
+            logger.trace("{}: Unable to parse DateTime channel value '{}'", thingId, value);
+            return UnDefType.UNDEF;
+        }
     }
 }

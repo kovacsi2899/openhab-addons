@@ -39,18 +39,20 @@ public class RachioBindingConstants {
     public static final ThingTypeUID THING_TYPE_FLEXSCHEDULE = new ThingTypeUID(BINDING_ID, "flexschedule");
     public static final ThingTypeUID THING_TYPE_BASESTATION = new ThingTypeUID(BINDING_ID, "basestation");
     public static final ThingTypeUID THING_TYPE_VALVE = new ThingTypeUID(BINDING_ID, "valve");
+    public static final ThingTypeUID THING_TYPE_VALVEPROGRAM = new ThingTypeUID(BINDING_ID, "valveprogram");
 
     public static final Set<ThingTypeUID> SUPPORTED_BRIDGE_THING_TYPES_UIDS = Stream.of(THING_TYPE_CLOUD)
             .collect(Collectors.toSet());
-    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream.of(THING_TYPE_DEVICE,
-            THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE, THING_TYPE_BASESTATION, THING_TYPE_VALVE)
+    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream
+            .of(THING_TYPE_DEVICE, THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE,
+                    THING_TYPE_BASESTATION, THING_TYPE_VALVE, THING_TYPE_VALVEPROGRAM)
             .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_ZONE_THING_TYPES_UIDS = Stream.of(THING_TYPE_ZONE)
             .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_SCHEDULE_THING_TYPES_UIDS = Stream
             .of(THING_TYPE_SCHEDULE, THING_TYPE_FLEXSCHEDULE).collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_HOSE_TIMER_THING_TYPES_UIDS = Stream
-            .of(THING_TYPE_BASESTATION, THING_TYPE_VALVE).collect(Collectors.toSet());
+            .of(THING_TYPE_BASESTATION, THING_TYPE_VALVE, THING_TYPE_VALVEPROGRAM).collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Stream
             .concat(SUPPORTED_BRIDGE_THING_TYPES_UIDS.stream(), SUPPORTED_DEVICE_THING_TYPES_UIDS.stream())
             .collect(Collectors.toSet());
@@ -65,6 +67,8 @@ public class RachioBindingConstants {
     public static final String PARAM_CLEAR_CALLBACK = "clearAllCallbacks";
     public static final String PARAM_EVENT_HISTORY_LOOKBACK_HOURS = "eventHistoryLookbackHours";
     public static final String PARAM_FORECAST_UNITS = "forecastUnits";
+    public static final String PARAM_HOSE_SUMMARY_LOOKBACK_DAYS = "hoseSummaryLookbackDays";
+    public static final String PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS = "hoseSummaryLookaheadDays";
 
     // List of non-standard Properties
     public static final String PROPERTY_IP_ADDRESS = "ipAddress";
@@ -85,6 +89,8 @@ public class RachioBindingConstants {
     public static final String PROPERTY_FLEX_SCHEDULE_RULE_ID = "flexScheduleRuleId";
     public static final String PROPERTY_BASE_STATION_ID = "baseStationId";
     public static final String PROPERTY_VALVE_ID = "valveId";
+    public static final String PROPERTY_VALVE_PROGRAM_ID = "programId";
+    public static final String PROPERTY_VALVE_PROGRAM_API_VERSION = "programApiVersion";
     public static final String PROPERTY_PERSON_ID = "personId";
     public static final String PROPERTY_PERSON_USER = "accounUserName";
     public static final String PROPERTY_PERSON_NAME = "accountFullName";
@@ -187,12 +193,42 @@ public class RachioBindingConstants {
     public static final String CHANNEL_VALVE_SERIAL_NUMBER = "serialNumber";
     public static final String CHANNEL_VALVE_LAST_RUN_TYPE = "lastRunType";
     public static final String CHANNEL_VALVE_LAST_END_REASON = "lastEndReason";
+    public static final String CHANNEL_VALVE_NEXT_PLANNED_RUN_TIME = "nextPlannedRunTime";
+    public static final String CHANNEL_VALVE_NEXT_PLANNED_RUN_DURATION = "nextPlannedRunDuration";
+    public static final String CHANNEL_VALVE_NEXT_PLANNED_RUN_PROGRAM_ID = "nextPlannedRunProgramId";
+    public static final String CHANNEL_VALVE_NEXT_PLANNED_RUN_SKIPPED = "nextPlannedRunSkipped";
+    public static final String CHANNEL_VALVE_LAST_COMPLETED_RUN_TIME = "lastCompletedRunTime";
+    public static final String CHANNEL_VALVE_LAST_COMPLETED_RUN_DURATION = "lastCompletedRunDuration";
+    public static final String CHANNEL_VALVE_LAST_RUN_STATUS = "lastRunStatus";
+    public static final String CHANNEL_VALVE_SKIP_NEXT_PLANNED_RUN = "skipNextPlannedRun";
+    public static final String CHANNEL_VALVE_CANCEL_NEXT_PLANNED_RUN_SKIP = "cancelNextPlannedRunSkip";
+
+    public static final String CHANNEL_VALVE_PROGRAM_NAME = "name";
+    public static final String CHANNEL_VALVE_PROGRAM_ENABLED = "enabled";
+    public static final String CHANNEL_VALVE_PROGRAM_TYPE = "programType";
+    public static final String CHANNEL_VALVE_PROGRAM_VALVE_ID = "valveId";
+    public static final String CHANNEL_VALVE_PROGRAM_START_TIME = "startTime";
+    public static final String CHANNEL_VALVE_PROGRAM_NEXT_RUN_TIME = "nextRunTime";
+    public static final String CHANNEL_VALVE_PROGRAM_LAST_RUN_TIME = "lastRunTime";
+    public static final String CHANNEL_VALVE_PROGRAM_DURATION = "duration";
+    public static final String CHANNEL_VALVE_PROGRAM_DAYS_OF_WEEK = "daysOfWeek";
+    public static final String CHANNEL_VALVE_PROGRAM_INTERVAL_DAYS = "intervalDays";
+    public static final String CHANNEL_VALVE_PROGRAM_SEASONAL_ADJUSTMENT = "seasonalAdjustment";
+    public static final String CHANNEL_VALVE_PROGRAM_UPDATED_AT = "updatedAt";
+    public static final String CHANNEL_VALVE_PROGRAM_NEXT_RUN_SKIPPED = "nextProgramRunSkipped";
+    public static final String CHANNEL_VALVE_PROGRAM_SKIP_NEXT_PLANNED_RUN = "skipNextPlannedRun";
+    public static final String CHANNEL_VALVE_PROGRAM_CANCEL_NEXT_PLANNED_RUN_SKIP = "cancelNextPlannedRunSkip";
+    public static final String CHANNEL_VALVE_PROGRAM_LAST_RAIN_SKIP_START = "lastRainSkipPlannedRunStartTime";
+    public static final String CHANNEL_VALVE_PROGRAM_LAST_RAIN_SKIP_CANCELED_START = "lastRainSkipCanceledPlannedRunStartTime";
 
     // Default for config options / thing settings
     public static int DEFAULT_POLLING_INTERVAL_SEC = 120;
     public static int DEFAULT_ZONE_RUNTIME_SEC = 300;
     public static int DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS = 24;
     public static int MAX_EVENT_HISTORY_LOOKBACK_HOURS = 168;
+    public static int DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS = 2;
+    public static int DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS = 7;
+    public static int MAX_HOSE_SUMMARY_WINDOW_DAYS = 31;
     public static final String DEFAULT_FORECAST_UNITS = "METRIC";
     public static final int HTTP_TIMOUT_MS = 15000;
     public static int BINDING_DISCOVERY_TIMEOUT_SEC = 60;
@@ -249,6 +285,22 @@ public class RachioBindingConstants {
     public static final String VALVE_START_WATERING = "/valve/startWatering";
     public static final String VALVE_STOP_WATERING = "/valve/stopWatering";
 
+    public static final String PROGRAM_CREATE_SKIP_OVERRIDES = "/program/createSkipOverrides";
+    public static final String PROGRAM_DELETE_PROGRAM = "/program/deleteProgram/";
+    public static final String PROGRAM_DELETE_SKIP_OVERRIDES = "/program/deleteSkipOverrides";
+    public static final String PROGRAM_GET_PROGRAM = "/program/getProgram/";
+    public static final String PROGRAM_LIST_PROGRAMS = "/program/listPrograms/";
+    public static final String PROGRAM_CREATE_PROGRAM_V2 = "/program/createProgramV2";
+    public static final String PROGRAM_GET_PROGRAM_V2 = "/program/getProgramV2/";
+    public static final String PROGRAM_LIST_PROGRAMS_V2 = "/program/listProgramsV2";
+    public static final String PROGRAM_UPDATE_PROGRAM_V2 = "/program/updateProgramV2";
+    public static final String PROGRAM_CREATE_PLANNED_RUN_SKIP_OVERRIDES = "/program/createPlannedRunSkipOverrides";
+    public static final String PROGRAM_DELETE_PLANNED_RUN_SKIP_OVERRIDES = "/program/deletePlannedRunSkipOverrides";
+    public static final String PROGRAM_QUERY_BASE_STATION_ID = "resourceId.baseStationId";
+    public static final String PROGRAM_QUERY_VALVE_ID = "resourceId.valveId";
+
+    public static final String SUMMARY_GET_VALVE_DAY_VIEWS = "/summary/getValveDayViews";
+
     public static final String APIURL_ZONE_PUT_START = "zone/start"; // start a zone
     public static final String APIURL_ZONE_PUT_MULTIPLE_START = "zone/start_multiple"; // start multiple zones
     public static final String APIURL_ZONE_PUT_ENABLE = "zone/enable"; // enable a zone
@@ -295,6 +347,8 @@ public class RachioBindingConstants {
     public static final String EVENT_RAIN_DELAY_OFF = "RAIN_DELAY_OFF_EVENT";
     public static final String EVENT_VALVE_RUN_START = "VALVE_RUN_START_EVENT";
     public static final String EVENT_VALVE_RUN_END = "VALVE_RUN_END_EVENT";
+    public static final String EVENT_PROGRAM_RAIN_SKIP_CREATED = "PROGRAM_RAIN_SKIP_CREATED_EVENT";
+    public static final String EVENT_PROGRAM_RAIN_SKIP_CANCELED = "PROGRAM_RAIN_SKIP_CANCELED_EVENT";
 
     public static final String SERVLET_WEBHOOK_PATH = "/rachio/webhook";
     public static final String SERVLET_WEBHOOK_APPLICATION_JSON = "application/json";

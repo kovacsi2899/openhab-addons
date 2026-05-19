@@ -16,9 +16,14 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.DEFAULT_FORECAST_UNITS;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.MAX_EVENT_HISTORY_LOOKBACK_HOURS;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.MAX_HOSE_SUMMARY_WINDOW_DAYS;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PARAM_EVENT_HISTORY_LOOKBACK_HOURS;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PARAM_FORECAST_UNITS;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PARAM_HOSE_SUMMARY_LOOKBACK_DAYS;
 
 import java.util.Map;
 
@@ -71,5 +76,33 @@ class RachioConfigurationTest {
         configuration.updateConfig(Map.of(PARAM_FORECAST_UNITS, "us"));
 
         assertThat(configuration.forecastUnits, is("US"));
+    }
+
+    @Test
+    void invalidHoseSummaryWindowsAreDefaultedOrClamped() {
+        RachioConfiguration invalidConfiguration = new RachioConfiguration();
+        invalidConfiguration.updateConfig(Map.of(PARAM_HOSE_SUMMARY_LOOKBACK_DAYS, "not-a-number"));
+
+        RachioConfiguration negativeConfiguration = new RachioConfiguration();
+        negativeConfiguration.updateConfig(Map.of(PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS, "-1"));
+
+        RachioConfiguration largeConfiguration = new RachioConfiguration();
+        largeConfiguration.updateConfig(Map.of(PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS, "999"));
+
+        assertThat(invalidConfiguration.hoseSummaryLookbackDays, is(DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS));
+        assertThat(negativeConfiguration.hoseSummaryLookaheadDays, is(0));
+        assertThat(largeConfiguration.hoseSummaryLookaheadDays, is(MAX_HOSE_SUMMARY_WINDOW_DAYS));
+    }
+
+    @Test
+    void hoseSummaryWindowsUseConfiguredValues() {
+        RachioConfiguration configuration = new RachioConfiguration();
+
+        configuration
+                .updateConfig(Map.of(PARAM_HOSE_SUMMARY_LOOKBACK_DAYS, "3", PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS, "10"));
+
+        assertThat(configuration.hoseSummaryLookbackDays, is(3));
+        assertThat(configuration.hoseSummaryLookaheadDays, is(10));
+        assertThat(DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS, is(7));
     }
 }

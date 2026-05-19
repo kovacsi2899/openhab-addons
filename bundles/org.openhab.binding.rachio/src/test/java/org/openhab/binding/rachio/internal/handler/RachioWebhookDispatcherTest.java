@@ -15,12 +15,14 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_DEVICE_ZONE_RUN_STARTED;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_PROGRAM_RAIN_SKIP_CREATED;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.EVENT_VALVE_RUN_START;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
+import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO.RachioWebhookPayload;
 import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType;
 
 /**
@@ -63,6 +65,23 @@ class RachioWebhookDispatcherTest {
 
         assertThat(dispatcher.dispatch(event), is(true));
         assertThat(valveHandler.handled, is(true));
+    }
+
+    @Test
+    void programEventRoutesByResourceTypeAndPayloadProgramId() {
+        RecordingHandler programHandler = new RecordingHandler(RachioWebhookResourceType.PROGRAM);
+        RachioWebhookDispatcher dispatcher = new RachioWebhookDispatcher(List.of(programHandler));
+        RachioEventGsonDTO event = new RachioEventGsonDTO();
+        event.resourceType = "PROGRAM";
+        event.eventType = EVENT_PROGRAM_RAIN_SKIP_CREATED;
+        RachioWebhookPayload payload = new RachioWebhookPayload();
+        payload.programId = "program-id";
+        event.payload = payload;
+        event.normalize();
+
+        assertThat(dispatcher.dispatch(event), is(true));
+        assertThat(programHandler.handled, is(true));
+        assertThat(event.resourceId, is("program-id"));
     }
 
     @Test

@@ -25,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -57,9 +58,15 @@ import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.Rachio
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStationListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioPlannedRunSkipOverrideRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioProgramSkipOverrideRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsRequest;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDefaultRuntimeRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveListResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgramListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveStartWateringRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveStopWateringRequest;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
@@ -749,6 +756,100 @@ public class RachioApi {
         httpPut(APIURL_CLOUD_REST_BASE + VALVE_STOP_WATERING, buildValveStopWateringPayload(valveId), PRIORITY.HI);
     }
 
+    public List<RachioValveProgram> listValveProgramsV2ByBaseStation(String baseStationId) throws RachioApiException {
+        logger.debug("Load Smart Hose Timer programs for base station '{}'.", baseStationId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROGRAM_LIST_PROGRAMS_V2,
+                PROGRAM_QUERY_BASE_STATION_ID + "=" + urlEncode(baseStationId), PRIORITY.LOW).resultString;
+        RachioValveProgramListResponse response = RachioValveProgramListResponse.fromJson(json);
+        logger.debug("Loaded {} Smart Hose Timer programs for base station '{}'.", response.programs.size(),
+                baseStationId);
+        return response.programs;
+    }
+
+    public List<RachioValveProgram> listValveProgramsV2ByValve(String valveId) throws RachioApiException {
+        logger.debug("Load Smart Hose Timer programs for valve '{}'.", valveId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROGRAM_LIST_PROGRAMS_V2,
+                PROGRAM_QUERY_VALVE_ID + "=" + urlEncode(valveId), PRIORITY.LOW).resultString;
+        RachioValveProgramListResponse response = RachioValveProgramListResponse.fromJson(json);
+        logger.debug("Loaded {} Smart Hose Timer programs for valve '{}'.", response.programs.size(), valveId);
+        return response.programs;
+    }
+
+    public List<RachioValveProgram> listValvePrograms(String entityId) throws RachioApiException {
+        logger.debug("Load legacy Smart Hose Timer programs for entity '{}'.", entityId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROGRAM_LIST_PROGRAMS + urlEncode(entityId), null,
+                PRIORITY.LOW).resultString;
+        RachioValveProgramListResponse response = RachioValveProgramListResponse.fromJson(json);
+        return response.programs;
+    }
+
+    public RachioValveProgram getValveProgramV2(String programId) throws RachioApiException {
+        logger.debug("Load Smart Hose Timer Program V2 '{}'.", programId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROGRAM_GET_PROGRAM_V2 + urlEncode(programId), null,
+                PRIORITY.LOW).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseValveProgram(json);
+    }
+
+    public RachioValveProgram getValveProgram(String programId) throws RachioApiException {
+        logger.debug("Load legacy Smart Hose Timer Program '{}'.", programId);
+        String json = httpGet(APIURL_CLOUD_REST_BASE + PROGRAM_GET_PROGRAM + urlEncode(programId), null,
+                PRIORITY.LOW).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseValveProgram(json);
+    }
+
+    public RachioValveProgram createValveProgramV2(RachioValveProgram program) throws RachioApiException {
+        logger.debug("Create Smart Hose Timer Program V2 '{}'.", program.getThingName());
+        String json = httpPost(APIURL_CLOUD_REST_BASE + PROGRAM_CREATE_PROGRAM_V2, new Gson().toJson(program),
+                PRIORITY.HI).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseValveProgram(json);
+    }
+
+    public RachioValveProgram updateValveProgramV2(RachioValveProgram program) throws RachioApiException {
+        logger.debug("Update Smart Hose Timer Program V2 '{}'.", program.id);
+        String json = httpPut(APIURL_CLOUD_REST_BASE + PROGRAM_UPDATE_PROGRAM_V2, new Gson().toJson(program),
+                PRIORITY.HI).resultString;
+        return RachioSmartHoseTimerGsonDTO.parseValveProgram(json);
+    }
+
+    public void deleteValveProgram(String programId) throws RachioApiException {
+        logger.debug("Delete Smart Hose Timer Program '{}'.", programId);
+        httpDelete(APIURL_CLOUD_REST_BASE + PROGRAM_DELETE_PROGRAM + urlEncode(programId), null, PRIORITY.HI);
+    }
+
+    public RachioValveDayViewsResponse getValveDayViews(String valveId, LocalDate start, LocalDate end)
+            throws RachioApiException {
+        logger.debug("Load Smart Hose Timer summary for valve '{}' from {} to {}.", valveId, start, end);
+        String json = httpPost(APIURL_CLOUD_REST_BASE + SUMMARY_GET_VALVE_DAY_VIEWS,
+                buildValveDayViewsPayload(valveId, start, end), PRIORITY.LOW).resultString;
+        return RachioValveDayViewsResponse.fromJson(json);
+    }
+
+    public void createSkipOverride(String programId, String timestamp) throws RachioApiException {
+        logger.debug("Create Smart Hose Timer skip override for program '{}' at '{}'.", programId, timestamp);
+        httpPost(APIURL_CLOUD_REST_BASE + PROGRAM_CREATE_SKIP_OVERRIDES,
+                buildProgramSkipOverridePayload(programId, timestamp), PRIORITY.HI);
+    }
+
+    public void deleteSkipOverride(String programId, String timestamp) throws RachioApiException {
+        logger.debug("Delete Smart Hose Timer skip override for program '{}' at '{}'.", programId, timestamp);
+        httpPost(APIURL_CLOUD_REST_BASE + PROGRAM_DELETE_SKIP_OVERRIDES,
+                buildProgramSkipOverridePayload(programId, timestamp), PRIORITY.HI);
+    }
+
+    public void createPlannedRunSkipOverride(String plannedRunId, String date) throws RachioApiException {
+        logger.debug("Create Smart Hose Timer planned-run skip override for plannedRun '{}' on '{}'.", plannedRunId,
+                date);
+        httpPost(APIURL_CLOUD_REST_BASE + PROGRAM_CREATE_PLANNED_RUN_SKIP_OVERRIDES,
+                buildPlannedRunSkipOverridePayload(plannedRunId, date), PRIORITY.HI);
+    }
+
+    public void deletePlannedRunSkipOverride(String plannedRunId, String date) throws RachioApiException {
+        logger.debug("Delete Smart Hose Timer planned-run skip override for plannedRun '{}' on '{}'.", plannedRunId,
+                date);
+        httpPost(APIURL_CLOUD_REST_BASE + PROGRAM_DELETE_PLANNED_RUN_SKIP_OVERRIDES,
+                buildPlannedRunSkipOverridePayload(plannedRunId, date), PRIORITY.HI);
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         logger.debug("Update zone moisture level for zone '{}' to {}.", zoneId, level);
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_MOISTURE_LEVEL, buildMoistureLevelPayload(zoneId, level), PRIORITY.HI);
@@ -831,6 +932,18 @@ public class RachioApi {
 
     static String buildValveStopWateringPayload(String valveId) {
         return new Gson().toJson(new RachioValveStopWateringRequest(valveId));
+    }
+
+    static String buildValveDayViewsPayload(String valveId, LocalDate start, LocalDate end) {
+        return new Gson().toJson(new RachioValveDayViewsRequest(start, end, valveId));
+    }
+
+    static String buildProgramSkipOverridePayload(String programId, String timestamp) {
+        return new Gson().toJson(new RachioProgramSkipOverrideRequest(programId, timestamp));
+    }
+
+    static String buildPlannedRunSkipOverridePayload(String plannedRunId, String date) {
+        return new Gson().toJson(new RachioPlannedRunSkipOverrideRequest(plannedRunId, date));
     }
 
     static String buildPropertyEntityQuery(String entityId, String entityType) throws RachioApiException {

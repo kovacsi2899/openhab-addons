@@ -20,11 +20,13 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERT
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_SCHEDULE_RULE_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_VALVE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_VALVE_PROGRAM_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_BASESTATION;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEXSCHEDULE;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_VALVE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_VALVEPROGRAM;
 
 import java.util.Objects;
 
@@ -34,6 +36,7 @@ import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCl
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.thing.ThingUID;
 
@@ -107,6 +110,22 @@ class RachioDiscoveryServiceTest {
         assertThat(result.getProperties().get(PROPERTY_BASE_STATION_ID), is("base-station-id"));
     }
 
+    @Test
+    void valveProgramDiscoveryResultContainsProgramValveAndBaseStationIdentity() {
+        RachioBaseStation baseStation = baseStation();
+        RachioValveProgram program = valveProgram();
+
+        DiscoveryResult result = Objects.requireNonNull(
+                RachioDiscoveryService.buildValveProgramDiscoveryResult(BRIDGE_UID, baseStation, program));
+
+        assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_VALVEPROGRAM, BRIDGE_UID, "program-id")));
+        assertThat(result.getBridgeUID(), is(BRIDGE_UID));
+        assertThat(result.getRepresentationProperty(), is(PROPERTY_VALVE_PROGRAM_ID));
+        assertThat(result.getProperties().get(PROPERTY_VALVE_PROGRAM_ID), is("program-id"));
+        assertThat(result.getProperties().get(PROPERTY_VALVE_ID), is("valve-id"));
+        assertThat(result.getProperties().get(PROPERTY_BASE_STATION_ID), is("base-station-id"));
+    }
+
     private RachioDevice device() {
         RachioCloudDevice cloudDevice = new RachioCloudDevice();
         cloudDevice.id = "device-id";
@@ -136,5 +155,13 @@ class RachioDiscoveryServiceTest {
         valve.baseStationId = "base-station-id";
         valve.name = "Garden";
         return valve;
+    }
+
+    private RachioValveProgram valveProgram() {
+        RachioValveProgram program = new RachioValveProgram();
+        program.id = "program-id";
+        program.valveId = "valve-id";
+        program.name = "Morning Hose";
+        return program;
     }
 }

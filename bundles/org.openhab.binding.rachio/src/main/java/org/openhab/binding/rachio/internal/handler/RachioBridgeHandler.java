@@ -17,6 +17,7 @@ import static org.openhab.binding.rachio.internal.RachioUtils.getString;
 
 import java.net.UnknownHostException;
 import java.text.MessageFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,6 +37,8 @@ import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioPropertyGsonDTO.RachioProperty;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioCurrentScheduleResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioDeviceEventListResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
@@ -480,6 +483,53 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         rachioApi.stopValveWatering(valveId);
     }
 
+    public List<RachioValveProgram> listValveProgramsForBaseStation(String baseStationId) throws RachioApiException {
+        return rachioApi.listValveProgramsV2ByBaseStation(baseStationId);
+    }
+
+    public List<RachioValveProgram> listValveProgramsForValve(String valveId) throws RachioApiException {
+        try {
+            return rachioApi.listValveProgramsV2ByValve(valveId);
+        } catch (RachioApiException e) {
+            logger.debug(
+                    "Unable to load Smart Hose Timer Program V2 list for valve '{}'; trying legacy program list: {}",
+                    valveId, e.getMessage());
+            return rachioApi.listValvePrograms(valveId);
+        }
+    }
+
+    public RachioValveProgram getValveProgram(String programId) throws RachioApiException {
+        try {
+            return rachioApi.getValveProgramV2(programId);
+        } catch (RachioApiException e) {
+            logger.debug("Unable to load Smart Hose Timer Program V2 '{}'; trying legacy program endpoint: {}",
+                    programId, e.getMessage());
+            return rachioApi.getValveProgram(programId);
+        }
+    }
+
+    public RachioValveDayViewsResponse getValveDayViews(String valveId) throws RachioApiException {
+        LocalDate end = LocalDate.now().plusDays(getHoseSummaryLookaheadDays());
+        LocalDate start = LocalDate.now().minusDays(getHoseSummaryLookbackDays());
+        return rachioApi.getValveDayViews(valveId, start, end);
+    }
+
+    public void createSkipOverride(String programId, String timestamp) throws RachioApiException {
+        rachioApi.createSkipOverride(programId, timestamp);
+    }
+
+    public void deleteSkipOverride(String programId, String timestamp) throws RachioApiException {
+        rachioApi.deleteSkipOverride(programId, timestamp);
+    }
+
+    public void createPlannedRunSkipOverride(String plannedRunId, String date) throws RachioApiException {
+        rachioApi.createPlannedRunSkipOverride(plannedRunId, date);
+    }
+
+    public void deletePlannedRunSkipOverride(String plannedRunId, String date) throws RachioApiException {
+        rachioApi.deletePlannedRunSkipOverride(plannedRunId, date);
+    }
+
     public void setZoneMoistureLevel(String zoneId, double level) throws RachioApiException {
         rachioApi.setZoneMoistureLevel(zoneId, level);
     }
@@ -587,6 +637,14 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return thingConfig.forecastUnits;
     }
 
+    public int getHoseSummaryLookbackDays() {
+        return thingConfig.hoseSummaryLookbackDays;
+    }
+
+    public int getHoseSummaryLookaheadDays() {
+        return thingConfig.hoseSummaryLookaheadDays;
+    }
+
     //
     // ------ Stuff used by other classes
     //
@@ -674,6 +732,18 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
         RachioWebhookTarget target = new RachioWebhookTarget(valveId, RachioWebhookResourceType.VALVE,
                 List.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END));
+        rachioApi.registerWebHookTarget(target, getCallbackUrl(), getCallbackUsername(), getCallbackPassword(),
+                getExternalId(), getClearAllCallbacks());
+    }
+
+    public void registerValveProgramWebHook(String programId) throws RachioApiException {
+        if (getCallbackUrl().isEmpty()) {
+            logger.debug("RachioCloud: No callbackUrl configured.");
+            return;
+        }
+
+        RachioWebhookTarget target = new RachioWebhookTarget(programId, RachioWebhookResourceType.PROGRAM,
+                List.of(EVENT_PROGRAM_RAIN_SKIP_CREATED, EVENT_PROGRAM_RAIN_SKIP_CANCELED));
         rachioApi.registerWebHookTarget(target, getCallbackUrl(), getCallbackUsername(), getCallbackPassword(),
                 getExternalId(), getClearAllCallbacks());
     }

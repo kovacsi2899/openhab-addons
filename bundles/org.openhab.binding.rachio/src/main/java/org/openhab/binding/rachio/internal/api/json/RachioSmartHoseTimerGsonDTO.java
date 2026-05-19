@@ -14,10 +14,15 @@ package org.openhab.binding.rachio.internal.api.json;
 
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioBindingConstants;
@@ -265,6 +270,280 @@ public class RachioSmartHoseTimerGsonDTO {
         }
     }
 
+    public static class RachioValveProgramListResponse {
+        public ArrayList<RachioValveProgram> programs = new ArrayList<>();
+
+        public static RachioValveProgramListResponse fromJson(String json) {
+            RachioValveProgramListResponse response = new RachioValveProgramListResponse();
+            response.programs.addAll(
+                    parseArray(json, RachioValveProgram.class, "programs", "items", "data", "results", "programsV2"));
+            return response;
+        }
+    }
+
+    public static class RachioValveProgram {
+        public String id = "";
+        public String name = "";
+        public String displayName = "";
+        public String nickname = "";
+        public String type = "";
+        public String programType = "";
+        public @Nullable Boolean enabled;
+        public String baseStationId = "";
+        public String valveId = "";
+        public ArrayList<String> valveIds = new ArrayList<>();
+        public @Nullable RachioResourceId resourceId;
+        public String startTime = "";
+        public String nextRunTime = "";
+        public String lastRunTime = "";
+        public String updatedAt = "";
+        public String lastUpdateDate = "";
+        public int duration = 0;
+        public int durationSeconds = 0;
+        public int intervalDays = 0;
+        public double seasonalAdjustment = Double.NaN;
+        public @Nullable JsonElement daysOfWeek;
+        public ArrayList<RachioValveDayRun> plannedRuns = new ArrayList<>();
+
+        public String getThingID() {
+            return firstNonBlank(id, getThingName());
+        }
+
+        public String getThingName() {
+            return firstNonBlank(name, displayName, nickname, "Rachio Valve Program");
+        }
+
+        public String getProgramType() {
+            return firstNonBlank(programType, type);
+        }
+
+        public String getValveId() {
+            RachioResourceId resourceId = this.resourceId;
+            String candidate = firstNonBlank(valveId, resourceId != null ? resourceId.valveId : "");
+            if (!candidate.isBlank()) {
+                return candidate;
+            }
+            if (!valveIds.isEmpty()) {
+                return valveIds.get(0);
+            }
+            for (RachioValveDayRun run : plannedRuns) {
+                candidate = run.getValveId();
+                if (!candidate.isBlank()) {
+                    return candidate;
+                }
+            }
+            return "";
+        }
+
+        public String getBaseStationId() {
+            RachioResourceId resourceId = this.resourceId;
+            return firstNonBlank(baseStationId, resourceId != null ? resourceId.baseStationId : "");
+        }
+
+        public int getDurationSeconds() {
+            return durationSeconds > 0 ? durationSeconds : duration;
+        }
+
+        public String getDaysOfWeek() {
+            JsonElement days = daysOfWeek;
+            return days != null && !days.isJsonNull() ? days.toString() : "";
+        }
+
+        public Map<String, String> fillProperties() {
+            Map<String, String> properties = new HashMap<>();
+            properties.put(Thing.PROPERTY_VENDOR, RachioBindingConstants.BINDING_VENDOR);
+            properties.put(PROPERTY_VALVE_PROGRAM_ID, id);
+            putIfNotBlank(properties, PROPERTY_VALVE_ID, getValveId());
+            putIfNotBlank(properties, PROPERTY_BASE_STATION_ID, getBaseStationId());
+            putIfNotBlank(properties, PROPERTY_NAME, getThingName());
+            properties.put(PROPERTY_VALVE_PROGRAM_API_VERSION, "V2");
+            return properties;
+        }
+    }
+
+    public static class RachioResourceId {
+        public String valveId = "";
+        public String baseStationId = "";
+        public String programId = "";
+    }
+
+    public static class RachioValveDayViewsRequest {
+        public RachioDateRequest start;
+        public RachioDateRequest end;
+        public RachioResourceId resourceId;
+
+        public RachioValveDayViewsRequest(LocalDate start, LocalDate end, String valveId) {
+            this.start = new RachioDateRequest(start);
+            this.end = new RachioDateRequest(end);
+            this.resourceId = new RachioResourceId();
+            this.resourceId.valveId = valveId;
+        }
+    }
+
+    public static class RachioDateRequest {
+        public String date;
+
+        public RachioDateRequest(LocalDate date) {
+            this.date = date.toString();
+        }
+    }
+
+    public static class RachioValveDayViewsResponse {
+        public ArrayList<RachioValveDayView> dayViews = new ArrayList<>();
+
+        public static RachioValveDayViewsResponse fromJson(String json) {
+            RachioValveDayViewsResponse response = new RachioValveDayViewsResponse();
+            response.dayViews.addAll(parseArray(json, RachioValveDayView.class, "dayViews", "valveDayViews", "days",
+                    "items", "data", "results"));
+            return response;
+        }
+
+        public List<RachioValveDayRun> getRuns() {
+            ArrayList<RachioValveDayRun> runs = new ArrayList<>();
+            for (RachioValveDayView dayView : dayViews) {
+                runs.addAll(dayView.getRuns());
+            }
+            return runs;
+        }
+
+        public Optional<RachioValveDayRun> findNextPlannedRun() {
+            long now = System.currentTimeMillis();
+            return getRuns().stream().filter(run -> run.getStartEpochMillis() >= now)
+                    .min(Comparator.comparingLong(RachioValveDayRun::getStartEpochMillis));
+        }
+
+        public Optional<RachioValveDayRun> findNextSkippedRun() {
+            long now = System.currentTimeMillis();
+            return getRuns().stream().filter(RachioValveDayRun::isSkipped)
+                    .filter(run -> run.getStartEpochMillis() >= now)
+                    .min(Comparator.comparingLong(RachioValveDayRun::getStartEpochMillis));
+        }
+
+        public Optional<RachioValveDayRun> findLastCompletedRun() {
+            long now = System.currentTimeMillis();
+            return getRuns().stream().filter(run -> !run.isSkipped()).filter(run -> run.getStartEpochMillis() <= now)
+                    .max(Comparator.comparingLong(RachioValveDayRun::getStartEpochMillis));
+        }
+    }
+
+    public static class RachioValveDayView {
+        public String date = "";
+        public ArrayList<RachioValveDayRun> runs = new ArrayList<>();
+        public ArrayList<RachioValveDayRun> valveRuns = new ArrayList<>();
+        public ArrayList<RachioValveDayRun> plannedRuns = new ArrayList<>();
+        public ArrayList<RachioValveDayRun> completedRuns = new ArrayList<>();
+
+        public List<RachioValveDayRun> getRuns() {
+            ArrayList<RachioValveDayRun> allRuns = new ArrayList<>();
+            allRuns.addAll(runs);
+            allRuns.addAll(valveRuns);
+            allRuns.addAll(plannedRuns);
+            allRuns.addAll(completedRuns);
+            return allRuns;
+        }
+    }
+
+    public static class RachioValveDayRun {
+        public String id = "";
+        public String plannedRunId = "";
+        public String programId = "";
+        public String valveId = "";
+        public @Nullable RachioResourceId resourceId;
+        public String startTime = "";
+        public String plannedRunStartTime = "";
+        public String timestamp = "";
+        public String date = "";
+        public String status = "";
+        public String runStatus = "";
+        public String type = "";
+        public @Nullable Boolean skipped;
+        public int duration = 0;
+        public int durationSeconds = 0;
+
+        public String getValveId() {
+            RachioResourceId resourceId = this.resourceId;
+            return firstNonBlank(valveId, resourceId != null ? resourceId.valveId : "");
+        }
+
+        public String getProgramId() {
+            RachioResourceId resourceId = this.resourceId;
+            return firstNonBlank(programId, resourceId != null ? resourceId.programId : "");
+        }
+
+        public String getPlannedRunId() {
+            return firstNonBlank(plannedRunId, id);
+        }
+
+        public String getStartTime() {
+            return firstNonBlank(plannedRunStartTime, startTime, timestamp, date);
+        }
+
+        public int getDurationSeconds() {
+            return durationSeconds > 0 ? durationSeconds : duration;
+        }
+
+        public String getStatus() {
+            return firstNonBlank(status, runStatus, type);
+        }
+
+        public boolean isSkipped() {
+            Boolean skipped = this.skipped;
+            if (skipped != null) {
+                return skipped.booleanValue();
+            }
+            String normalizedStatus = getStatus().toUpperCase();
+            return normalizedStatus.contains("SKIP");
+        }
+
+        public String getSkipOverrideDate() {
+            String value = getStartTime();
+            if (value.length() >= 10) {
+                return value.substring(0, 10);
+            }
+            return value;
+        }
+
+        public long getStartEpochMillis() {
+            String value = getStartTime();
+            if (value.isBlank()) {
+                return Long.MAX_VALUE;
+            }
+            try {
+                if (value.chars().allMatch(Character::isDigit)) {
+                    long epoch = Long.parseLong(value);
+                    return value.length() > 10 ? epoch : epoch * 1000L;
+                }
+                if (value.length() == 10) {
+                    return LocalDate.parse(value).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+                            .toEpochMilli();
+                }
+                return Instant.parse(value).toEpochMilli();
+            } catch (DateTimeParseException | NumberFormatException e) {
+                return Long.MAX_VALUE;
+            }
+        }
+    }
+
+    public static class RachioProgramSkipOverrideRequest {
+        public String programId;
+        public String timestamp;
+
+        public RachioProgramSkipOverrideRequest(String programId, String timestamp) {
+            this.programId = programId;
+            this.timestamp = timestamp;
+        }
+    }
+
+    public static class RachioPlannedRunSkipOverrideRequest {
+        public String plannedRunId;
+        public String date;
+
+        public RachioPlannedRunSkipOverrideRequest(String plannedRunId, String date) {
+            this.plannedRunId = plannedRunId;
+            this.date = date;
+        }
+    }
+
     public static RachioBaseStation parseBaseStation(String json) {
         @Nullable
         RachioBaseStation baseStation = parseObject(json, RachioBaseStation.class, "baseStation", "basestation", "data",
@@ -276,6 +555,13 @@ public class RachioSmartHoseTimerGsonDTO {
         @Nullable
         RachioValve valve = parseObject(json, RachioValve.class, "valve", "data", "result");
         return valve != null ? valve : new RachioValve();
+    }
+
+    public static RachioValveProgram parseValveProgram(String json) {
+        @Nullable
+        RachioValveProgram program = parseObject(json, RachioValveProgram.class, "program", "programV2", "data",
+                "result");
+        return program != null ? program : new RachioValveProgram();
     }
 
     private static <T> List<T> parseArray(String json, Class<T> valueType, String... arrayNames) {

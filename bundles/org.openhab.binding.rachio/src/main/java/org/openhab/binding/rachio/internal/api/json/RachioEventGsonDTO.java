@@ -168,6 +168,10 @@ public class RachioEventGsonDTO {
                 && !eventPayload.valveId.isBlank()) {
             resourceId = eventPayload.valveId;
         }
+        if ("PROGRAM".equals(resourceType) && resourceId.isBlank() && eventPayload != null
+                && !eventPayload.programId.isBlank()) {
+            resourceId = eventPayload.programId;
+        }
 
         if (timestamp.isEmpty()) {
             timestamp = createDate > 0 ? Long.toString(createDate) : "";

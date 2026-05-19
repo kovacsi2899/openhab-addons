@@ -29,6 +29,7 @@ import org.openhab.binding.rachio.internal.handler.RachioDeviceHandler;
 import org.openhab.binding.rachio.internal.handler.RachioFlexScheduleHandler;
 import org.openhab.binding.rachio.internal.handler.RachioScheduleHandler;
 import org.openhab.binding.rachio.internal.handler.RachioValveHandler;
+import org.openhab.binding.rachio.internal.handler.RachioValveProgramHandler;
 import org.openhab.binding.rachio.internal.handler.RachioZoneHandler;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
@@ -102,6 +103,8 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
                 return createBaseStation(thing);
             } else if (thingTypeUID.equals(THING_TYPE_VALVE)) {
                 return createValve(thing);
+            } else if (thingTypeUID.equals(THING_TYPE_VALVEPROGRAM)) {
+                return createValveProgram(thing);
             } else if (SUPPORTED_DEVICE_THING_TYPES_UIDS.contains(thingTypeUID)) {
                 return createDevice(thing);
             }
@@ -231,5 +234,10 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     private RachioValveHandler createValve(Thing thing) {
         logger.debug("Valve handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
         return new RachioValveHandler(thing);
+    }
+
+    private RachioValveProgramHandler createValveProgram(Thing thing) {
+        logger.debug("Valve Program handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
+        return new RachioValveProgramHandler(thing);
     }
 }

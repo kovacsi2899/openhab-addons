@@ -24,6 +24,15 @@
 			<channel id="serialNumber" typeId="valve_serialNumber"/>
 			<channel id="lastRunType" typeId="valve_lastRunType"/>
 			<channel id="lastEndReason" typeId="valve_lastEndReason"/>
+			<channel id="nextPlannedRunTime" typeId="valve_nextPlannedRunTime"/>
+			<channel id="nextPlannedRunDuration" typeId="valve_nextPlannedRunDuration"/>
+			<channel id="nextPlannedRunProgramId" typeId="valve_nextPlannedRunProgramId"/>
+			<channel id="nextPlannedRunSkipped" typeId="valve_nextPlannedRunSkipped"/>
+			<channel id="lastCompletedRunTime" typeId="valve_lastCompletedRunTime"/>
+			<channel id="lastCompletedRunDuration" typeId="valve_lastCompletedRunDuration"/>
+			<channel id="lastRunStatus" typeId="valve_lastRunStatus"/>
+			<channel id="skipNextPlannedRun" typeId="valve_skipNextPlannedRun"/>
+			<channel id="cancelNextPlannedRunSkip" typeId="valve_cancelNextPlannedRunSkip"/>
 			<channel id="lastUpdate" typeId="lastUpdate"/>
 			<channel id="lastEvent" typeId="lastEvent"/>
 			<channel id="lastEventTime" typeId="lastEventTime"/>
@@ -105,5 +114,57 @@
 		<label>Last End Reason</label>
 		<description>End reason from the most recent valve stop webhook event.</description>
 		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_nextPlannedRunTime">
+		<item-type>DateTime</item-type>
+		<label>Next Planned Run Time</label>
+		<description>Start time of the next planned valve run from Summary day views.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_nextPlannedRunDuration">
+		<item-type>Number</item-type>
+		<label>Next Planned Run Duration</label>
+		<description>Duration of the next planned valve run in seconds.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_nextPlannedRunProgramId" advanced="true">
+		<item-type>String</item-type>
+		<label>Next Planned Run Program ID</label>
+		<description>Program ID associated with the next planned valve run.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_nextPlannedRunSkipped">
+		<item-type>Switch</item-type>
+		<label>Next Planned Run Skipped</label>
+		<description>ON when the next planned valve run is currently skipped.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_lastCompletedRunTime">
+		<item-type>DateTime</item-type>
+		<label>Last Completed Run Time</label>
+		<description>Start time of the most recent completed valve run from Summary day views.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_lastCompletedRunDuration">
+		<item-type>Number</item-type>
+		<label>Last Completed Run Duration</label>
+		<description>Duration of the most recent completed valve run in seconds.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_lastRunStatus">
+		<item-type>String</item-type>
+		<label>Last Run Status</label>
+		<description>Status of the most recent completed valve run from Summary day views.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valve_skipNextPlannedRun">
+		<item-type>Switch</item-type>
+		<label>Skip Next Planned Run</label>
+		<description>ON skips the next upcoming valve planned run when Summary day-view identifiers are available.</description>
+	</channel-type>
+	<channel-type id="valve_cancelNextPlannedRunSkip">
+		<item-type>Switch</item-type>
+		<label>Cancel Next Planned Run Skip</label>
+		<description>ON cancels the next skipped upcoming valve run when Summary day-view identifiers are available.</description>
 	</channel-type>
 </thing:thing-descriptions>

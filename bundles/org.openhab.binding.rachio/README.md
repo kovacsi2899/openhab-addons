@@ -22,6 +22,7 @@ As a result the following things are created
 - n zones for each zone on any controller
 - 1 basestation for each Smart Hose Timer Wi-Fi hub
 - n valves for each Smart Hose Timer BaseStation
+- n valve programs for Smart Hose Timer schedules returned by the Rachio Program API
 
 Example: 2 controllers with 8 zones each under the same account creates 19 things (1xbridge, 2xdevice, 16xzone). 
 
@@ -39,6 +40,7 @@ All devices are connected to this thing, all zones to the corresponding device.
 |flexschedule|Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response.|
 |basestation|Each Smart Hose Timer Wi-Fi hub can be represented by a read-only `basestation` thing.|
 |valve|Each Smart Hose Timer valve can be represented by a `valve` thing for manual start/stop and default runtime control.|
+|valveprogram|Each Smart Hose Timer Program can be represented by a `valveprogram` thing for schedule metadata, skip controls, and Program webhook state.|
 
 ###  Configuration
 
@@ -66,6 +68,8 @@ Bridge rachio:cloud:1 [
     defaultRuntime=120,
     eventHistoryLookbackHours=24,
     forecastUnits="METRIC",
+    hoseSummaryLookbackDays=2,
+    hoseSummaryLookaheadDays=7,
     callbackUrl="https://home.myopenhab.org/rachio/webhook",
     callbackUsername="user@example.com",
     callbackPassword="raw-password-with-special-characters",
@@ -85,6 +89,8 @@ Bridge rachio:cloud:1 [
 |                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
 |eventHistoryLookbackHours|Hours of recent controller event history to retrieve. Set to 0 to disable event history polling.|
 |forecastUnits    |Units for the Rachio forecast endpoint: `METRIC` or `US`.|
+|hoseSummaryLookbackDays|Days of recent Smart Hose Timer Summary day-view data to retrieve for valve and program run state. Default is 2; set to 0 to skip historical runs.|
+|hoseSummaryLookaheadDays|Days of upcoming Smart Hose Timer Summary day-view data to retrieve for planned runs and skip controls. Default is 7.|
 |callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. For direct reverse proxies without Basic Auth, use `https://yourhost.example.org/rachio/webhook`.|
 |callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
 |callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
@@ -239,8 +245,8 @@ If an image cannot be downloaded, the zone remains online and the URL channel is
 
 ### Smart Hose Timer Things
 
-Smart Hose Timer support currently covers BaseStations and Valves.
-Discovery is recommended: after the Cloud bridge is online, Scan / Inbox discovery creates `basestation` Things and the matching `valve` Things.
+Smart Hose Timer support covers BaseStations, Valves, and Valve Programs.
+Discovery is recommended: after the Cloud bridge is online, Scan / Inbox discovery creates `basestation` Things, matching `valve` Things, and `valveprogram` Things where the Rachio Program API returns program IDs.
 Manual creation is also supported when the real Rachio IDs are configured:
 
 ```
@@ -249,6 +255,12 @@ Thing basestation hosehub "Hose Timer Hub" [
 ]
 
 Thing valve garden "Garden Hose Valve" [
+    valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+]
+
+Thing valveprogram morninghose "Morning Hose Program" [
+    programId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ]
@@ -277,6 +289,15 @@ Valves can be started and stopped from openHAB.
 |serialNumber|Valve serial number when reported by Rachio.|
 |lastRunType|Run type from the most recent valve webhook event.|
 |lastEndReason|End reason from the most recent valve stop webhook event.|
+|nextPlannedRunTime|Start time of the next planned valve run from Summary day views.|
+|nextPlannedRunDuration|Duration of the next planned valve run in seconds.|
+|nextPlannedRunProgramId|Program ID associated with the next planned valve run.|
+|nextPlannedRunSkipped|ON when the next planned valve run is currently skipped.|
+|lastCompletedRunTime|Start time of the most recent completed valve run from Summary day views.|
+|lastCompletedRunDuration|Duration of the most recent completed valve run in seconds.|
+|lastRunStatus|Status of the most recent completed valve run from Summary day views.|
+|skipNextPlannedRun|Send ON to skip the next upcoming valve planned run when Summary identifiers are available.|
+|cancelNextPlannedRunSkip|Send ON to cancel the next skipped upcoming valve run when Summary identifiers are available.|
 |lastUpdate|Timestamp of last valve state update.|
 |lastEvent|Most recent valve webhook event.|
 |lastEventTime|Timestamp of the most recent valve webhook event.|
@@ -284,8 +305,46 @@ Valves can be started and stopped from openHAB.
 The Smart Hose Timer API is asynchronous.
 After changing `defaultRuntime`, Rachio may report `stateMatches=OFF` until the physical valve downloads and applies the cloud-side update.
 
+Summary day-view polling is intentionally conservative and uses the bridge `hoseSummaryLookbackDays` and `hoseSummaryLookaheadDays` configuration.
+If Summary data cannot be refreshed, the binding keeps the last known Summary-derived valve/program channel values and logs the failure.
+
+Valve Programs expose schedule metadata and upcoming skip controls.
+
+|Channel|Description|
+|:------|:----------|
+|name|Program name.|
+|enabled|ON when Rachio reports that the program is enabled.|
+|programType|Program type returned by Rachio.|
+|valveId|Associated Smart Hose Timer Valve UUID.|
+|startTime|Program start time value returned by Rachio.|
+|nextRunTime|Next planned run time when available from Rachio or Summary day views.|
+|lastRunTime|Last run time when available from Rachio or Summary day views.|
+|duration|Program duration in seconds.|
+|daysOfWeek|Days-of-week structure returned by Rachio.|
+|intervalDays|Program interval in days when provided by Rachio.|
+|seasonalAdjustment|Seasonal adjustment value when provided by Rachio.|
+|updatedAt|Last update time when provided by Rachio.|
+|nextProgramRunSkipped|ON when the next upcoming run for this program is currently skipped.|
+|skipNextPlannedRun|Send ON to skip the next upcoming planned run for this program when Summary identifiers are available.|
+|cancelNextPlannedRunSkip|Send ON to cancel the next skipped upcoming run for this program when Summary identifiers are available.|
+|lastRainSkipPlannedRunStartTime|Planned run start time from the most recent Program rain-skip-created webhook event.|
+|lastRainSkipCanceledPlannedRunStartTime|Planned run start time from the most recent Program rain-skip-canceled webhook event.|
+|lastUpdate|Timestamp of last Program state update.|
+|lastEvent|Most recent Program webhook event.|
+|lastEventTime|Timestamp of the most recent Program webhook event.|
+
+Skip commands use Summary day-view identifiers.
+When a planned run ID and date are available, the binding uses the planned-run skip override endpoints.
+When only a Program ID and timestamp are available, it falls back to the Program skip override endpoints.
+If neither identifier set is available, the command is rejected and no invalid API request is sent.
+
+Program V2 read/discovery is preferred.
+The binding can fall back to legacy Program read endpoints where practical, but the older list endpoint is limited by Rachio to single-valve programs with fixed start times.
+Program create/update/delete API support is present internally, but branch 20 keeps user-facing Program editing conservative instead of exposing a fragile full schedule editor.
+
 Valve webhook registration uses the resource-aware WebhookService support and subscribes to `VALVE_RUN_START_EVENT` and `VALVE_RUN_END_EVENT` for each initialized Valve Thing when `callbackUrl` is configured.
-Programs, skip overrides, and valve day-view summary endpoints are intentionally left for a later phase.
+Program webhook registration subscribes to `PROGRAM_RAIN_SKIP_CREATED_EVENT` and `PROGRAM_RAIN_SKIP_CANCELED_EVENT` for each initialized Valve Program Thing.
+Smart Hose Timer summary/day-view, Program discovery, and skip override support are part of this binding; Program creation/editing UX can be expanded later.
 
 ### Schedule Things
 
@@ -324,7 +383,8 @@ Schedule events update controller schedule channels and matching `schedule` Thin
 Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
 Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
 Smart Hose Timer valve run start/end events update matching `valve` Things.
-Smart Hose Timer Program and Smart Lighting events are prepared internally but are not user-facing yet.
+Smart Hose Timer Program rain-skip-created/canceled events update matching `valveprogram` Things.
+Smart Lighting events are prepared internally but are not user-facing yet.
 Unsupported resource-family events are safely ignored with DEBUG logging.
 
 ### Property/Home API
@@ -369,6 +429,12 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     ]
 
     Thing valve gardenhose "Garden Hose Valve" @ "Garden" [
+        valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    ]
+
+    Thing valveprogram morninghose "Morning Hose Program" @ "Garden" [
+        programId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
         valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
         baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
@@ -423,6 +489,24 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
     String   RachioZone2_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent"}
     DateTime RachioZone2_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime"}
     DateTime RachioZone2_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate"}
+
+    // Smart Hose Timer Valve
+    String   HoseValve_Name             "Valve Name"             {channel="rachio:valve:1:gardenhose:name"}
+    Switch   HoseValve_Run              "Run Hose Valve"         {channel="rachio:valve:1:gardenhose:run"}
+    Number   HoseValve_RunTime          "Hose Runtime"           {channel="rachio:valve:1:gardenhose:runTime"}
+    Number   HoseValve_DefaultRuntime   "Default Hose Runtime"   {channel="rachio:valve:1:gardenhose:defaultRuntime"}
+    DateTime HoseValve_NextRun          "Next Hose Run"          {channel="rachio:valve:1:gardenhose:nextPlannedRunTime"}
+    Switch   HoseValve_NextRunSkipped   "Next Hose Run Skipped"  {channel="rachio:valve:1:gardenhose:nextPlannedRunSkipped"}
+    Switch   HoseValve_SkipNext         "Skip Next Hose Run"     {channel="rachio:valve:1:gardenhose:skipNextPlannedRun"}
+    Switch   HoseValve_CancelSkip       "Cancel Hose Skip"       {channel="rachio:valve:1:gardenhose:cancelNextPlannedRunSkip"}
+
+    // Smart Hose Timer Program
+    String   HoseProgram_Name           "Program Name"           {channel="rachio:valveprogram:1:morninghose:name"}
+    Switch   HoseProgram_Enabled        "Program Enabled"        {channel="rachio:valveprogram:1:morninghose:enabled"}
+    DateTime HoseProgram_NextRun        "Program Next Run"       {channel="rachio:valveprogram:1:morninghose:nextRunTime"}
+    Switch   HoseProgram_NextSkipped    "Program Run Skipped"    {channel="rachio:valveprogram:1:morninghose:nextProgramRunSkipped"}
+    Switch   HoseProgram_SkipNext       "Skip Program Run"       {channel="rachio:valveprogram:1:morninghose:skipNextPlannedRun"}
+    Switch   HoseProgram_CancelSkip     "Cancel Program Skip"    {channel="rachio:valveprogram:1:morninghose:cancelNextPlannedRunSkip"}
 ```
 
 ### Rule Example
@@ -538,6 +622,10 @@ The new API provides additional event types:
 - `FREEZE_SKIP_NOTIFICATION_EVENT` - Freeze detected, watering skipped
 - `WIND_SKIP_NOTIFICATION_EVENT` - High wind, watering skipped
 - `NO_SKIP_NOTIFICATION_EVENT` - Normal watering (no skip)
+- `VALVE_RUN_START_EVENT` - Smart Hose Timer valve watering started
+- `VALVE_RUN_END_EVENT` - Smart Hose Timer valve watering ended
+- `PROGRAM_RAIN_SKIP_CREATED_EVENT` - Smart Hose Timer Program rain skip created
+- `PROGRAM_RAIN_SKIP_CANCELED_EVENT` - Smart Hose Timer Program rain skip canceled
 
 ### Troubleshooting
 

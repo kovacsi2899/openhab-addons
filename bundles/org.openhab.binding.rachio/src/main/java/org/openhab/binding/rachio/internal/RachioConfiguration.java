@@ -46,6 +46,8 @@ public class RachioConfiguration {
     public Boolean clearAllCallbacks = false;
     public int eventHistoryLookbackHours = DEFAULT_EVENT_HISTORY_LOOKBACK_HOURS;
     public String forecastUnits = DEFAULT_FORECAST_UNITS;
+    public int hoseSummaryLookbackDays = DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS;
+    public int hoseSummaryLookaheadDays = DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS;
 
     public void updateConfig(@Nullable Map<String, @Nullable Object> config) {
         if (config == null) {
@@ -87,6 +89,12 @@ public class RachioConfiguration {
                 this.eventHistoryLookbackHours = parseEventHistoryLookbackHours(value);
             } else if (key.equalsIgnoreCase(PARAM_FORECAST_UNITS)) {
                 this.forecastUnits = parseForecastUnits(value);
+            } else if (key.equalsIgnoreCase(PARAM_HOSE_SUMMARY_LOOKBACK_DAYS)) {
+                this.hoseSummaryLookbackDays = parseSummaryWindowDays(value, DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS,
+                        PARAM_HOSE_SUMMARY_LOOKBACK_DAYS);
+            } else if (key.equalsIgnoreCase(PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS)) {
+                this.hoseSummaryLookaheadDays = parseSummaryWindowDays(value, DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS,
+                        PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS);
             }
         }
     }
@@ -119,6 +127,25 @@ public class RachioConfiguration {
         }
         logger.warn("Invalid Rachio forecastUnits '{}'; using default {}.", value, DEFAULT_FORECAST_UNITS);
         return DEFAULT_FORECAST_UNITS;
+    }
+
+    private int parseSummaryWindowDays(String value, int defaultValue, String parameterName) {
+        try {
+            int days = Integer.parseInt(value.trim());
+            if (days < 0) {
+                logger.warn("Invalid Rachio {} '{}'; using 0.", parameterName, value);
+                return 0;
+            }
+            if (days > MAX_HOSE_SUMMARY_WINDOW_DAYS) {
+                logger.warn("Rachio {} '{}' is too large; using maximum {}.", parameterName, value,
+                        MAX_HOSE_SUMMARY_WINDOW_DAYS);
+                return MAX_HOSE_SUMMARY_WINDOW_DAYS;
+            }
+            return days;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid Rachio {} '{}'; using default {}.", parameterName, value, defaultValue);
+            return defaultValue;
+        }
     }
 
     private String sanitizeValueForLogging(String key, String value) {

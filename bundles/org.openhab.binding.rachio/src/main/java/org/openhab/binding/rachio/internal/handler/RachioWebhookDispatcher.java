@@ -35,8 +35,7 @@ public class RachioWebhookDispatcher {
 
     public static RachioWebhookDispatcher createDefault(RachioBridgeHandler bridgeHandler) {
         return new RachioWebhookDispatcher(List.of(new RachioIrrigationWebhookEventHandler(bridgeHandler),
-                new RachioValveWebhookEventHandler(bridgeHandler),
-                new RachioPlaceholderWebhookEventHandler("Smart Hose Timer", Set.of(RachioWebhookResourceType.PROGRAM)),
+                new RachioValveWebhookEventHandler(bridgeHandler), new RachioProgramWebhookEventHandler(bridgeHandler),
                 new RachioPlaceholderWebhookEventHandler("Smart Lighting",
                         Set.of(RachioWebhookResourceType.LIGHTING_CONTROLLER, RachioWebhookResourceType.LIGHTING_ZONE,
                                 RachioWebhookResourceType.LIGHTING_SCENE,

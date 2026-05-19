@@ -15,7 +15,9 @@ package org.openhab.binding.rachio.internal.discovery;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -28,6 +30,7 @@ import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioDeviceGsonDTO.RachioCloudScheduleRule;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValve;
+import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
 import org.openhab.binding.rachio.internal.handler.RachioBridgeHandler;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
@@ -262,11 +265,46 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                 if (baseStation.id.isBlank()) {
                     continue;
                 }
+                Set<String> discoveredProgramIds = new HashSet<>();
+                try {
+                    for (RachioValveProgram program : handler.listValveProgramsForBaseStation(baseStation.id)) {
+                        @Nullable
+                        DiscoveryResult programResult = buildValveProgramDiscoveryResult(bridgeUID, baseStation,
+                                program);
+                        if (programResult != null) {
+                            thingDiscovered(programResult);
+                            discoveredProgramIds.add(program.id);
+                        }
+                    }
+                } catch (RachioApiException e) {
+                    logger.debug("Smart Hose Timer Program discovery skipped for base station '{}': {}", baseStation.id,
+                            e.getMessage());
+                }
                 for (RachioValve valve : handler.listValves(baseStation.id)) {
                     @Nullable
                     DiscoveryResult valveResult = buildValveDiscoveryResult(bridgeUID, baseStation, valve);
                     if (valveResult != null) {
                         thingDiscovered(valveResult);
+                    }
+                    if (valve.id.isBlank()) {
+                        continue;
+                    }
+                    try {
+                        for (RachioValveProgram program : handler.listValveProgramsForValve(valve.id)) {
+                            if (discoveredProgramIds.contains(program.id)) {
+                                continue;
+                            }
+                            @Nullable
+                            DiscoveryResult programResult = buildValveProgramDiscoveryResult(bridgeUID, baseStation,
+                                    program);
+                            if (programResult != null) {
+                                thingDiscovered(programResult);
+                                discoveredProgramIds.add(program.id);
+                            }
+                        }
+                    } catch (RachioApiException e) {
+                        logger.debug("Smart Hose Timer Program discovery skipped for valve '{}': {}", valve.id,
+                                e.getMessage());
                     }
                 }
             }
@@ -300,5 +338,20 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
         return DiscoveryResultBuilder.create(valveThingUID).withProperties(properties)
                 .withRepresentationProperty(PROPERTY_VALVE_ID).withBridge(bridgeUID)
                 .withLabel(baseStation.getThingName() + ": " + valve.getThingName()).build();
+    }
+
+    static @Nullable DiscoveryResult buildValveProgramDiscoveryResult(ThingUID bridgeUID, RachioBaseStation baseStation,
+            RachioValveProgram program) {
+        if (program.id.isBlank()) {
+            return null;
+        }
+        ThingUID programThingUID = new ThingUID(THING_TYPE_VALVEPROGRAM, bridgeUID, program.getThingID());
+        Map<String, Object> properties = new HashMap<>(program.fillProperties());
+        if (program.getBaseStationId().isBlank() && !baseStation.id.isBlank()) {
+            properties.put(PROPERTY_BASE_STATION_ID, baseStation.id);
+        }
+        return DiscoveryResultBuilder.create(programThingUID).withProperties(properties)
+                .withRepresentationProperty(PROPERTY_VALVE_PROGRAM_ID).withBridge(bridgeUID)
+                .withLabel(baseStation.getThingName() + ": " + program.getThingName()).build();
     }
 }

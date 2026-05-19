@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="valveprogram">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="cloud"/>
+		</supported-bridge-type-refs>
+
+		<label>Rachio Smart Hose Timer Program</label>
+		<description>A Smart Hose Timer valve program.</description>
+
+		<channels>
+			<channel id="name" typeId="valveprogram_name"/>
+			<channel id="enabled" typeId="valveprogram_enabled"/>
+			<channel id="programType" typeId="valveprogram_programType"/>
+			<channel id="valveId" typeId="valveprogram_valveId"/>
+			<channel id="startTime" typeId="valveprogram_startTime"/>
+			<channel id="nextRunTime" typeId="valveprogram_nextRunTime"/>
+			<channel id="lastRunTime" typeId="valveprogram_lastRunTime"/>
+			<channel id="duration" typeId="valveprogram_duration"/>
+			<channel id="daysOfWeek" typeId="valveprogram_daysOfWeek"/>
+			<channel id="intervalDays" typeId="valveprogram_intervalDays"/>
+			<channel id="seasonalAdjustment" typeId="valveprogram_seasonalAdjustment"/>
+			<channel id="updatedAt" typeId="valveprogram_updatedAt"/>
+			<channel id="nextProgramRunSkipped" typeId="valveprogram_nextProgramRunSkipped"/>
+			<channel id="skipNextPlannedRun" typeId="valveprogram_skipNextPlannedRun"/>
+			<channel id="cancelNextPlannedRunSkip" typeId="valveprogram_cancelNextPlannedRunSkip"/>
+			<channel id="lastRainSkipPlannedRunStartTime" typeId="valveprogram_lastRainSkipPlannedRunStartTime"/>
+			<channel id="lastRainSkipCanceledPlannedRunStartTime"
+				typeId="valveprogram_lastRainSkipCanceledPlannedRunStartTime"/>
+			<channel id="lastUpdate" typeId="lastUpdate"/>
+			<channel id="lastEvent" typeId="lastEvent"/>
+			<channel id="lastEventTime" typeId="lastEventTime"/>
+		</channels>
+
+		<representation-property>programId</representation-property>
+
+		<config-description>
+			<parameter name="programId" type="text" required="false">
+				<label>Program ID</label>
+				<description>Rachio Smart Hose Timer Program UUID. Required for manually created Program Things.</description>
+			</parameter>
+			<parameter name="valveId" type="text" required="false">
+				<label>Valve ID</label>
+				<description>Associated Smart Hose Timer Valve UUID, used for Summary day-view skip controls.</description>
+			</parameter>
+			<parameter name="baseStationId" type="text" required="false">
+				<label>BaseStation ID</label>
+				<description>Associated Smart Hose Timer BaseStation UUID.</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<channel-type id="valveprogram_name">
+		<item-type>String</item-type>
+		<label>Name</label>
+		<description>Smart Hose Timer program name.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_enabled">
+		<item-type>Switch</item-type>
+		<label>Enabled</label>
+		<description>ON when Rachio reports that the program is enabled.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_programType">
+		<item-type>String</item-type>
+		<label>Program Type</label>
+		<description>Program type returned by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_valveId" advanced="true">
+		<item-type>String</item-type>
+		<label>Valve ID</label>
+		<description>Associated Smart Hose Timer Valve UUID.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_startTime">
+		<item-type>String</item-type>
+		<label>Start Time</label>
+		<description>Program start time value returned by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_nextRunTime">
+		<item-type>DateTime</item-type>
+		<label>Next Run Time</label>
+		<description>Next planned run time when available from Rachio or Summary day views.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_lastRunTime">
+		<item-type>DateTime</item-type>
+		<label>Last Run Time</label>
+		<description>Last run time when available from Rachio or Summary day views.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_duration">
+		<item-type>Number</item-type>
+		<label>Duration</label>
+		<description>Program duration in seconds.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_daysOfWeek">
+		<item-type>String</item-type>
+		<label>Days of Week</label>
+		<description>Days-of-week structure returned by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_intervalDays">
+		<item-type>Number</item-type>
+		<label>Interval Days</label>
+		<description>Program interval in days when provided by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_seasonalAdjustment">
+		<item-type>Number</item-type>
+		<label>Seasonal Adjustment</label>
+		<description>Seasonal adjustment value when provided by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_updatedAt">
+		<item-type>DateTime</item-type>
+		<label>Updated At</label>
+		<description>Last update time when provided by Rachio.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_nextProgramRunSkipped">
+		<item-type>Switch</item-type>
+		<label>Next Program Run Skipped</label>
+		<description>ON when the next upcoming run for this program is currently skipped.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_skipNextPlannedRun">
+		<item-type>Switch</item-type>
+		<label>Skip Next Planned Run</label>
+		<description>ON skips the next upcoming planned run for this program when Summary identifiers are available.</description>
+	</channel-type>
+	<channel-type id="valveprogram_cancelNextPlannedRunSkip">
+		<item-type>Switch</item-type>
+		<label>Cancel Next Planned Run Skip</label>
+		<description>ON cancels the next skipped upcoming run for this program when Summary identifiers are available.</description>
+	</channel-type>
+	<channel-type id="valveprogram_lastRainSkipPlannedRunStartTime">
+		<item-type>DateTime</item-type>
+		<label>Last Rain Skip Planned Run Start</label>
+		<description>Planned run start time from the most recent Program rain-skip-created webhook event.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="valveprogram_lastRainSkipCanceledPlannedRunStartTime">
+		<item-type>DateTime</item-type>
+		<label>Last Rain Skip Canceled Start</label>
+		<description>Planned run start time from the most recent Program rain-skip-canceled webhook event.</description>
+		<state readOnly="true"/>
+	</channel-type>
+</thing:thing-descriptions>
