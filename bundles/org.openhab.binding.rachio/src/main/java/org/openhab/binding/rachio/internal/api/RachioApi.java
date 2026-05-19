@@ -139,8 +139,7 @@ public class RachioApi {
         try {
             rateLimitManager.tryThrottle(priority);
         } catch (RateLimitThrottleException e) {
-            String message = MessageFormat.format("RachioApi: {0}", e.toString());
-            throw new RachioApiException(message, lastApiResult);
+            throw new RachioApiThrottledException(e, lastApiResult);
         }
     }
 

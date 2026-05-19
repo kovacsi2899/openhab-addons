@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
@@ -222,8 +223,21 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
             refreshSummary(currentValve.id);
             logger.debug("{}: Valve model lookup succeeded: valveId='{}', baseStationId='{}'", thingId, currentValve.id,
                     currentValve.baseStationId);
+            if (resetLocalThrottleRetry()) {
+                logger.debug("{}: Retry load succeeded for Smart Hose Timer Valve '{}'; Thing is ONLINE.", thingId,
+                        currentValve.id);
+            }
             goOnline();
             return true;
+        } catch (RachioApiThrottledException e) {
+            long delaySeconds = scheduleLocalThrottleRetry("loading Smart Hose Timer Valve '" + valveId + "'",
+                    () -> refreshValve(valveId, initialLoad));
+            if (delaySeconds > 0) {
+                logger.debug(
+                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer Valve '{}'; retry scheduled in {} seconds.",
+                        thingId, valveId, delaySeconds);
+            }
+            return false;
         } catch (RachioApiException e) {
             String message = "Unable to load Rachio Valve '" + valveId + "': " + e.getMessage();
             logger.debug("{}: {}", thingId, message);
@@ -256,6 +270,10 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
             lastCompletedRun = summary.findLastCompletedRun().orElse(null);
             logger.debug("{}: Loaded Smart Hose Timer summary for valve '{}': {} day views", thingId, valveId,
                     summary.dayViews.size());
+        } catch (RachioApiThrottledException e) {
+            logger.debug(
+                    "{}: Skipping Smart Hose Timer summary refresh for valve '{}' because the local API budget guard is active: {}",
+                    thingId, valveId, e.getMessage());
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load Smart Hose Timer summary for valve '{}': {}; retaining last known values",
                     thingId, valveId, e.getMessage());

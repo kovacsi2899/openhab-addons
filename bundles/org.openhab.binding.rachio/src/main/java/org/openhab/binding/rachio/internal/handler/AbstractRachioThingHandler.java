@@ -14,6 +14,8 @@ package org.openhab.binding.rachio.internal.handler;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -34,6 +36,8 @@ import org.openhab.core.types.State;
  */
 @NonNullByDefault
 public abstract class AbstractRachioThingHandler extends BaseThingHandler implements RachioStatusListener {
+    private static final long[] LOCAL_THROTTLE_RETRY_DELAYS_SECONDS = { 15, 30, 60, 120 };
+
     protected String thingId = "";
     protected final Map<String, State> channelData = new HashMap<>();
 
@@ -42,6 +46,10 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
 
     @Nullable
     protected RachioBridgeHandler cloudHandler;
+
+    @Nullable
+    private ScheduledFuture<?> localThrottleRetryJob;
+    private int localThrottleRetryAttempt = 0;
 
     protected AbstractRachioThingHandler(Thing thing) {
         super(thing);
@@ -107,6 +115,40 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
         return true;
     }
 
+    protected long scheduleLocalThrottleRetry(String operation, Runnable retryAction) {
+        synchronized (this) {
+            ScheduledFuture<?> retryJob = localThrottleRetryJob;
+            if (retryJob != null && !retryJob.isDone()) {
+                return -1;
+            }
+
+            long delaySeconds = nextLocalThrottleRetryDelaySeconds();
+            localThrottleRetryJob = scheduler.schedule(() -> {
+                synchronized (this) {
+                    localThrottleRetryJob = null;
+                }
+                retryAction.run();
+            }, delaySeconds, TimeUnit.SECONDS);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Local Rachio API throttle hit while " + operation + "; retry scheduled in " + delaySeconds
+                            + " seconds.");
+            return delaySeconds;
+        }
+    }
+
+    protected synchronized boolean resetLocalThrottleRetry() {
+        boolean hadRetry = localThrottleRetryAttempt > 0 || localThrottleRetryJob != null;
+        cancelLocalThrottleRetry();
+        localThrottleRetryAttempt = 0;
+        return hadRetry;
+    }
+
+    private long nextLocalThrottleRetryDelaySeconds() {
+        int index = Math.min(localThrottleRetryAttempt, LOCAL_THROTTLE_RETRY_DELAYS_SECONDS.length - 1);
+        localThrottleRetryAttempt++;
+        return LOCAL_THROTTLE_RETRY_DELAYS_SECONDS[index];
+    }
+
     @Override
     public void onConfigurationUpdated() {
     }
@@ -127,14 +169,24 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
     }
 
     public void shutdown() {
+        cancelLocalThrottleRetry();
         unregisterStatusListener();
         updateStatus(ThingStatus.OFFLINE);
     }
 
     @Override
     public void dispose() {
+        cancelLocalThrottleRetry();
         unregisterStatusListener();
         super.dispose();
+    }
+
+    private synchronized void cancelLocalThrottleRetry() {
+        ScheduledFuture<?> retryJob = localThrottleRetryJob;
+        if (retryJob != null && !retryJob.isCancelled()) {
+            retryJob.cancel(true);
+        }
+        localThrottleRetryJob = null;
     }
 
     private void unregisterStatusListener() {

@@ -18,6 +18,7 @@ import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioBaseStation;
@@ -96,8 +97,22 @@ public class RachioBaseStationHandler extends AbstractRachioThingHandler {
             }
             thingId = currentBaseStation.getThingName();
             logger.debug("{}: BaseStation model lookup succeeded: baseStationId='{}'", thingId, currentBaseStation.id);
+            if (resetLocalThrottleRetry()) {
+                logger.debug("{}: Retry load succeeded for Smart Hose Timer BaseStation '{}'; Thing is ONLINE.",
+                        thingId, currentBaseStation.id);
+            }
             goOnline();
             return true;
+        } catch (RachioApiThrottledException e) {
+            long delaySeconds = scheduleLocalThrottleRetry(
+                    "loading Smart Hose Timer BaseStation '" + baseStationId + "'",
+                    () -> refreshBaseStation(baseStationId, initialLoad));
+            if (delaySeconds > 0) {
+                logger.debug(
+                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer BaseStation '{}'; retry scheduled in {} seconds.",
+                        thingId, baseStationId, delaySeconds);
+            }
+            return false;
         } catch (RachioApiException e) {
             String message = "Unable to load Rachio BaseStation '" + baseStationId + "': " + e.getMessage();
             logger.debug("{}: {}", thingId, message);

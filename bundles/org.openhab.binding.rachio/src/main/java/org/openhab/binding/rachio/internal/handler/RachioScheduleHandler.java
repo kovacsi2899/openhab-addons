@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
@@ -130,16 +131,37 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
             return false;
         }
         try {
-            scheduleRule = handler.getScheduleRule(scheduleRuleId);
+            scheduleRule = loadScheduleRule();
             logger.debug("{}: Loaded schedule rule '{}'", thingId, scheduleRuleId);
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+            if (resetLocalThrottleRetry()) {
+                logger.debug("{}: Retry load succeeded for schedule rule '{}'; Thing is ONLINE.", thingId,
+                        scheduleRuleId);
+            }
             return true;
+        } catch (RachioApiThrottledException e) {
+            long delaySeconds = scheduleLocalThrottleRetry("loading schedule rule '" + scheduleRuleId + "'",
+                    this::goOnline);
+            if (delaySeconds > 0) {
+                logger.debug(
+                        "{}: Local Rachio API throttle hit while loading schedule rule '{}'; retry scheduled in {} seconds.",
+                        thingId, scheduleRuleId, delaySeconds);
+            }
+            return false;
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load schedule rule '{}': {}", thingId, scheduleRuleId, e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return false;
         }
+    }
+
+    protected RachioScheduleRuleResponse loadScheduleRule() throws RachioApiException {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler == null) {
+            throw new RachioApiException("Bridge handler is not initialized.");
+        }
+        return handler.getScheduleRule(scheduleRuleId);
     }
 
     @Override

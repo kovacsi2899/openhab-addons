@@ -24,6 +24,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioBindingConstants;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioApiGsonDTO.RachioZoneStatus;
@@ -344,6 +345,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             d.applyCurrentSchedule(handler.getCurrentSchedule(d.id));
             logger.debug("{}: Loaded current schedule for controller '{}': running={}, id='{}'", thingId, d.id,
                     d.currentScheduleRunning, d.currentScheduleId);
+        } catch (RachioApiThrottledException e) {
+            logger.debug(
+                    "{}: Skipping current schedule refresh for controller '{}' because the local API budget guard is active: {}",
+                    thingId, d.id, e.getMessage());
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load current schedule for controller '{}': {}; retaining last known values",
                     thingId, d.id, e.getMessage());
@@ -353,6 +358,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             d.applyForecast(handler.getDeviceForecast(d.id, handler.getForecastUnits()));
             logger.debug("{}: Loaded forecast for controller '{}' using {} units", thingId, d.id,
                     handler.getForecastUnits());
+        } catch (RachioApiThrottledException e) {
+            logger.debug(
+                    "{}: Skipping forecast refresh for controller '{}' because the local API budget guard is active: {}",
+                    thingId, d.id, e.getMessage());
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load forecast for controller '{}': {}; retaining last known values", thingId,
                     d.id, e.getMessage());
@@ -367,6 +376,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                 d.applyApiEvent(events.getLatestEvent());
                 logger.debug("{}: Loaded {} recent controller events over {} hours", thingId, events.events.size(),
                         lookbackHours);
+            } catch (RachioApiThrottledException e) {
+                logger.debug(
+                        "{}: Skipping recent event refresh for controller '{}' because the local API budget guard is active: {}",
+                        thingId, d.id, e.getMessage());
             } catch (RachioApiException e) {
                 logger.debug("{}: Unable to load recent events for controller '{}': {}; retaining last known values",
                         thingId, d.id, e.getMessage());

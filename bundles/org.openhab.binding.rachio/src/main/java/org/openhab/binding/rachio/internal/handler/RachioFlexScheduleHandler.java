@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
@@ -47,7 +48,7 @@ import org.slf4j.LoggerFactory;
 @NonNullByDefault
 public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
     private final Logger logger = LoggerFactory.getLogger(RachioFlexScheduleHandler.class);
-    private String flexScheduleRuleId = "";
+    protected String flexScheduleRuleId = "";
     private RachioFlexScheduleRuleResponse scheduleRule = new RachioFlexScheduleRuleResponse();
 
     public RachioFlexScheduleHandler(Thing thing) {
@@ -102,16 +103,37 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
             return false;
         }
         try {
-            scheduleRule = handler.getFlexScheduleRule(flexScheduleRuleId);
+            scheduleRule = loadFlexScheduleRule();
             logger.debug("{}: Loaded flex schedule rule '{}'", thingId, flexScheduleRuleId);
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
+            if (resetLocalThrottleRetry()) {
+                logger.debug("{}: Retry load succeeded for flex schedule rule '{}'; Thing is ONLINE.", thingId,
+                        flexScheduleRuleId);
+            }
             return true;
+        } catch (RachioApiThrottledException e) {
+            long delaySeconds = scheduleLocalThrottleRetry("loading flex schedule rule '" + flexScheduleRuleId + "'",
+                    this::goOnline);
+            if (delaySeconds > 0) {
+                logger.debug(
+                        "{}: Local Rachio API throttle hit while loading flex schedule rule '{}'; retry scheduled in {} seconds.",
+                        thingId, flexScheduleRuleId, delaySeconds);
+            }
+            return false;
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load flex schedule rule '{}': {}", thingId, flexScheduleRuleId, e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return false;
         }
+    }
+
+    protected RachioFlexScheduleRuleResponse loadFlexScheduleRule() throws RachioApiException {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler == null) {
+            throw new RachioApiException("Bridge handler is not initialized.");
+        }
+        return handler.getFlexScheduleRule(flexScheduleRuleId);
     }
 
     @Override

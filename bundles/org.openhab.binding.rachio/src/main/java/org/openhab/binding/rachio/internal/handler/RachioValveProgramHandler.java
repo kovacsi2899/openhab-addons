@@ -24,6 +24,7 @@ import java.util.Comparator;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
@@ -147,7 +148,7 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
         }
 
         try {
-            program = handler.getValveProgram(programId);
+            program = loadValveProgram(programId);
             RachioValveProgram currentProgram = program;
             if (currentProgram == null || currentProgram.id.isBlank()) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -165,8 +166,21 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
             refreshProgramSummary(currentProgram);
             logger.debug("{}: Valve Program model lookup succeeded: programId='{}', valveId='{}'", thingId,
                     currentProgram.id, currentProgram.getValveId());
+            if (resetLocalThrottleRetry()) {
+                logger.debug("{}: Retry load succeeded for Smart Hose Timer Program '{}'; Thing is ONLINE.", thingId,
+                        currentProgram.id);
+            }
             goOnline();
             return true;
+        } catch (RachioApiThrottledException e) {
+            long delaySeconds = scheduleLocalThrottleRetry("loading Smart Hose Timer Program '" + programId + "'",
+                    () -> refreshProgram(programId, initialLoad));
+            if (delaySeconds > 0) {
+                logger.debug(
+                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer Program '{}'; retry scheduled in {} seconds.",
+                        thingId, programId, delaySeconds);
+            }
+            return false;
         } catch (RachioApiException e) {
             String message = "Unable to load Rachio Valve Program '" + programId + "': " + e.getMessage();
             logger.debug("{}: {}", thingId, message);
@@ -180,6 +194,14 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
                     message);
             return false;
         }
+    }
+
+    protected RachioValveProgram loadValveProgram(String programId) throws RachioApiException {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler == null) {
+            throw new RachioApiException("Bridge handler is not initialized.");
+        }
+        return handler.getValveProgram(programId);
     }
 
     private void refreshProgramSummary(RachioValveProgram currentProgram) {
@@ -203,6 +225,10 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
                     .filter(run -> currentProgram.id.equalsIgnoreCase(run.getProgramId()))
                     .filter(RachioValveDayRun::isSkipped).filter(run -> run.getStartEpochMillis() >= now)
                     .min(Comparator.comparingLong(RachioValveDayRun::getStartEpochMillis)).orElse(null);
+        } catch (RachioApiThrottledException e) {
+            logger.debug(
+                    "{}: Skipping Smart Hose Timer Program summary refresh for program '{}' because the local API budget guard is active: {}",
+                    thingId, currentProgram.id, e.getMessage());
         } catch (RachioApiException e) {
             logger.debug("{}: Unable to load Smart Hose Timer Program summary for program '{}': {}; retaining values",
                     thingId, currentProgram.id, e.getMessage());

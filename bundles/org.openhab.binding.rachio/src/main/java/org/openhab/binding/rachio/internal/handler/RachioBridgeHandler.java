@@ -31,6 +31,7 @@ import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.RachioConfiguration;
 import org.openhab.binding.rachio.internal.api.RachioApi;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
@@ -272,6 +273,9 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
                     }
                 }
             }
+        } catch (RachioApiThrottledException e) {
+            logger.debug("Skipping low-priority Rachio refresh because the local API budget guard is active: {}",
+                    e.getMessage());
         } catch (RachioApiException e) {
             errorMessage = e.toString();
         } catch (RuntimeException | UnknownHostException e) {
