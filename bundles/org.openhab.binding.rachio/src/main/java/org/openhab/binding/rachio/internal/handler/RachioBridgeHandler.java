@@ -417,7 +417,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      * @param zoneListJson: Contains a list of { "id": n} with the zone ids to start
      */
     public void runMultipleZones(String zoneListJson) throws RachioApiException {
-        rachioApi.runMultilpeZones(zoneListJson);
+        rachioApi.runMultipleZones(zoneListJson);
     }
 
     /**
@@ -596,7 +596,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     /**
      * Retrieve the apikey for connecting to rachio cloud
      *
-     * @return the polling interval in seconds
+     * @return the Rachio API key
      */
     public String getApiKey() {
         String apikey = thingConfig.apikey;
@@ -622,7 +622,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     }
 
     /**
-     * Retrieve the callback URL for Rachio Cloud Eevents
+     * Retrieve the callback URL for Rachio Cloud Events
      *
      * @return callbackUrl
      */
@@ -650,7 +650,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     /**
      * Retrieve the default runtime from Thing config
      *
-     * @return the polling interval in seconds
+     * @return the default runtime in seconds
      */
     public int getDefaultRuntime() {
         return thingConfig.defaultRuntime;

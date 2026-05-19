@@ -100,12 +100,18 @@ Set the bridge `callbackUrl` to a public HTTPS URL that forwards to `/rachio/web
 
 > Note: The binding dynamically queries `/webhook/listWebhookEventTypes` and only subscribes to rain sensor events if the new WebhookService advertises them. If the service does not expose rain sensor change events, `rainSensorTripped` is refreshed by normal polling.
 
-### Additional Events (For Future Implementation)
-- `VALVE_RUN_START_EVENT` - Smart hose timer started (Valve service)
-- `VALVE_RUN_END_EVENT` - Smart hose timer stopped (Valve service)
-- `LIGHTING_ZONE_STATE_CHANGE_EVENT` - Lighting zone state changed (Lighting service)
+### Smart Hose Timer Valve Events
+- `VALVE_RUN_START_EVENT` - Smart Hose Timer valve run started
+- `VALVE_RUN_END_EVENT` - Smart Hose Timer valve run ended
+
+### Smart Hose Timer Program Events
 - `PROGRAM_RAIN_SKIP_CREATED_EVENT` - Program rain skip created
 - `PROGRAM_RAIN_SKIP_CANCELED_EVENT` - Program rain skip canceled
+
+### Future Lighting Events
+- `LIGHTING_ZONE_STATE_CHANGE_EVENT` - Lighting zone state changed (Lighting service)
+
+> Note: The binding includes Smart Hose Timer valve and program webhook support. Smart Lighting remains future work and is not yet exposed as a user-facing binding feature.
 
 ## Response Formats
 

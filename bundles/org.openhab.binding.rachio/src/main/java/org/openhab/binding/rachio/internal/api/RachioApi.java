@@ -592,7 +592,7 @@ public class RachioApi {
     }
 
     public void rainDelay(String deviceId, Integer delay) throws RachioApiException {
-        logger.debug("Start dain relay for device '{}'.", deviceId);
+        logger.debug("Start rain delay for device '{}'.", deviceId);
         httpPut(APIURL_BASE + APIURL_DEV_PUT_RAIN_DELAY,
                 "{ \"id\" : \"" + deviceId + "\", \"duration\" : " + delay + " }", PRIORITY.HI);
     }
@@ -608,7 +608,7 @@ public class RachioApi {
         httpPut(APIURL_BASE + APIURL_DEV_PUT_RESUME_ZONE_RUN, "{ \"id\" : \"" + deviceId + "\" }", PRIORITY.HI);
     }
 
-    public void runMultilpeZones(String zoneListJson) throws RachioApiException {
+    public void runMultipleZones(String zoneListJson) throws RachioApiException {
         logger.debug("Start multiple zones '{}'.", zoneListJson);
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_MULTIPLE_START, zoneListJson, PRIORITY.HI);
     }
