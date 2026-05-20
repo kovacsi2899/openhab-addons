@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -32,6 +32,8 @@ import com.google.gson.JsonParser;
 
 /**
  * Tests Smart Hose Timer API payload and DTO helpers.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 class RachioSmartHoseTimerApiTest {
     @Test

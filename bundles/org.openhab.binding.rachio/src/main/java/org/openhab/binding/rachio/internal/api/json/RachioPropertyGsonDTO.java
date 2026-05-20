@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,6 +27,8 @@ import com.google.gson.JsonParser;
 /**
  * DTOs for the modern Rachio Property Service. The service may include undocumented fields, so these DTOs keep only
  * stable top-level values and retain room for future entity-specific expansion.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioPropertyGsonDTO {

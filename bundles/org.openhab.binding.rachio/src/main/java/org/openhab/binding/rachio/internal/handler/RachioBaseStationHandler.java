@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,6 +37,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Handler for a Smart Hose Timer BaseStation.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioBaseStationHandler extends AbstractRachioThingHandler {
@@ -88,7 +90,8 @@ public class RachioBaseStationHandler extends AbstractRachioThingHandler {
         }
 
         try {
-            baseStation = handler.getBaseStation(baseStationId);
+            baseStation = initialLoad ? handler.getBaseStationForInitialization(baseStationId)
+                    : handler.getBaseStation(baseStationId);
             RachioBaseStation currentBaseStation = baseStation;
             if (currentBaseStation == null || currentBaseStation.id.isBlank()) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -98,19 +101,29 @@ public class RachioBaseStationHandler extends AbstractRachioThingHandler {
             thingId = currentBaseStation.getThingName();
             logger.debug("{}: BaseStation model lookup succeeded: baseStationId='{}'", thingId, currentBaseStation.id);
             if (resetLocalThrottleRetry()) {
-                logger.debug("{}: Retry load succeeded for Smart Hose Timer BaseStation '{}'; Thing is ONLINE.",
+                logger.debug(
+                        "{}: Deferred initialization succeeded for Smart Hose Timer BaseStation '{}'; Thing is ONLINE.",
                         thingId, currentBaseStation.id);
             }
             goOnline();
             return true;
         } catch (RachioApiThrottledException e) {
-            long delaySeconds = scheduleLocalThrottleRetry(
-                    "loading Smart Hose Timer BaseStation '" + baseStationId + "'",
-                    () -> refreshBaseStation(baseStationId, initialLoad));
+            long delaySeconds = initialLoad
+                    ? scheduleInitializationThrottleRetry(
+                            "loading Smart Hose Timer BaseStation '" + baseStationId + "'",
+                            () -> refreshBaseStation(baseStationId, true), e)
+                    : scheduleLocalThrottleRetry("loading Smart Hose Timer BaseStation '" + baseStationId + "'",
+                            () -> refreshBaseStation(baseStationId, false));
             if (delaySeconds > 0) {
-                logger.debug(
-                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer BaseStation '{}'; retry scheduled in {} seconds.",
-                        thingId, baseStationId, delaySeconds);
+                if (initialLoad) {
+                    logger.debug(
+                            "{}: Deferring initialization REST request for Smart Hose Timer BaseStation '{}' due to local API bootstrap pacing; retry scheduled in {} seconds.",
+                            thingId, baseStationId, delaySeconds);
+                } else {
+                    logger.debug(
+                            "{}: Local Rachio API throttle hit while loading Smart Hose Timer BaseStation '{}'; retry scheduled in {} seconds.",
+                            thingId, baseStationId, delaySeconds);
+                }
             }
             return false;
         } catch (RachioApiException e) {

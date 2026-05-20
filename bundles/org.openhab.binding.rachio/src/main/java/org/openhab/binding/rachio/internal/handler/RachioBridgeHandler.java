@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -51,6 +51,7 @@ import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType
 import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookTarget;
 import org.openhab.binding.rachio.internal.discovery.RachioDiscoveryService;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RequestPurpose;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -340,7 +341,8 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         }
 
         // initialize API access, may throw an exception
-        api.initialize(thingConfig.apikey, this.getThing().getUID(), getPriority(refreshReason));
+        api.initialize(thingConfig.apikey, this.getThing().getUID(), getPriority(refreshReason),
+                getRequestPurpose(refreshReason));
         personId = api.getPersonId();
     }
 
@@ -353,6 +355,19 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
             case MANUAL:
             default:
                 return PRIORITY.MED;
+        }
+    }
+
+    private RequestPurpose getRequestPurpose(RefreshReason refreshReason) {
+        switch (refreshReason) {
+            case INITIALIZATION:
+                return RequestPurpose.INITIALIZATION;
+            case MANUAL:
+                return RequestPurpose.USER_COMMAND;
+            case SCHEDULED_POLL:
+            case WEBHOOK_RECONCILIATION:
+            default:
+                return RequestPurpose.BACKGROUND_REFRESH;
         }
     }
 
@@ -493,12 +508,20 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return rachioApi.getBaseStation(baseStationId);
     }
 
+    public RachioBaseStation getBaseStationForInitialization(String baseStationId) throws RachioApiException {
+        return rachioApi.getBaseStation(baseStationId, RequestPurpose.INITIALIZATION);
+    }
+
     public List<RachioValve> listValves(String baseStationId) throws RachioApiException {
         return rachioApi.listValves(baseStationId);
     }
 
     public RachioValve getValve(String valveId) throws RachioApiException {
         return rachioApi.getValve(valveId);
+    }
+
+    public RachioValve getValveForInitialization(String valveId) throws RachioApiException {
+        return rachioApi.getValve(valveId, RequestPurpose.INITIALIZATION);
     }
 
     public void setValveDefaultRuntime(String valveId, int defaultRuntimeSeconds) throws RachioApiException {
@@ -538,6 +561,18 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         }
     }
 
+    public RachioValveProgram getValveProgramForInitialization(String programId) throws RachioApiException {
+        try {
+            return rachioApi.getValveProgramV2(programId, RequestPurpose.INITIALIZATION);
+        } catch (RachioApiThrottledException e) {
+            throw e;
+        } catch (RachioApiException e) {
+            logger.debug("Unable to load Smart Hose Timer Program V2 '{}'; trying legacy program endpoint: {}",
+                    programId, e.getMessage());
+            return rachioApi.getValveProgram(programId, RequestPurpose.INITIALIZATION);
+        }
+    }
+
     public RachioValveDayViewsResponse getValveDayViews(String valveId) throws RachioApiException {
         LocalDate end = LocalDate.now().plusDays(getHoseSummaryLookaheadDays());
         LocalDate start = LocalDate.now().minusDays(getHoseSummaryLookbackDays());
@@ -572,8 +607,18 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         return rachioApi.getScheduleRule(scheduleRuleId);
     }
 
+    public RachioScheduleRuleResponse getScheduleRuleForInitialization(String scheduleRuleId)
+            throws RachioApiException {
+        return rachioApi.getScheduleRule(scheduleRuleId, RequestPurpose.INITIALIZATION);
+    }
+
     public RachioFlexScheduleRuleResponse getFlexScheduleRule(String flexScheduleRuleId) throws RachioApiException {
         return rachioApi.getFlexScheduleRule(flexScheduleRuleId);
+    }
+
+    public RachioFlexScheduleRuleResponse getFlexScheduleRuleForInitialization(String flexScheduleRuleId)
+            throws RachioApiException {
+        return rachioApi.getFlexScheduleRule(flexScheduleRuleId, RequestPurpose.INITIALIZATION);
     }
 
     public void startScheduleRule(String scheduleRuleId) throws RachioApiException {

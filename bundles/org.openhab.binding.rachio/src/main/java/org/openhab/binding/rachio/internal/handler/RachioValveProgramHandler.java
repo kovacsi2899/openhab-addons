@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -49,6 +49,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Handler for a Smart Hose Timer Program.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioValveProgramHandler extends AbstractRachioThingHandler {
@@ -148,7 +150,7 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
         }
 
         try {
-            program = loadValveProgram(programId);
+            program = initialLoad ? loadValveProgramForInitialization(programId) : loadValveProgram(programId);
             RachioValveProgram currentProgram = program;
             if (currentProgram == null || currentProgram.id.isBlank()) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -167,18 +169,28 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
             logger.debug("{}: Valve Program model lookup succeeded: programId='{}', valveId='{}'", thingId,
                     currentProgram.id, currentProgram.getValveId());
             if (resetLocalThrottleRetry()) {
-                logger.debug("{}: Retry load succeeded for Smart Hose Timer Program '{}'; Thing is ONLINE.", thingId,
-                        currentProgram.id);
+                logger.debug(
+                        "{}: Deferred initialization succeeded for Smart Hose Timer Program '{}'; Thing is ONLINE.",
+                        thingId, currentProgram.id);
             }
             goOnline();
             return true;
         } catch (RachioApiThrottledException e) {
-            long delaySeconds = scheduleLocalThrottleRetry("loading Smart Hose Timer Program '" + programId + "'",
-                    () -> refreshProgram(programId, initialLoad));
+            long delaySeconds = initialLoad
+                    ? scheduleInitializationThrottleRetry("loading Smart Hose Timer Program '" + programId + "'",
+                            () -> refreshProgram(programId, true), e)
+                    : scheduleLocalThrottleRetry("loading Smart Hose Timer Program '" + programId + "'",
+                            () -> refreshProgram(programId, false));
             if (delaySeconds > 0) {
-                logger.debug(
-                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer Program '{}'; retry scheduled in {} seconds.",
-                        thingId, programId, delaySeconds);
+                if (initialLoad) {
+                    logger.debug(
+                            "{}: Deferring initialization REST request for Smart Hose Timer Program '{}' due to local API bootstrap pacing; retry scheduled in {} seconds.",
+                            thingId, programId, delaySeconds);
+                } else {
+                    logger.debug(
+                            "{}: Local Rachio API throttle hit while loading Smart Hose Timer Program '{}'; retry scheduled in {} seconds.",
+                            thingId, programId, delaySeconds);
+                }
             }
             return false;
         } catch (RachioApiException e) {
@@ -202,6 +214,14 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
             throw new RachioApiException("Bridge handler is not initialized.");
         }
         return handler.getValveProgram(programId);
+    }
+
+    protected RachioValveProgram loadValveProgramForInitialization(String programId) throws RachioApiException {
+        RachioBridgeHandler handler = cloudHandler;
+        if (handler == null) {
+            throw new RachioApiException("Bridge handler is not initialized.");
+        }
+        return handler.getValveProgramForInitialization(programId);
     }
 
     private void refreshProgramSummary(RachioValveProgram currentProgram) {

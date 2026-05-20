@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -45,6 +45,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Handles Rachio ScheduleRule Things.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioScheduleHandler extends AbstractRachioThingHandler {
@@ -136,16 +138,16 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
             if (resetLocalThrottleRetry()) {
-                logger.debug("{}: Retry load succeeded for schedule rule '{}'; Thing is ONLINE.", thingId,
+                logger.debug("{}: Deferred initialization succeeded for schedule rule '{}'; Thing is ONLINE.", thingId,
                         scheduleRuleId);
             }
             return true;
         } catch (RachioApiThrottledException e) {
-            long delaySeconds = scheduleLocalThrottleRetry("loading schedule rule '" + scheduleRuleId + "'",
-                    this::goOnline);
+            long delaySeconds = scheduleInitializationThrottleRetry("loading schedule rule '" + scheduleRuleId + "'",
+                    this::goOnline, e);
             if (delaySeconds > 0) {
                 logger.debug(
-                        "{}: Local Rachio API throttle hit while loading schedule rule '{}'; retry scheduled in {} seconds.",
+                        "{}: Deferring initialization REST request for schedule rule '{}' due to local API bootstrap pacing; retry scheduled in {} seconds.",
                         thingId, scheduleRuleId, delaySeconds);
             }
             return false;
@@ -161,7 +163,7 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         if (handler == null) {
             throw new RachioApiException("Bridge handler is not initialized.");
         }
-        return handler.getScheduleRule(scheduleRuleId);
+        return handler.getScheduleRuleForInitialization(scheduleRuleId);
     }
 
     @Override

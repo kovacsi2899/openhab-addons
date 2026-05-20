@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -44,6 +44,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Handles read-only Rachio FlexScheduleRule Things.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
@@ -108,16 +110,16 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
             if (resetLocalThrottleRetry()) {
-                logger.debug("{}: Retry load succeeded for flex schedule rule '{}'; Thing is ONLINE.", thingId,
-                        flexScheduleRuleId);
+                logger.debug("{}: Deferred initialization succeeded for flex schedule rule '{}'; Thing is ONLINE.",
+                        thingId, flexScheduleRuleId);
             }
             return true;
         } catch (RachioApiThrottledException e) {
-            long delaySeconds = scheduleLocalThrottleRetry("loading flex schedule rule '" + flexScheduleRuleId + "'",
-                    this::goOnline);
+            long delaySeconds = scheduleInitializationThrottleRetry(
+                    "loading flex schedule rule '" + flexScheduleRuleId + "'", this::goOnline, e);
             if (delaySeconds > 0) {
                 logger.debug(
-                        "{}: Local Rachio API throttle hit while loading flex schedule rule '{}'; retry scheduled in {} seconds.",
+                        "{}: Deferring initialization REST request for flex schedule rule '{}' due to local API bootstrap pacing; retry scheduled in {} seconds.",
                         thingId, flexScheduleRuleId, delaySeconds);
             }
             return false;
@@ -133,7 +135,7 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
         if (handler == null) {
             throw new RachioApiException("Bridge handler is not initialized.");
         }
-        return handler.getFlexScheduleRule(flexScheduleRuleId);
+        return handler.getFlexScheduleRuleForInitialization(flexScheduleRuleId);
     }
 
     @Override

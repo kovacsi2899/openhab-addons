@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -40,11 +40,22 @@ public class ClientRateLimitManager {
         HI;
     }
 
+    public enum RequestPurpose {
+        BACKGROUND_REFRESH,
+        INITIALIZATION,
+        USER_COMMAND;
+    }
+
+    private static final int INITIALIZATION_BOOTSTRAP_BURST_MAX = 20;
+    private static final int INITIALIZATION_BOOTSTRAP_BURST_MIN = 5;
+    private static final int INITIALIZATION_BOOTSTRAP_REMAINING_HEADROOM = 5;
+
     private final int numBuckets;
     private final long bucketSizeMillis;
     private int rateLimitCap;
     private int rateRemaining;
     private Instant rateResetTime = Instant.MAX;
+    private int initializationBootstrapRemaining = 0;
     private final int[] buckets;
     private long bucket0EndMillis = 0;
     private long total = 0;
@@ -57,10 +68,16 @@ public class ClientRateLimitManager {
 
     public void updateRateLimit(int rateLimitCap, int rateRemaining, @Nullable String rateReset) {
         if (rateLimitCap > 0 && rateRemaining >= 0) {
+            Instant updatedResetTime = parseRateReset(rateReset);
+            boolean resetWindowChanged = !updatedResetTime.equals(rateResetTime);
+            boolean remainingIncreased = this.rateRemaining >= 0 && rateRemaining > this.rateRemaining;
             this.rateLimitCap = rateLimitCap;
             this.rateRemaining = rateRemaining;
             if (rateReset != null && !rateReset.isBlank()) {
-                this.rateResetTime = parseRateReset(rateReset);
+                this.rateResetTime = updatedResetTime;
+            }
+            if (resetWindowChanged || remainingIncreased) {
+                initializationBootstrapRemaining = calculateInitializationBootstrapAllowance();
             }
         }
         logRequest();
@@ -76,13 +93,17 @@ public class ClientRateLimitManager {
     }
 
     public void tryThrottle(PRIORITY priority) throws RateLimitThrottleException {
+        tryThrottle(priority, RequestPurpose.BACKGROUND_REFRESH);
+    }
+
+    public void tryThrottle(PRIORITY priority, RequestPurpose requestPurpose) throws RateLimitThrottleException {
         if (priority == PRIORITY.HI || rateResetTime == Instant.MAX
                 || System.currentTimeMillis() >= rateResetTime.toEpochMilli()) {
             return;
         }
 
         if (rateRemaining <= 0) {
-            throw new RateLimitThrottleException(priority, 0.0, currentRate());
+            throw new RateLimitThrottleException(priority, requestPurpose, 0.0, currentRate());
         }
 
         double budgetRate = budgetRate();
@@ -105,7 +126,10 @@ public class ClientRateLimitManager {
         }
 
         if (throttle) {
-            throw new RateLimitThrottleException(priority, budgetRate, currentRate);
+            if (requestPurpose == RequestPurpose.INITIALIZATION && useInitializationBootstrapAllowance()) {
+                return;
+            }
+            throw new RateLimitThrottleException(priority, requestPurpose, budgetRate, currentRate);
         }
     }
 
@@ -119,6 +143,28 @@ public class ClientRateLimitManager {
 
     public String getRateResetAsString() {
         return rateResetTime == Instant.MAX ? "" : rateResetTime.toString();
+    }
+
+    public int getInitializationBootstrapRemaining() {
+        return initializationBootstrapRemaining;
+    }
+
+    private int calculateInitializationBootstrapAllowance() {
+        int available = Math.max(0, rateRemaining - INITIALIZATION_BOOTSTRAP_REMAINING_HEADROOM);
+        if (available <= 0) {
+            return 0;
+        }
+
+        int capBasedAllowance = Math.max(INITIALIZATION_BOOTSTRAP_BURST_MIN, rateLimitCap / 100);
+        return Math.min(INITIALIZATION_BOOTSTRAP_BURST_MAX, Math.min(available, capBasedAllowance));
+    }
+
+    private boolean useInitializationBootstrapAllowance() {
+        if (initializationBootstrapRemaining <= 0) {
+            return false;
+        }
+        initializationBootstrapRemaining--;
+        return true;
     }
 
     private void logRequest() {
@@ -211,14 +257,36 @@ public class ClientRateLimitManager {
         private static final long serialVersionUID = 1L;
 
         public final PRIORITY priority;
+        public final RequestPurpose requestPurpose;
         public final double budgetRate;
         public final double currentRate;
+        public final Duration suggestedRetryDelay;
 
         public RateLimitThrottleException(PRIORITY priority, double budgetRate, double currentRate) {
+            this(priority, RequestPurpose.BACKGROUND_REFRESH, budgetRate, currentRate);
+        }
+
+        public RateLimitThrottleException(PRIORITY priority, RequestPurpose requestPurpose, double budgetRate,
+                double currentRate) {
             super();
             this.priority = priority;
+            this.requestPurpose = requestPurpose;
             this.budgetRate = budgetRate;
             this.currentRate = currentRate;
+            this.suggestedRetryDelay = calculateSuggestedRetryDelay(priority, requestPurpose, budgetRate);
+        }
+
+        private Duration calculateSuggestedRetryDelay(PRIORITY priority, RequestPurpose requestPurpose,
+                double budgetRate) {
+            if (requestPurpose == RequestPurpose.INITIALIZATION) {
+                return budgetRate <= 0 ? Duration.ofSeconds(30) : Duration.ofSeconds(10);
+            }
+            return switch (priority) {
+                case VERY_LOW -> Duration.ofSeconds(60);
+                case LOW -> Duration.ofSeconds(30);
+                case MED -> Duration.ofSeconds(15);
+                case HI -> Duration.ZERO;
+            };
         }
 
         @Override

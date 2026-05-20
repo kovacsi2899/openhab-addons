@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -33,6 +33,7 @@ import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RequestPurpose;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
@@ -41,6 +42,8 @@ import org.openhab.core.thing.binding.ThingHandlerCallback;
 
 /**
  * Tests schedule handler status lifecycle around initial refresh failures.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 @SuppressWarnings({ "null" })
@@ -98,7 +101,7 @@ class RachioScheduleHandlerStatusTest {
     }
 
     @Test
-    void scheduleHandlerSchedulesRetryAfterLocalThrottleAndRecovers() {
+    void scheduleHandlerDefersInitializationAfterLocalThrottleAndRecovers() {
         Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
         RetryingScheduleHandler handler = new RetryingScheduleHandler(thing, true);
         ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
@@ -108,9 +111,9 @@ class RachioScheduleHandlerStatusTest {
 
         assertThat(handler.retryScheduled, is(true));
         verify(callback).statusUpdated(eq(thing),
-                argThat(status -> status.getStatus() == ThingStatus.OFFLINE
-                        && status.getStatusDetail() == ThingStatusDetail.COMMUNICATION_ERROR
-                        && String.valueOf(status.getDescription()).contains("retry scheduled in 15 seconds")));
+                argThat(status -> status.getStatus() == ThingStatus.INITIALIZING
+                        && status.getStatusDetail() == ThingStatusDetail.NONE
+                        && String.valueOf(status.getDescription()).contains("bootstrap budget")));
 
         handler.runScheduledRetry();
 
@@ -118,7 +121,7 @@ class RachioScheduleHandlerStatusTest {
     }
 
     @Test
-    void flexScheduleHandlerSchedulesRetryAfterLocalThrottleAndRecovers() {
+    void flexScheduleHandlerDefersInitializationAfterLocalThrottleAndRecovers() {
         Thing thing = thing(new ThingUID(THING_TYPE_FLEXSCHEDULE, "bridge", "flex"));
         RetryingFlexScheduleHandler handler = new RetryingFlexScheduleHandler(thing, true);
         ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
@@ -128,9 +131,9 @@ class RachioScheduleHandlerStatusTest {
 
         assertThat(handler.retryScheduled, is(true));
         verify(callback).statusUpdated(eq(thing),
-                argThat(status -> status.getStatus() == ThingStatus.OFFLINE
-                        && status.getStatusDetail() == ThingStatusDetail.COMMUNICATION_ERROR
-                        && String.valueOf(status.getDescription()).contains("retry scheduled in 15 seconds")));
+                argThat(status -> status.getStatus() == ThingStatus.INITIALIZING
+                        && status.getStatusDetail() == ThingStatusDetail.NONE
+                        && String.valueOf(status.getDescription()).contains("bootstrap budget")));
 
         handler.runScheduledRetry();
 
@@ -171,6 +174,12 @@ class RachioScheduleHandlerStatusTest {
 
     private static RachioApiThrottledException throttledException() {
         return new RachioApiThrottledException(new RateLimitThrottleException(PRIORITY.LOW, 0.1, 0.2),
+                new RachioApiResult());
+    }
+
+    private static RachioApiThrottledException initializationThrottledException() {
+        return new RachioApiThrottledException(
+                new RateLimitThrottleException(PRIORITY.MED, RequestPurpose.INITIALIZATION, 0.1, 0.2),
                 new RachioApiResult());
     }
 
@@ -222,7 +231,7 @@ class RachioScheduleHandlerStatusTest {
             if (firstLoad) {
                 firstLoad = false;
                 if (throttleThenRecover) {
-                    throw throttledException();
+                    throw initializationThrottledException();
                 }
                 throw new RachioApiException("not found");
             }
@@ -234,12 +243,13 @@ class RachioScheduleHandlerStatusTest {
         }
 
         @Override
-        protected long scheduleLocalThrottleRetry(String operation, Runnable retryAction) {
+        protected long scheduleInitializationThrottleRetry(String operation, Runnable retryAction,
+                RachioApiThrottledException throttle) {
             retryScheduled = true;
             this.retryAction = retryAction;
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "Local Rachio API throttle hit while " + operation + "; retry scheduled in 15 seconds.");
-            return 15;
+            updateStatus(ThingStatus.INITIALIZING, ThingStatusDetail.NONE,
+                    "Waiting for local Rachio API bootstrap budget; initialization will retry automatically.");
+            return throttle.getSuggestedRetryDelay().getSeconds();
         }
     }
 
@@ -291,7 +301,7 @@ class RachioScheduleHandlerStatusTest {
             if (firstLoad) {
                 firstLoad = false;
                 if (throttleThenRecover) {
-                    throw throttledException();
+                    throw initializationThrottledException();
                 }
                 throw new RachioApiException("not found");
             }
@@ -303,12 +313,13 @@ class RachioScheduleHandlerStatusTest {
         }
 
         @Override
-        protected long scheduleLocalThrottleRetry(String operation, Runnable retryAction) {
+        protected long scheduleInitializationThrottleRetry(String operation, Runnable retryAction,
+                RachioApiThrottledException throttle) {
             retryScheduled = true;
             this.retryAction = retryAction;
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "Local Rachio API throttle hit while " + operation + "; retry scheduled in 15 seconds.");
-            return 15;
+            updateStatus(ThingStatus.INITIALIZING, ThingStatusDetail.NONE,
+                    "Waiting for local Rachio API bootstrap budget; initialization will retry automatically.");
+            return throttle.getSuggestedRetryDelay().getSeconds();
         }
     }
 }

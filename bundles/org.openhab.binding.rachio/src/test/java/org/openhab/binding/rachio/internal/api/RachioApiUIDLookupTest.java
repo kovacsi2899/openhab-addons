@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -33,6 +33,8 @@ import org.openhab.core.thing.ThingUID;
 
 /**
  * Tests for Rachio Thing UID mapping across API model rebuilds.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 class RachioApiUIDLookupTest {
     private static final ThingUID BRIDGE_UID = new ThingUID(THING_TYPE_CLOUD, "bridge");

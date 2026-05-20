@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,7 @@ package org.openhab.binding.rachio.internal.utils;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Duration;
@@ -23,9 +24,12 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
+import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RequestPurpose;
 
 /**
  * Tests local client-side rate limit decisions.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 class ClientRateLimitManagerTest {
@@ -38,5 +42,35 @@ class ClientRateLimitManagerTest {
                 () -> manager.tryThrottle(PRIORITY.LOW));
 
         assertThat(exception.priority, is(PRIORITY.LOW));
+    }
+
+    @Test
+    void initializationRequestUsesBoundedBootstrapAllowanceWhenBackgroundRequestWouldThrottle() {
+        ClientRateLimitManager manager = new ClientRateLimitManager(1, Duration.ofSeconds(60));
+        manager.updateRateLimit(100, 50, Long.toString(Instant.now().plusSeconds(3600).getEpochSecond()));
+
+        RateLimitThrottleException backgroundException = assertThrows(RateLimitThrottleException.class,
+                () -> manager.tryThrottle(PRIORITY.MED, RequestPurpose.BACKGROUND_REFRESH));
+
+        assertThat(backgroundException.requestPurpose, is(RequestPurpose.BACKGROUND_REFRESH));
+        assertDoesNotThrow(() -> manager.tryThrottle(PRIORITY.MED, RequestPurpose.INITIALIZATION));
+        assertThat(manager.getInitializationBootstrapRemaining(), is(4));
+    }
+
+    @Test
+    void initializationBootstrapAllowanceIsBoundedAndThenReturnsInitializationThrottle() {
+        ClientRateLimitManager manager = new ClientRateLimitManager(1, Duration.ofSeconds(60));
+        manager.updateRateLimit(100, 50, Long.toString(Instant.now().plusSeconds(3600).getEpochSecond()));
+
+        for (int i = 0; i < 5; i++) {
+            assertDoesNotThrow(() -> manager.tryThrottle(PRIORITY.MED, RequestPurpose.INITIALIZATION));
+        }
+
+        RateLimitThrottleException exception = assertThrows(RateLimitThrottleException.class,
+                () -> manager.tryThrottle(PRIORITY.MED, RequestPurpose.INITIALIZATION));
+
+        assertThat(exception.priority, is(PRIORITY.MED));
+        assertThat(exception.requestPurpose, is(RequestPurpose.INITIALIZATION));
+        assertThat(exception.suggestedRetryDelay.getSeconds(), is(10L));
     }
 }

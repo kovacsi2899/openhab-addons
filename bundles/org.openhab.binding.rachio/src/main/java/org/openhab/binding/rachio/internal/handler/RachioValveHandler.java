@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -48,6 +48,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Handler for an individual Smart Hose Timer Valve.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 public class RachioValveHandler extends AbstractRachioThingHandler {
@@ -205,7 +207,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         }
 
         try {
-            valve = handler.getValve(valveId);
+            valve = initialLoad ? handler.getValveForInitialization(valveId) : handler.getValve(valveId);
             RachioValve currentValve = valve;
             if (currentValve == null || currentValve.id.isBlank()) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -224,18 +226,27 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
             logger.debug("{}: Valve model lookup succeeded: valveId='{}', baseStationId='{}'", thingId, currentValve.id,
                     currentValve.baseStationId);
             if (resetLocalThrottleRetry()) {
-                logger.debug("{}: Retry load succeeded for Smart Hose Timer Valve '{}'; Thing is ONLINE.", thingId,
-                        currentValve.id);
+                logger.debug("{}: Deferred initialization succeeded for Smart Hose Timer Valve '{}'; Thing is ONLINE.",
+                        thingId, currentValve.id);
             }
             goOnline();
             return true;
         } catch (RachioApiThrottledException e) {
-            long delaySeconds = scheduleLocalThrottleRetry("loading Smart Hose Timer Valve '" + valveId + "'",
-                    () -> refreshValve(valveId, initialLoad));
+            long delaySeconds = initialLoad
+                    ? scheduleInitializationThrottleRetry("loading Smart Hose Timer Valve '" + valveId + "'",
+                            () -> refreshValve(valveId, true), e)
+                    : scheduleLocalThrottleRetry("loading Smart Hose Timer Valve '" + valveId + "'",
+                            () -> refreshValve(valveId, false));
             if (delaySeconds > 0) {
-                logger.debug(
-                        "{}: Local Rachio API throttle hit while loading Smart Hose Timer Valve '{}'; retry scheduled in {} seconds.",
-                        thingId, valveId, delaySeconds);
+                if (initialLoad) {
+                    logger.debug(
+                            "{}: Deferring initialization REST request for Smart Hose Timer Valve '{}' due to local API bootstrap pacing; retry scheduled in {} seconds.",
+                            thingId, valveId, delaySeconds);
+                } else {
+                    logger.debug(
+                            "{}: Local Rachio API throttle hit while loading Smart Hose Timer Valve '{}'; retry scheduled in {} seconds.",
+                            thingId, valveId, delaySeconds);
+                }
             }
             return false;
         } catch (RachioApiException e) {

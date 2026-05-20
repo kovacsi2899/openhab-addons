@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
@@ -37,6 +38,8 @@ import org.openhab.core.types.State;
 @NonNullByDefault
 public abstract class AbstractRachioThingHandler extends BaseThingHandler implements RachioStatusListener {
     private static final long[] LOCAL_THROTTLE_RETRY_DELAYS_SECONDS = { 15, 30, 60, 120 };
+    private static final long MAX_INITIALIZATION_THROTTLE_RETRY_DELAY_SECONDS = 30;
+    private static final String INITIALIZATION_THROTTLE_STATUS_MESSAGE = "Waiting for local Rachio API bootstrap budget; initialization will retry automatically.";
 
     protected String thingId = "";
     protected final Map<String, State> channelData = new HashMap<>();
@@ -50,6 +53,7 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
     @Nullable
     private ScheduledFuture<?> localThrottleRetryJob;
     private int localThrottleRetryAttempt = 0;
+    private boolean localThrottleInitializationDeferred = false;
 
     protected AbstractRachioThingHandler(Thing thing) {
         super(thing);
@@ -136,8 +140,32 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
         }
     }
 
+    protected long scheduleInitializationThrottleRetry(String operation, Runnable retryAction,
+            RachioApiThrottledException throttle) {
+        synchronized (this) {
+            ScheduledFuture<?> retryJob = localThrottleRetryJob;
+            if (retryJob != null && !retryJob.isDone()) {
+                return -1;
+            }
+
+            long suggestedDelaySeconds = throttle.getSuggestedRetryDelay().getSeconds();
+            long delaySeconds = Math.max(1,
+                    Math.min(MAX_INITIALIZATION_THROTTLE_RETRY_DELAY_SECONDS, suggestedDelaySeconds));
+            localThrottleInitializationDeferred = true;
+            localThrottleRetryJob = scheduler.schedule(() -> {
+                synchronized (this) {
+                    localThrottleRetryJob = null;
+                }
+                retryAction.run();
+            }, delaySeconds, TimeUnit.SECONDS);
+            updateStatus(ThingStatus.INITIALIZING, ThingStatusDetail.NONE, INITIALIZATION_THROTTLE_STATUS_MESSAGE);
+            return delaySeconds;
+        }
+    }
+
     protected synchronized boolean resetLocalThrottleRetry() {
-        boolean hadRetry = localThrottleRetryAttempt > 0 || localThrottleRetryJob != null;
+        boolean hadRetry = localThrottleRetryAttempt > 0 || localThrottleRetryJob != null
+                || localThrottleInitializationDeferred;
         cancelLocalThrottleRetry();
         localThrottleRetryAttempt = 0;
         return hadRetry;
@@ -187,6 +215,7 @@ public abstract class AbstractRachioThingHandler extends BaseThingHandler implem
             retryJob.cancel(true);
         }
         localThrottleRetryJob = null;
+        localThrottleInitializationDeferred = false;
     }
 
     private void unregisterStatusListener() {

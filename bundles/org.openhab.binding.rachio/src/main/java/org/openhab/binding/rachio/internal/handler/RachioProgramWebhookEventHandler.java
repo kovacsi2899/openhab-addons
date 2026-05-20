@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2026 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,6 +21,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Dispatches Smart Hose Timer Program webhook events to matching Program Things.
+ *
+ * @author openHAB Contributors - Initial contribution
  */
 @NonNullByDefault
 class RachioProgramWebhookEventHandler implements RachioWebhookEventHandler {
