@@ -17,7 +17,10 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -34,8 +37,13 @@ import org.slf4j.LoggerFactory;
 public class RachioConfiguration {
     private static final String REDACTED = "[redacted]";
     private static final String REDACTED_INVALID_URL = "[redacted invalid URL]";
+    private static final List<String> CONFIGURATION_PARAMETERS = List.of(PARAM_APIKEY, PARAM_POLLING_INTERVAL,
+            PARAM_DEF_RUNTIME, PARAM_CALLBACK_URL, PARAM_CALLBACK_USERNAME, PARAM_CALLBACK_PASSWORD,
+            PARAM_CLEAR_CALLBACK, PARAM_EVENT_HISTORY_LOOKBACK_HOURS, PARAM_FORECAST_UNITS,
+            PARAM_HOSE_SUMMARY_LOOKBACK_DAYS, PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS);
 
     private final Logger logger = LoggerFactory.getLogger(RachioConfiguration.class);
+    private final Set<String> configuredParameters = new HashSet<>();
 
     public String apikey = "";
     public int pollingInterval = DEFAULT_POLLING_INTERVAL_SEC;
@@ -49,11 +57,88 @@ public class RachioConfiguration {
     public int hoseSummaryLookbackDays = DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS;
     public int hoseSummaryLookaheadDays = DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS;
 
+    public RachioConfiguration() {
+    }
+
+    public RachioConfiguration(RachioConfiguration source) {
+        copyValuesFrom(source);
+        configuredParameters.addAll(source.configuredParameters);
+    }
+
+    public enum ConfigurationSource {
+        CLOUD_THING("Cloud Thing"),
+        DEPRECATED_BINDING_FALLBACK("deprecated binding fallback"),
+        DEFAULT("built-in default");
+
+        private final String label;
+
+        ConfigurationSource(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+    }
+
+    public static class ResolvedConfiguration {
+        private final RachioConfiguration configuration;
+        private final Map<String, ConfigurationSource> sources;
+
+        private ResolvedConfiguration(RachioConfiguration configuration, Map<String, ConfigurationSource> sources) {
+            this.configuration = configuration;
+            this.sources = Map.copyOf(sources);
+        }
+
+        public RachioConfiguration configuration() {
+            return configuration;
+        }
+
+        public ConfigurationSource source(String parameterName) {
+            String canonicalParameterName = canonicalParameterName(parameterName);
+            if (canonicalParameterName == null) {
+                return ConfigurationSource.DEFAULT;
+            }
+            return sources.getOrDefault(canonicalParameterName, ConfigurationSource.DEFAULT);
+        }
+    }
+
+    public static ResolvedConfiguration resolveEffectiveConfig(RachioConfiguration bindingFallback,
+            @Nullable Map<String, @Nullable Object> cloudThingConfig) {
+        RachioConfiguration effectiveConfig = new RachioConfiguration();
+        Map<String, ConfigurationSource> sources = new HashMap<>();
+        for (String parameterName : CONFIGURATION_PARAMETERS) {
+            sources.put(parameterName, ConfigurationSource.DEFAULT);
+        }
+
+        effectiveConfig.applyConfiguredValuesFrom(bindingFallback);
+        for (String parameterName : CONFIGURATION_PARAMETERS) {
+            if (bindingFallback.hasConfiguredValue(parameterName)) {
+                sources.put(parameterName, ConfigurationSource.DEPRECATED_BINDING_FALLBACK);
+            }
+        }
+
+        effectiveConfig.updateConfig(cloudThingConfig);
+        if (cloudThingConfig != null) {
+            for (Map.Entry<String, @Nullable Object> entry : cloudThingConfig.entrySet()) {
+                if (entry.getValue() == null) {
+                    continue;
+                }
+                String parameterName = canonicalParameterName(entry.getKey());
+                if (parameterName != null) {
+                    sources.put(parameterName, ConfigurationSource.CLOUD_THING);
+                }
+            }
+        }
+
+        return new ResolvedConfiguration(effectiveConfig, sources);
+    }
+
     public void updateConfig(@Nullable Map<String, @Nullable Object> config) {
         if (config == null) {
             return;
         }
-        for (HashMap.@Nullable Entry<String, @Nullable Object> ce : config.entrySet()) {
+        for (Map.Entry<String, @Nullable Object> ce : config.entrySet()) {
             String key = ce.getKey();
             if (key.equalsIgnoreCase("component.name") || key.equalsIgnoreCase("component.id")) {
                 continue;
@@ -70,33 +155,108 @@ public class RachioConfiguration {
             }
             logger.debug("  {}={}", key, sanitizeValueForLogging(key, value));
 
-            if (key.equalsIgnoreCase(PARAM_APIKEY)) {
+            String parameterName = canonicalParameterName(key);
+            if (parameterName == null) {
+                continue;
+            }
+
+            configuredParameters.add(parameterName);
+            if (parameterName.equals(PARAM_APIKEY)) {
                 apikey = value;
-            } else if (key.equalsIgnoreCase(PARAM_POLLING_INTERVAL)) {
+            } else if (parameterName.equals(PARAM_POLLING_INTERVAL)) {
                 this.pollingInterval = Integer.parseInt(value);
-            } else if (key.equalsIgnoreCase(PARAM_DEF_RUNTIME)) {
+            } else if (parameterName.equals(PARAM_DEF_RUNTIME)) {
                 this.defaultRuntime = Integer.parseInt(value);
-            } else if (key.equalsIgnoreCase(PARAM_CALLBACK_URL)) {
+            } else if (parameterName.equals(PARAM_CALLBACK_URL)) {
                 this.callbackUrl = value;
-            } else if (key.equalsIgnoreCase(PARAM_CALLBACK_USERNAME)) {
+            } else if (parameterName.equals(PARAM_CALLBACK_USERNAME)) {
                 this.callbackUsername = value;
-            } else if (key.equalsIgnoreCase(PARAM_CALLBACK_PASSWORD)) {
+            } else if (parameterName.equals(PARAM_CALLBACK_PASSWORD)) {
                 this.callbackPassword = value;
-            } else if (key.equalsIgnoreCase(PARAM_CLEAR_CALLBACK)) {
+            } else if (parameterName.equals(PARAM_CLEAR_CALLBACK)) {
                 String str = value;
                 this.clearAllCallbacks = str.toLowerCase().equals("true");
-            } else if (key.equalsIgnoreCase(PARAM_EVENT_HISTORY_LOOKBACK_HOURS)) {
+            } else if (parameterName.equals(PARAM_EVENT_HISTORY_LOOKBACK_HOURS)) {
                 this.eventHistoryLookbackHours = parseEventHistoryLookbackHours(value);
-            } else if (key.equalsIgnoreCase(PARAM_FORECAST_UNITS)) {
+            } else if (parameterName.equals(PARAM_FORECAST_UNITS)) {
                 this.forecastUnits = parseForecastUnits(value);
-            } else if (key.equalsIgnoreCase(PARAM_HOSE_SUMMARY_LOOKBACK_DAYS)) {
+            } else if (parameterName.equals(PARAM_HOSE_SUMMARY_LOOKBACK_DAYS)) {
                 this.hoseSummaryLookbackDays = parseSummaryWindowDays(value, DEFAULT_HOSE_SUMMARY_LOOKBACK_DAYS,
                         PARAM_HOSE_SUMMARY_LOOKBACK_DAYS);
-            } else if (key.equalsIgnoreCase(PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS)) {
+            } else if (parameterName.equals(PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS)) {
                 this.hoseSummaryLookaheadDays = parseSummaryWindowDays(value, DEFAULT_HOSE_SUMMARY_LOOKAHEAD_DAYS,
                         PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS);
             }
         }
+    }
+
+    public boolean hasConfiguredValue(String parameterName) {
+        String canonicalParameterName = canonicalParameterName(parameterName);
+        return canonicalParameterName != null && configuredParameters.contains(canonicalParameterName);
+    }
+
+    private void applyConfiguredValuesFrom(RachioConfiguration source) {
+        for (String parameterName : CONFIGURATION_PARAMETERS) {
+            if (source.hasConfiguredValue(parameterName)) {
+                copyValueFrom(source, parameterName);
+                configuredParameters.add(parameterName);
+            }
+        }
+    }
+
+    private void copyValuesFrom(RachioConfiguration source) {
+        for (String parameterName : CONFIGURATION_PARAMETERS) {
+            copyValueFrom(source, parameterName);
+        }
+    }
+
+    private void copyValueFrom(RachioConfiguration source, String parameterName) {
+        switch (parameterName) {
+            case PARAM_APIKEY:
+                apikey = source.apikey;
+                break;
+            case PARAM_POLLING_INTERVAL:
+                pollingInterval = source.pollingInterval;
+                break;
+            case PARAM_DEF_RUNTIME:
+                defaultRuntime = source.defaultRuntime;
+                break;
+            case PARAM_CALLBACK_URL:
+                callbackUrl = source.callbackUrl;
+                break;
+            case PARAM_CALLBACK_USERNAME:
+                callbackUsername = source.callbackUsername;
+                break;
+            case PARAM_CALLBACK_PASSWORD:
+                callbackPassword = source.callbackPassword;
+                break;
+            case PARAM_CLEAR_CALLBACK:
+                clearAllCallbacks = source.clearAllCallbacks;
+                break;
+            case PARAM_EVENT_HISTORY_LOOKBACK_HOURS:
+                eventHistoryLookbackHours = source.eventHistoryLookbackHours;
+                break;
+            case PARAM_FORECAST_UNITS:
+                forecastUnits = source.forecastUnits;
+                break;
+            case PARAM_HOSE_SUMMARY_LOOKBACK_DAYS:
+                hoseSummaryLookbackDays = source.hoseSummaryLookbackDays;
+                break;
+            case PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS:
+                hoseSummaryLookaheadDays = source.hoseSummaryLookaheadDays;
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static @Nullable String canonicalParameterName(String key) {
+        for (String parameterName : CONFIGURATION_PARAMETERS) {
+            if (parameterName.equalsIgnoreCase(key)) {
+                return parameterName;
+            }
+        }
+        return null;
     }
 
     private int parseEventHistoryLookbackHours(String value) {

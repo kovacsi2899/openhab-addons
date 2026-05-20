@@ -46,6 +46,17 @@ All devices are connected to this thing, all zones to the corresponding device.
 
 ###  Configuration
 
+Account-level settings belong on the Rachio Cloud Connector Thing (`rachio:cloud`).
+This includes the API token, polling/default runtime values, event and forecast preferences, Smart Hose Timer summary windows, and webhook callback settings.
+
+Older binding-level configuration is still accepted as a deprecated fallback for compatibility.
+The Cloud Connector Thing configuration is authoritative: when a value exists on the Thing, it wins over binding-level configuration.
+The effective precedence is:
+
+```
+Cloud Connector Thing configuration > deprecated binding-level fallback > built-in default
+```
+
 **Option A: Using openHAB UI**
 
 - Go to Inbox and press the + button.

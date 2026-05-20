@@ -51,7 +51,6 @@ import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookResourceType
 import org.openhab.binding.rachio.internal.api.webhook.RachioWebhookTarget;
 import org.openhab.binding.rachio.internal.discovery.RachioDiscoveryService;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY;
-import org.openhab.core.config.core.Configuration;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -99,7 +98,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     }
 
     public void setConfiguration(RachioConfiguration defaultConfig) {
-        bindingConfig = defaultConfig;
+        bindingConfig = new RachioConfiguration(defaultConfig);
     }
 
     /**
@@ -111,9 +110,9 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         String errorMessage = "";
 
         try {
-            // Set defaults from Binding Config
-            thingConfig = bindingConfig;
-            thingConfig.updateConfig(getConfig().getProperties());
+            RachioConfiguration.ResolvedConfiguration resolvedConfiguration = resolveEffectiveConfiguration();
+            thingConfig = resolvedConfiguration.configuration();
+            logResolvedConfiguration(resolvedConfiguration);
 
             logger.debug("RachioCloud: Connecting to Rachio Cloud");
             createCloudConnection(rachioApi, RefreshReason.INITIALIZATION);
@@ -160,7 +159,11 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
      */
     @Override
     public void handleConfigurationUpdate(Map<String, Object> configurationParameters) {
-        rachioStatusListeners.stream().forEach(l -> l.onConfigurationUpdated());
+        boolean configurationChanged = isModifyingCurrentConfig(configurationParameters);
+        super.handleConfigurationUpdate(configurationParameters);
+        if (configurationChanged) {
+            rachioStatusListeners.stream().forEach(l -> l.onConfigurationUpdated());
+        }
     }
 
     /**
@@ -603,13 +606,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
         if (!apikey.isEmpty()) {
             return apikey;
         }
-        apikey = getConfigAs(RachioConfiguration.class).apikey;
-        if (!apikey.isEmpty()) {
-            return apikey;
-        }
-        Configuration config = getThing().getConfiguration();
-        Object value = config.get(PARAM_APIKEY);
-        return value != null ? value.toString() : "";
+        return resolveEffectiveConfiguration().configuration().apikey;
     }
 
     /**
@@ -799,15 +796,44 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     public Collection<ConfigStatusMessage> getConfigStatus() {
         Collection<ConfigStatusMessage> configStatusMessages = new ArrayList<>();
 
-        RachioConfiguration config = getConfigAs(RachioConfiguration.class);
+        RachioConfiguration config = resolveEffectiveConfiguration().configuration();
 
         if (config.apikey.isEmpty()) {
             configStatusMessages.add(ConfigStatusMessage.Builder.error(PARAM_APIKEY)
-                    .withMessageKeySuffix("ERROR: No/invalid APIKEY in binding configuration!")
+                    .withMessageKeySuffix("ERROR: No/invalid APIKEY in Cloud Connector configuration!")
                     .withArguments(PARAM_APIKEY).build());
         }
 
         return configStatusMessages;
+    }
+
+    private RachioConfiguration.ResolvedConfiguration resolveEffectiveConfiguration() {
+        return RachioConfiguration.resolveEffectiveConfig(bindingConfig, getConfig().getProperties());
+    }
+
+    private void logResolvedConfiguration(RachioConfiguration.ResolvedConfiguration resolvedConfiguration) {
+        RachioConfiguration config = resolvedConfiguration.configuration();
+        logger.debug(
+                "Rachio Cloud configuration resolved: apikeyConfigured={} ({}), pollingInterval={} ({}), defaultRuntime={} ({}), eventHistoryLookbackHours={} ({}), forecastUnits={} ({}), hoseSummaryLookbackDays={} ({}), hoseSummaryLookaheadDays={} ({}), callbackUrlConfigured={} ({}), callbackUsernameConfigured={} ({}), callbackPasswordConfigured={} ({}), clearAllCallbacks={} ({})",
+                isConfigured(config.apikey), sourceLabel(resolvedConfiguration, PARAM_APIKEY), config.pollingInterval,
+                sourceLabel(resolvedConfiguration, PARAM_POLLING_INTERVAL), config.defaultRuntime,
+                sourceLabel(resolvedConfiguration, PARAM_DEF_RUNTIME), config.eventHistoryLookbackHours,
+                sourceLabel(resolvedConfiguration, PARAM_EVENT_HISTORY_LOOKBACK_HOURS), config.forecastUnits,
+                sourceLabel(resolvedConfiguration, PARAM_FORECAST_UNITS), config.hoseSummaryLookbackDays,
+                sourceLabel(resolvedConfiguration, PARAM_HOSE_SUMMARY_LOOKBACK_DAYS), config.hoseSummaryLookaheadDays,
+                sourceLabel(resolvedConfiguration, PARAM_HOSE_SUMMARY_LOOKAHEAD_DAYS), isConfigured(config.callbackUrl),
+                sourceLabel(resolvedConfiguration, PARAM_CALLBACK_URL), isConfigured(config.callbackUsername),
+                sourceLabel(resolvedConfiguration, PARAM_CALLBACK_USERNAME), isConfigured(config.callbackPassword),
+                sourceLabel(resolvedConfiguration, PARAM_CALLBACK_PASSWORD), config.clearAllCallbacks,
+                sourceLabel(resolvedConfiguration, PARAM_CLEAR_CALLBACK));
+    }
+
+    private String sourceLabel(RachioConfiguration.ResolvedConfiguration resolvedConfiguration, String parameterName) {
+        return resolvedConfiguration.source(parameterName).label();
+    }
+
+    private boolean isConfigured(String value) {
+        return !value.isBlank();
     }
 
     private void updateProperties() {
