@@ -41,12 +41,18 @@
 		<item-type>String</item-type>
 		<label>Name</label>
 		<description>Schedule rule name.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_enabled">
 		<item-type>Switch</item-type>
 		<label>Enabled</label>
 		<description>ON if the schedule rule is enabled.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_type">
@@ -59,18 +65,30 @@
 		<item-type>DateTime</item-type>
 		<label>Start Time</label>
 		<description>Schedule rule start time when provided by Rachio.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_lastRun">
 		<item-type>DateTime</item-type>
 		<label>Last Run</label>
 		<description>Last run time when provided by Rachio.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_nextRun">
 		<item-type>DateTime</item-type>
 		<label>Next Run</label>
 		<description>Next run time when provided by Rachio.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_zones">
@@ -80,23 +98,36 @@
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="schedule_seasonalAdjustment">
-		<item-type>Number</item-type>
+		<item-type unitHint="1">Number:Dimensionless</item-type>
 		<label>Seasonal Adjustment</label>
 		<description>Seasonal adjustment value for the schedule rule. Sending a number updates the adjustment.</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="schedule_start">
 		<item-type>Switch</item-type>
 		<label>Start Schedule</label>
 		<description>Send ON to start this schedule rule.</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Water</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="schedule_skip">
 		<item-type>Switch</item-type>
 		<label>Skip Schedule</label>
 		<description>Send ON to skip this schedule rule.</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="schedule_skipForwardZoneRun">
 		<item-type>Switch</item-type>
 		<label>Skip Forward Zone Run</label>
 		<description>Send ON to skip the currently running zone in this schedule context.</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 </thing:thing-descriptions>

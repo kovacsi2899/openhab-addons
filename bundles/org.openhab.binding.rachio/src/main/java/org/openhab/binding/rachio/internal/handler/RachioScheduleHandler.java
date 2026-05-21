@@ -15,10 +15,10 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.OptionalDouble;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -29,7 +29,6 @@ import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioEventGsonDTO;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioScheduleRuleResponse;
 import org.openhab.core.library.types.DateTimeType;
-import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
@@ -104,11 +103,16 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
             } else if (channel.equals(CHANNEL_SCHEDULE_SKIP) && command == OnOffType.ON) {
                 handler.skipScheduleRule(scheduleRuleId);
                 updateChannel(CHANNEL_SCHEDULE_SKIP, OnOffType.OFF);
-            } else if (channel.equals(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT) && command instanceof DecimalType) {
-                double adjustment = ((DecimalType) command).doubleValue();
-                handler.setScheduleRuleSeasonalAdjustment(scheduleRuleId, adjustment);
-                scheduleRule.seasonalAdjustment = adjustment;
-                updateChannel(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT, new DecimalType(BigDecimal.valueOf(adjustment)));
+            } else if (channel.equals(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT)) {
+                OptionalDouble adjustment = RachioQuantityTypes.dimensionless(command);
+                if (adjustment.isPresent()) {
+                    double value = adjustment.getAsDouble();
+                    handler.setScheduleRuleSeasonalAdjustment(scheduleRuleId, value);
+                    scheduleRule.seasonalAdjustment = value;
+                    updateChannel(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT, RachioQuantityTypes.fractionOrUndef(value));
+                } else {
+                    logger.debug("{}: Seasonal adjustment command value is not dimensionless: {}", thingId, command);
+                }
             } else if (channel.equals(CHANNEL_SCHEDULE_SKIP_FORWARD_ZONE_RUN) && command == OnOffType.ON) {
                 handler.skipForwardZoneRun(scheduleRuleId);
                 updateChannel(CHANNEL_SCHEDULE_SKIP_FORWARD_ZONE_RUN, OnOffType.OFF);
@@ -176,7 +180,7 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_SCHEDULE_NEXT_RUN, dateTimeOrUndef(scheduleRule.nextRun));
         updateChannel(CHANNEL_SCHEDULE_ZONES, stringOrUndef(scheduleRule.getZoneSummary()));
         updateChannel(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT,
-                new DecimalType(BigDecimal.valueOf(scheduleRule.seasonalAdjustment)));
+                RachioQuantityTypes.fractionOrUndef(scheduleRule.seasonalAdjustment));
     }
 
     @Override

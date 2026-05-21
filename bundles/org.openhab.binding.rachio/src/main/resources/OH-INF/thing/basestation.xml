@@ -11,6 +11,7 @@
 
 		<label>Rachio Smart Hose Timer BaseStation</label>
 		<description>A Smart Hose Timer Wi-Fi hub.</description>
+		<semantic-equipment-tag>NetworkAppliance</semantic-equipment-tag>
 
 		<channels>
 			<channel id="name" typeId="basestation_name"/>
@@ -32,12 +33,18 @@
 		<item-type>String</item-type>
 		<label>Name</label>
 		<description>Smart Hose Timer BaseStation name.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="basestation_online">
 		<item-type>Switch</item-type>
 		<label>Online</label>
 		<description>ON when Rachio reports that the BaseStation is online or connected.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 </thing:thing-descriptions>

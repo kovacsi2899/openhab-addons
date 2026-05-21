@@ -15,7 +15,6 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -28,7 +27,6 @@ import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
 import org.openhab.core.library.types.DateTimeType;
-import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
@@ -148,7 +146,7 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_SCHEDULE_NEXT_RUN, dateTimeOrUndef(scheduleRule.nextRun));
         updateChannel(CHANNEL_SCHEDULE_ZONES, stringOrUndef(scheduleRule.getZoneSummary()));
         updateChannel(CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT,
-                new DecimalType(BigDecimal.valueOf(scheduleRule.seasonalAdjustment)));
+                RachioQuantityTypes.fractionOrUndef(scheduleRule.seasonalAdjustment));
     }
 
     @Override

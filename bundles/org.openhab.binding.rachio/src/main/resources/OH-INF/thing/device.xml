@@ -11,6 +11,7 @@
 
 		<label>Rachio Sprinkler Controller</label>
 		<description>The things controls one sprinkler controller, which might have multiple zones.</description>
+		<semantic-equipment-tag>Irrigation</semantic-equipment-tag>
 
 		<channels>
 			<channel id="name" typeId="dev_name"/>
@@ -73,80 +74,131 @@
 		<item-type>String</item-type>
 		<label>Name</label>
 		<description>The name of the sprinkler controller. This could be configured using the Rachio App.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_active">
 		<item-type>Switch</item-type>
 		<label>Active</label>
 		<description>ON: Controller is active, OFF: Controller is suspended</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_online">
 		<item-type>Switch</item-type>
 		<label>Online</label>
 		<description>ON: Controller is online, OFF: Controller is offline, check internet connection</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_paused">
 		<item-type>Switch</item-type>
 		<label>Paused</label>
 		<description>OFF: active watering run is not paused, ON: pause active watering run for pauseTime seconds</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_pauseTime">
-		<item-type>Number</item-type>
+		<item-type unitHint="s">Number:Time</item-type>
 		<label>Pause Time</label>
 		<description>Number of seconds to pause the active zone run when paused receives ON. Range is 0 to 3600 seconds.</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Duration</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_sleepMode">
 		<item-type>Switch</item-type>
 		<label>Sleep Mode</label>
 		<description>Indicates whether the Rachio device sleep mode is active.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_stop">
 		<item-type>Switch</item-type>
 		<label>Stop Watering</label>
 		<description>ON: stop watering for all zones, OFF: n/a</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Water</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_run">
 		<item-type>Switch</item-type>
 		<label>Run Multiple Zones</label>
 		<description>ON: start watering for selected zones (''=ALL), OFF: n/a</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Water</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_runZones">
 		<item-type>String</item-type>
 		<label>Run Zone List</label>
 		<description>Zones to run at the same time (''=run ALL)</description>
+		<tags>
+			<tag>Control</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_runTime">
-		<item-type>Number</item-type>
+		<item-type unitHint="s">Number:Time</item-type>
 		<label>Run Time</label>
 		<description>=0, use default run time, >0: Start zones for given number of seconds</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Duration</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_rainDelay">
-		<item-type>Number</item-type>
+		<item-type unitHint="s">Number:Time</item-type>
 		<label>Rain Delay</label>
 		<description>>1: Rain delay device</description>
+		<tags>
+			<tag>Control</tag>
+			<tag>Duration</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="dev_rainSensorTripped">
 		<item-type>Switch</item-type>
 		<label>Rain Sensor Tripped</label>
 		<description>Indicates whether the rain sensor is currently tripped.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Rain</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_activeZoneNumber">
 		<item-type>Number</item-type>
 		<label>Active Zone Number</label>
 		<description>Zone number of the currently active watering run, populated from webhook zone run events.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_activeZoneName">
 		<item-type>String</item-type>
 		<label>Active Zone Name</label>
 		<description>Name of the currently active watering zone, populated from webhook zone run events.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_activeZoneId" advanced="true">
 		<item-type>String</item-type>
 		<label>Active Zone ID</label>
 		<description>Rachio zone ID of the currently active watering zone, populated from webhook zone run events.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_latitude" advanced="true">
@@ -188,9 +240,13 @@
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_currentScheduleDuration">
-		<item-type>Number</item-type>
+		<item-type unitHint="s">Number:Time</item-type>
 		<label>Current Schedule Duration</label>
 		<description>Duration of the currently running schedule in seconds.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Duration</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_currentScheduleRunning">
@@ -199,22 +255,32 @@
 		<description>ON when Rachio reports a currently running schedule.</description>
 		<state readOnly="true"/>
 	</channel-type>
-	<channel-type id="dev_lastApiEventType">
+	<channel-type id="dev_lastApiEventType" advanced="true">
 		<item-type>String</item-type>
 		<label>Last API Event Type</label>
 		<description>Type of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_lastApiEventTime">
 		<item-type>DateTime</item-type>
 		<label>Last API Event Time</label>
 		<description>Time of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
-	<channel-type id="dev_lastApiEventSummary">
+	<channel-type id="dev_lastApiEventSummary" advanced="true">
 		<item-type>String</item-type>
 		<label>Last API Event Summary</label>
 		<description>Summary of the most recent event retrieved from the Rachio event history endpoint.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastSummary">
@@ -224,39 +290,63 @@
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastTodayHigh">
-		<item-type>Number</item-type>
+		<item-type>Number:Temperature</item-type>
 		<label>Forecast High</label>
 		<description>Today's forecast high temperature.</description>
+		<tags>
+			<tag>Measurement</tag>
+			<tag>Temperature</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastTodayLow">
-		<item-type>Number</item-type>
+		<item-type>Number:Temperature</item-type>
 		<label>Forecast Low</label>
 		<description>Today's forecast low temperature.</description>
+		<tags>
+			<tag>Measurement</tag>
+			<tag>Temperature</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastPrecipitation">
-		<item-type>Number</item-type>
+		<item-type>Number:Length</item-type>
 		<label>Forecast Precipitation</label>
 		<description>Today's forecast precipitation amount.</description>
+		<tags>
+			<tag>Measurement</tag>
+			<tag>Rain</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastPrecipitationProbability">
-		<item-type>Number</item-type>
+		<item-type unitHint="%">Number:Dimensionless</item-type>
 		<label>Precipitation Probability</label>
 		<description>Today's forecast precipitation probability.</description>
+		<tags>
+			<tag>Measurement</tag>
+			<tag>Rain</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastWind">
-		<item-type>Number</item-type>
+		<item-type>Number:Speed</item-type>
 		<label>Forecast Wind</label>
 		<description>Today's forecast wind speed.</description>
+		<tags>
+			<tag>Measurement</tag>
+			<tag>Wind</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastUpdated">
 		<item-type>DateTime</item-type>
 		<label>Forecast Updated</label>
 		<description>Timestamp of the forecast data when provided by Rachio.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_lastSkipType">
@@ -308,15 +398,26 @@
 		<item-type>DateTime</item-type>
 		<label>Last Update</label>
 		<description>Timestamp of last status update.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="lastEvent">
 		<item-type>String</item-type>
 		<label>Last Event</label>
 		<description>Events can be received when callback is configured.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
 	</channel-type>
 	<channel-type id="lastEventTime">
 		<item-type>DateTime</item-type>
 		<label>Last Event Time</label>
 		<description>Timestamp of last status update.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
 	</channel-type>
 </thing:thing-descriptions>

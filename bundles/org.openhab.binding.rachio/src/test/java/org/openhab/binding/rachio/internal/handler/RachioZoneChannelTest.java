@@ -22,12 +22,17 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
+
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 import org.junit.jupiter.api.Test;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
+import org.xml.sax.SAXException;
 
 /**
  * Tests zone channel declarations and simple state conversions.
@@ -36,10 +41,19 @@ import org.openhab.core.types.UnDefType;
  */
 class RachioZoneChannelTest {
     @Test
+    void thingXmlFilesAreWellFormed()
+            throws IOException, ParserConfigurationException, SAXException, URISyntaxException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        for (String file : List.of("cloud.xml", "device.xml", "zone.xml", "schedule.xml", "flexschedule.xml",
+                "basestation.xml", "valve.xml", "valveprogram.xml")) {
+            factory.newDocumentBuilder().parse(resource(file).toFile());
+        }
+    }
+
+    @Test
     void zoneThingDeclaresTelemetryAndImageChannels() throws IOException, URISyntaxException {
-        String xml = Files.readString(
-                Path.of(Objects.requireNonNull(getClass().getResource("/OH-INF/thing/zone.xml")).toURI()),
-                StandardCharsets.UTF_8);
+        String xml = readThingXml("zone.xml");
 
         assertThat(xml, containsString("id=\"availableWater\""));
         assertThat(xml, containsString("id=\"depthOfWater\""));
@@ -59,13 +73,43 @@ class RachioZoneChannelTest {
 
     @Test
     void deviceThingDeclaresActiveZoneChannels() throws IOException, URISyntaxException {
-        String xml = Files.readString(
-                Path.of(Objects.requireNonNull(getClass().getResource("/OH-INF/thing/device.xml")).toURI()),
-                StandardCharsets.UTF_8);
+        String xml = readThingXml("device.xml");
 
         assertThat(xml, containsString("id=\"activeZoneNumber\""));
         assertThat(xml, containsString("id=\"activeZoneName\""));
         assertThat(xml, containsString("id=\"activeZoneId\""));
+    }
+
+    @Test
+    void quantityChannelItemTypesAreDeclared() throws IOException, URISyntaxException {
+        String zoneXml = readThingXml("zone.xml");
+        String deviceXml = readThingXml("device.xml");
+        String valveXml = readThingXml("valve.xml");
+        String scheduleXml = readThingXml("schedule.xml");
+        String valveProgramXml = readThingXml("valveprogram.xml");
+
+        assertThat(zoneXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
+        assertThat(zoneXml, containsString("<item-type unitHint=\"in\">Number:Length</item-type>"));
+        assertThat(zoneXml, containsString("<item-type unitHint=\"ft²\">Number:Area</item-type>"));
+        assertThat(zoneXml, containsString("<item-type unitHint=\"mm\">Number:Length</item-type>"));
+        assertThat(deviceXml, containsString("<item-type>Number:Temperature</item-type>"));
+        assertThat(deviceXml, containsString("<item-type>Number:Speed</item-type>"));
+        assertThat(valveXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
+        assertThat(scheduleXml, containsString("<item-type unitHint=\"1\">Number:Dimensionless</item-type>"));
+        assertThat(valveProgramXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
+    }
+
+    @Test
+    void semanticTagsAreDeclaredForReviewReadyDefaults() throws IOException, URISyntaxException {
+        String zoneXml = readThingXml("zone.xml");
+        String valveXml = readThingXml("valve.xml");
+        String cloudXml = readThingXml("cloud.xml");
+
+        assertThat(zoneXml, containsString("<semantic-equipment-tag>Irrigation</semantic-equipment-tag>"));
+        assertThat(zoneXml, containsString("<tag>Measurement</tag>"));
+        assertThat(zoneXml, containsString("<tag>Water</tag>"));
+        assertThat(valveXml, containsString("<tag>StateOfCharge</tag>"));
+        assertThat(cloudXml, containsString("<semantic-equipment-tag>WebService</semantic-equipment-tag>"));
     }
 
     @Test
@@ -78,5 +122,13 @@ class RachioZoneChannelTest {
         State state = RachioZoneHandler.epochMillisOrNull(1_523_129_743_000L);
 
         assertThat(state, instanceOf(DateTimeType.class));
+    }
+
+    private String readThingXml(String fileName) throws IOException, URISyntaxException {
+        return Files.readString(resource(fileName), StandardCharsets.UTF_8);
+    }
+
+    private Path resource(String fileName) throws URISyntaxException {
+        return Path.of(Objects.requireNonNull(getClass().getResource("/OH-INF/thing/" + fileName)).toURI());
     }
 }

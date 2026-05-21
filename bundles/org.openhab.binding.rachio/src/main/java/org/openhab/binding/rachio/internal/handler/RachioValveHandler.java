@@ -15,10 +15,10 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.OptionalInt;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -32,7 +32,6 @@ import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayRun;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
 import org.openhab.core.library.types.DateTimeType;
-import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
@@ -123,12 +122,13 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         String errorMessage = "";
         try {
             if (CHANNEL_VALVE_RUN_TIME.equals(channel)) {
-                if (command instanceof DecimalType decimalCommand) {
-                    runTime = Math.max(0, decimalCommand.intValue());
+                OptionalInt runtimeSeconds = RachioQuantityTypes.durationSeconds(command);
+                if (runtimeSeconds.isPresent()) {
+                    runTime = Math.max(0, runtimeSeconds.getAsInt());
                     logger.debug("{}: Valve will start for {} sec", thingId, runTime);
-                    updateChannel(CHANNEL_VALVE_RUN_TIME, new DecimalType(BigDecimal.valueOf(runTime)));
+                    updateChannel(CHANNEL_VALVE_RUN_TIME, RachioQuantityTypes.seconds(runTime));
                 } else {
-                    logger.debug("{}: runTime command value is not numeric: {}", thingId, command);
+                    logger.debug("{}: runTime command value is not a duration: {}", thingId, command);
                 }
             } else if (CHANNEL_VALVE_RUN.equals(channel)) {
                 if (command == OnOffType.ON) {
@@ -145,8 +145,9 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
                     updateChannel(CHANNEL_VALVE_RUN, runState);
                 }
             } else if (CHANNEL_VALVE_DEFAULT_RUNTIME.equals(channel)) {
-                if (command instanceof DecimalType decimalCommand) {
-                    int defaultRuntime = decimalCommand.intValue();
+                OptionalInt runtimeSeconds = RachioQuantityTypes.durationSeconds(command);
+                if (runtimeSeconds.isPresent()) {
+                    int defaultRuntime = runtimeSeconds.getAsInt();
                     if (defaultRuntime <= 0) {
                         logger.debug("{}: Invalid valve defaultRuntime {}; expected a positive number of seconds",
                                 thingId, defaultRuntime);
@@ -161,7 +162,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
                             thingId);
                     postChannelData();
                 } else {
-                    logger.debug("{}: defaultRuntime command value is not numeric: {}", thingId, command);
+                    logger.debug("{}: defaultRuntime command value is not a duration: {}", thingId, command);
                 }
             } else if (CHANNEL_VALVE_SKIP_NEXT_PLANNED_RUN.equals(channel)) {
                 if (command == OnOffType.ON) {
@@ -393,9 +394,9 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_NAME, new StringType(currentValve.getThingName()));
         updateChannel(CHANNEL_VALVE_ONLINE, onlineState(currentValve));
         updateChannel(CHANNEL_VALVE_RUN, runState);
-        updateChannel(CHANNEL_VALVE_RUN_TIME, new DecimalType(BigDecimal.valueOf(runTime)));
+        updateChannel(CHANNEL_VALVE_RUN_TIME, RachioQuantityTypes.seconds(runTime));
         updateChannel(CHANNEL_VALVE_DEFAULT_RUNTIME,
-                new DecimalType(BigDecimal.valueOf(currentValve.getDefaultRuntimeSeconds())));
+                RachioQuantityTypes.seconds(currentValve.getDefaultRuntimeSeconds()));
         updateChannel(CHANNEL_VALVE_STATE_MATCHES,
                 currentValve.hasStateMatches() ? currentValve.stateMatches() ? OnOffType.ON : OnOffType.OFF
                         : UnDefType.UNDEF);
@@ -415,7 +416,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_TIME,
                 nextRun != null ? dateTimeOrUndef(nextRun.getStartTime()) : UnDefType.UNDEF);
         updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_DURATION,
-                nextRun != null ? new DecimalType(BigDecimal.valueOf(nextRun.getDurationSeconds())) : UnDefType.UNDEF);
+                nextRun != null ? RachioQuantityTypes.seconds(nextRun.getDurationSeconds()) : UnDefType.UNDEF);
         updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_PROGRAM_ID,
                 nextRun != null ? stringOrUndef(nextRun.getProgramId()) : UnDefType.UNDEF);
         updateChannel(CHANNEL_VALVE_NEXT_PLANNED_RUN_SKIPPED,
@@ -425,7 +426,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_LAST_COMPLETED_RUN_TIME,
                 completedRun != null ? dateTimeOrUndef(completedRun.getStartTime()) : UnDefType.UNDEF);
         updateChannel(CHANNEL_VALVE_LAST_COMPLETED_RUN_DURATION,
-                completedRun != null ? new DecimalType(BigDecimal.valueOf(completedRun.getDurationSeconds()))
+                completedRun != null ? RachioQuantityTypes.seconds(completedRun.getDurationSeconds())
                         : UnDefType.UNDEF);
         updateChannel(CHANNEL_VALVE_LAST_RUN_STATUS,
                 completedRun != null ? stringOrUndef(completedRun.getStatus()) : UnDefType.UNDEF);
@@ -492,7 +493,7 @@ public class RachioValveHandler extends AbstractRachioThingHandler {
         if (batteryLevel == null || batteryLevel.isNaN() || batteryLevel.isInfinite()) {
             return UnDefType.UNDEF;
         }
-        return new DecimalType(BigDecimal.valueOf(batteryLevel.doubleValue()));
+        return RachioQuantityTypes.percentOrUndef(batteryLevel.doubleValue());
     }
 
     private State stringOrUndef(String value) {

@@ -7,6 +7,7 @@
 	<bridge-type id="cloud">
 		<label>Rachio Cloud Connector</label>
 		<description>Rachio Sprinkler Controller.</description>
+		<semantic-equipment-tag>WebService</semantic-equipment-tag>
 
 		<properties>
 			<property name="vendor">Rachio</property>

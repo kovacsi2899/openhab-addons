@@ -333,12 +333,12 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_PROGRAM_NEXT_RUN_TIME, nextRun != null ? dateTimeOrUndef(nextRun.getStartTime())
                 : dateTimeOrUndef(currentProgram.nextRunTime));
         updateChannel(CHANNEL_VALVE_PROGRAM_LAST_RUN_TIME, dateTimeOrUndef(currentProgram.lastRunTime));
-        updateChannel(CHANNEL_VALVE_PROGRAM_DURATION,
-                new DecimalType(BigDecimal.valueOf(currentProgram.getDurationSeconds())));
+        updateChannel(CHANNEL_VALVE_PROGRAM_DURATION, RachioQuantityTypes.seconds(currentProgram.getDurationSeconds()));
         updateChannel(CHANNEL_VALVE_PROGRAM_DAYS_OF_WEEK, stringOrUndef(currentProgram.getDaysOfWeek()));
         updateChannel(CHANNEL_VALVE_PROGRAM_INTERVAL_DAYS,
                 new DecimalType(BigDecimal.valueOf(currentProgram.intervalDays)));
-        updateChannel(CHANNEL_VALVE_PROGRAM_SEASONAL_ADJUSTMENT, decimalOrUndef(currentProgram.seasonalAdjustment));
+        updateChannel(CHANNEL_VALVE_PROGRAM_SEASONAL_ADJUSTMENT,
+                RachioQuantityTypes.fractionOrUndef(currentProgram.seasonalAdjustment));
         updateChannel(CHANNEL_VALVE_PROGRAM_UPDATED_AT,
                 dateTimeOrUndef(firstNonBlank(currentProgram.updatedAt, currentProgram.lastUpdateDate)));
         updateChannel(CHANNEL_VALVE_PROGRAM_NEXT_RUN_SKIPPED,
@@ -391,13 +391,6 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
 
     private State stringOrUndef(String value) {
         return value.isBlank() ? UnDefType.UNDEF : new StringType(value);
-    }
-
-    private State decimalOrUndef(double value) {
-        if (Double.isNaN(value) || Double.isInfinite(value)) {
-            return UnDefType.UNDEF;
-        }
-        return new DecimalType(BigDecimal.valueOf(value));
     }
 
     private State dateTimeOrUndef(String value) {

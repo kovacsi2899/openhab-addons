@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -188,25 +189,26 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                     handler.stopWatering(currentDev.id);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_RUN_TIME)) {
-                if (command instanceof DecimalType) {
-                    int runtime = ((DecimalType) command).intValue();
+                RachioQuantityTypes.durationSeconds(command).ifPresentOrElse(runtime -> {
                     logger.debug("{}: Zone {} will start for {} sec", thingId, currentZone.name, runtime);
                     currentZone.setStartRunTime(runtime);
-                }
+                }, () -> logger.debug("{}: Zone runtime command value is not a duration: {}", thingId, command));
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_MOISTURE_LEVEL)) {
-                if (command instanceof DecimalType) {
-                    double level = ((DecimalType) command).doubleValue();
+                OptionalDouble moistureLevel = RachioQuantityTypes.lengthMillimeters(command);
+                if (moistureLevel.isPresent()) {
+                    double level = moistureLevel.getAsDouble();
                     logger.debug("{}: Updating zone '{}' moisture level to {}", thingId, currentZone.name, level);
                     handler.setZoneMoistureLevel(currentZone.id, level);
                     currentZone.setMoistureLevel(level);
-                    updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, new DecimalType(BigDecimal.valueOf(level)));
+                    updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, RachioQuantityTypes.millimetersOrUndef(level));
                     updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
                 } else {
-                    logger.debug("Moisture level command value is no DecimalType: {}", command);
+                    logger.debug("{}: Moisture level command value is not a length: {}", thingId, command);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_MOISTURE_PERCENT)) {
-                if (command instanceof DecimalType) {
-                    double percent = ((DecimalType) command).doubleValue();
+                OptionalDouble moisturePercent = RachioQuantityTypes.dimensionless(command);
+                if (moisturePercent.isPresent()) {
+                    double percent = moisturePercent.getAsDouble();
                     if (percent < 0 || percent > 1) {
                         logger.debug("{}: Invalid moisture percent {}; expected range is 0..1", thingId, percent);
                         return;
@@ -214,10 +216,10 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                     logger.debug("{}: Updating zone '{}' moisture percent to {}", thingId, currentZone.name, percent);
                     handler.setZoneMoisturePercent(currentZone.id, percent);
                     currentZone.setMoisturePercent(percent);
-                    updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, new DecimalType(BigDecimal.valueOf(percent)));
+                    updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, RachioQuantityTypes.fractionOrUndef(percent));
                     updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
                 } else {
-                    logger.debug("Moisture percent command value is no DecimalType: {}", command);
+                    logger.debug("{}: Moisture percent command value is not dimensionless: {}", thingId, command);
                 }
             }
         } catch (RachioApiException e) {
@@ -322,26 +324,28 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_ZONE_NUMBER, new DecimalType(new BigDecimal(z.zoneNumber).toString()));
             updateChannel(CHANNEL_ZONE_ENABLED, z.getEnabled());
             updateChannel(CHANNEL_ZONE_RUN, zoneRunState);
-            updateChannel(CHANNEL_ZONE_RUN_TIME, new DecimalType(new BigDecimal(z.getStartRunTime()).toString()));
-            updateChannel(CHANNEL_ZONE_RUN_TOTAL, new DecimalType(new BigDecimal(z.runtime).toString()));
-            updateChannel(CHANNEL_ZONE_AVAILABLE_WATER, decimalOrNull(z.availableWater));
+            updateChannel(CHANNEL_ZONE_RUN_TIME, RachioQuantityTypes.seconds(z.getStartRunTime()));
+            updateChannel(CHANNEL_ZONE_RUN_TOTAL, RachioQuantityTypes.seconds(z.runtime));
+            updateChannel(CHANNEL_ZONE_AVAILABLE_WATER, RachioQuantityTypes.inchesOrNull(z.availableWater));
             updateChannel(CHANNEL_ZONE_IMAGEURL, new StringType(z.imageUrl));
             updateZoneImageChannel(z);
-            updateChannel(CHANNEL_ZONE_DEPTH_OF_WATER, decimalOrNull(z.depthOfWater));
-            updateChannel(CHANNEL_ZONE_SATURATED_DEPTH_OF_WATER, decimalOrNull(z.saturatedDepthOfWater));
-            updateChannel(CHANNEL_ZONE_MANAGEMENT_ALLOWED_DEPLETION, decimalOrNull(z.managementAllowedDepletion));
-            updateChannel(CHANNEL_ZONE_ROOT_ZONE_DEPTH, decimalOrNull(z.rootZoneDepth));
-            updateChannel(CHANNEL_ZONE_EFFICIENCY, decimalOrNull(z.efficiency));
-            updateChannel(CHANNEL_ZONE_YARD_AREA_SQUARE_FEET, new DecimalType(z.yardAreaSquareFeet));
+            updateChannel(CHANNEL_ZONE_DEPTH_OF_WATER, RachioQuantityTypes.inchesOrNull(z.depthOfWater));
+            updateChannel(CHANNEL_ZONE_SATURATED_DEPTH_OF_WATER,
+                    RachioQuantityTypes.inchesOrNull(z.saturatedDepthOfWater));
+            updateChannel(CHANNEL_ZONE_MANAGEMENT_ALLOWED_DEPLETION,
+                    RachioQuantityTypes.fractionOrNull(z.managementAllowedDepletion));
+            updateChannel(CHANNEL_ZONE_ROOT_ZONE_DEPTH, RachioQuantityTypes.inchesOrNull(z.rootZoneDepth));
+            updateChannel(CHANNEL_ZONE_EFFICIENCY, RachioQuantityTypes.fractionOrNull(z.efficiency));
+            updateChannel(CHANNEL_ZONE_YARD_AREA_SQUARE_FEET, RachioQuantityTypes.squareFeet(z.yardAreaSquareFeet));
             updateChannel(CHANNEL_ZONE_LAST_WATERED_DATE, epochMillisOrNull(z.lastWateredDate));
-            updateChannel(CHANNEL_ZONE_FIXED_RUNTIME, new DecimalType(z.fixedRuntime));
-            updateChannel(CHANNEL_ZONE_MAX_RUNTIME, new DecimalType(z.maxRuntime));
-            updateChannel(CHANNEL_ZONE_RUNTIME_NO_MULTIPLIER, new DecimalType(z.runtimeNoMultiplier));
+            updateChannel(CHANNEL_ZONE_FIXED_RUNTIME, RachioQuantityTypes.seconds(z.fixedRuntime));
+            updateChannel(CHANNEL_ZONE_MAX_RUNTIME, RachioQuantityTypes.seconds(z.maxRuntime));
+            updateChannel(CHANNEL_ZONE_RUNTIME_NO_MULTIPLIER, RachioQuantityTypes.seconds(z.runtimeNoMultiplier));
             updateChannel(CHANNEL_ZONE_SCHEDULE_DATA_MODIFIED, z.scheduleDataModified ? OnOffType.ON : OnOffType.OFF);
             updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, Double.isNaN(z.getMoistureLevel()) ? UnDefType.UNDEF
-                    : new DecimalType(BigDecimal.valueOf(z.getMoistureLevel())));
+                    : RachioQuantityTypes.millimetersOrUndef(z.getMoistureLevel()));
             updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, Double.isNaN(z.getMoisturePercent()) ? UnDefType.UNDEF
-                    : new DecimalType(BigDecimal.valueOf(z.getMoisturePercent())));
+                    : RachioQuantityTypes.fractionOrUndef(z.getMoisturePercent()));
             updateChannel(CHANNEL_LAST_EVENT, new StringType(z.getEvent()));
             DateTimeType ts = z.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);
@@ -393,13 +397,6 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
 
     protected @Nullable RawType downloadZoneImage(String imageUrl) {
         return HttpUtil.downloadImage(imageUrl, true, MAX_ZONE_IMAGE_SIZE_BYTES);
-    }
-
-    static State decimalOrNull(double value) {
-        if (Double.isNaN(value) || Double.isInfinite(value)) {
-            return UnDefType.NULL;
-        }
-        return new DecimalType(BigDecimal.valueOf(value));
     }
 
     static State epochMillisOrNull(long epochMillis) {

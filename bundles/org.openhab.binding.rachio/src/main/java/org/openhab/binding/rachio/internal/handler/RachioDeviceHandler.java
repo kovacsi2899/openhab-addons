@@ -15,10 +15,10 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.OptionalInt;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -174,23 +174,17 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                     }
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME)) {
-                if (command instanceof DecimalType) {
-                    int runtime = ((DecimalType) command).intValue();
+                RachioQuantityTypes.durationSeconds(command).ifPresentOrElse(runtime -> {
                     logger.debug("Default Runtime for zones set to {} sec", runtime);
                     d.setRunTime(runtime);
-                } else {
-                    logger.debug("Command value is no DecimalType: {}", command);
-                }
+                }, () -> logger.debug("{}: Run time command value is not a duration: {}", thingId, command));
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME)) {
-                if (command instanceof DecimalType) {
-                    int duration = ((DecimalType) command).intValue();
+                RachioQuantityTypes.durationSeconds(command).ifPresentOrElse(duration -> {
                     d.setPauseDuration(duration);
                     logger.debug("Pause duration for active zone runs set to {} sec", d.getPauseDuration());
                     updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME,
-                            new DecimalType(new BigDecimal(d.getPauseDuration()).toString()));
-                } else {
-                    logger.debug("Command value is no DecimalType: {}", command);
-                }
+                            RachioQuantityTypes.seconds(d.getPauseDuration()));
+                }, () -> logger.debug("{}: Pause time command value is not a duration: {}", thingId, command));
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RUN_ZONES)) {
                 if (command instanceof StringType) {
                     logger.debug("Run multiple zones: '{}' ('' = ALL)", command.toString());
@@ -215,12 +209,14 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
                     updateState(RachioBindingConstants.CHANNEL_DEVICE_STOP, OnOffType.OFF);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_RAIN_DELAY)) {
-                if (command instanceof DecimalType) {
-                    logger.info("Start rain delay cycle for {} sec", command.toString());
-                    d.setRainDelayTime(((DecimalType) command).intValue());
-                    handler.startRainDelay(d.id, ((DecimalType) command).intValue());
+                OptionalInt delaySeconds = RachioQuantityTypes.durationSeconds(command);
+                if (delaySeconds.isPresent()) {
+                    int duration = delaySeconds.getAsInt();
+                    logger.info("Start rain delay cycle for {} sec", duration);
+                    d.setRainDelayTime(duration);
+                    handler.startRainDelay(d.id, duration);
                 } else {
-                    logger.debug("Command value is no DecimalType: {}", command);
+                    logger.debug("{}: Rain delay command value is not a duration: {}", thingId, command);
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_PAUSED)) {
                 if (command == OnOffType.ON) {
@@ -251,19 +247,19 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
     protected void postChannelData() {
         RachioDevice d = dev;
         if (d != null) {
+            RachioBridgeHandler handler = cloudHandler;
+            String forecastUnits = handler != null ? handler.getForecastUnits() : DEFAULT_FORECAST_UNITS;
             logger.debug("Updating  status");
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_NAME, new StringType(d.getThingName()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ONLINE, d.getOnline());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE, d.getEnabled());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSED, d.getPaused());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME,
-                    new DecimalType(new BigDecimal(d.getPauseDuration()).toString()));
+                    RachioQuantityTypes.seconds(d.getPauseDuration()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_SLEEP_MODE, d.getSleepMode());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_ZONES, new StringType(d.getRunZones()));
-            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME,
-                    new DecimalType(new BigDecimal(d.getRunTime()).toString()));
-            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_DELAY,
-                    new DecimalType(new BigDecimal(d.rainDelay).toString()));
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RUN_TIME, RachioQuantityTypes.seconds(d.getRunTime()));
+            updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_DELAY, RachioQuantityTypes.seconds(d.rainDelay));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_RAIN_STRIPPED,
                     d.rainSensorTripped ? OnOffType.ON : OnOffType.OFF);
             updateChannel(CHANNEL_DEVICE_ACTIVE_ZONE_NUMBER,
@@ -275,19 +271,21 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_CURRENT_SCHEDULE_TYPE, stringOrUndef(d.currentScheduleType));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_START, dateTimeOrUndef(d.currentScheduleStartTime));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_END, dateTimeOrUndef(d.currentScheduleEndTime));
-            updateChannel(CHANNEL_CURRENT_SCHEDULE_DURATION,
-                    new DecimalType(new BigDecimal(d.currentScheduleDuration).toString()));
+            updateChannel(CHANNEL_CURRENT_SCHEDULE_DURATION, RachioQuantityTypes.seconds(d.currentScheduleDuration));
             updateChannel(CHANNEL_CURRENT_SCHEDULE_RUNNING, d.currentScheduleRunning ? OnOffType.ON : OnOffType.OFF);
             updateChannel(CHANNEL_LAST_API_EVENT_TYPE, stringOrUndef(d.lastApiEventType));
             updateChannel(CHANNEL_LAST_API_EVENT_TIME, dateTimeOrUndef(d.lastApiEventTime));
             updateChannel(CHANNEL_LAST_API_EVENT_SUMMARY, stringOrUndef(d.lastApiEventSummary));
             updateChannel(CHANNEL_FORECAST_SUMMARY, stringOrUndef(d.forecastSummary));
-            updateChannel(CHANNEL_FORECAST_TODAY_HIGH, decimalOrUndef(d.forecastTodayHigh));
-            updateChannel(CHANNEL_FORECAST_TODAY_LOW, decimalOrUndef(d.forecastTodayLow));
-            updateChannel(CHANNEL_FORECAST_PRECIPITATION, decimalOrUndef(d.forecastPrecipitation));
+            updateChannel(CHANNEL_FORECAST_TODAY_HIGH,
+                    RachioQuantityTypes.temperatureOrUndef(d.forecastTodayHigh, forecastUnits));
+            updateChannel(CHANNEL_FORECAST_TODAY_LOW,
+                    RachioQuantityTypes.temperatureOrUndef(d.forecastTodayLow, forecastUnits));
+            updateChannel(CHANNEL_FORECAST_PRECIPITATION,
+                    RachioQuantityTypes.precipitationOrUndef(d.forecastPrecipitation, forecastUnits));
             updateChannel(CHANNEL_FORECAST_PRECIPITATION_PROBABILITY,
-                    decimalOrUndef(d.forecastPrecipitationProbability));
-            updateChannel(CHANNEL_FORECAST_WIND, decimalOrUndef(d.forecastWind));
+                    RachioQuantityTypes.percentOrUndef(d.forecastPrecipitationProbability));
+            updateChannel(CHANNEL_FORECAST_WIND, RachioQuantityTypes.windSpeedOrUndef(d.forecastWind, forecastUnits));
             updateChannel(CHANNEL_FORECAST_UPDATED, dateTimeOrUndef(d.forecastUpdated));
             updateChannel(CHANNEL_LAST_SKIP_TYPE, stringOrUndef(d.lastSkipType));
             updateChannel(CHANNEL_LAST_SKIP_SCHEDULE_ID, stringOrUndef(d.lastSkipScheduleId));
@@ -598,13 +596,6 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
 
     private State stringOrNull(String value) {
         return value.isBlank() ? UnDefType.NULL : new StringType(value);
-    }
-
-    private State decimalOrUndef(double value) {
-        if (Double.isNaN(value) || Double.isInfinite(value)) {
-            return UnDefType.UNDEF;
-        }
-        return new DecimalType(BigDecimal.valueOf(value));
     }
 
     private State dateTimeOrUndef(String value) {
