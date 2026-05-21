@@ -21,6 +21,7 @@ import javax.measure.quantity.Area;
 import javax.measure.quantity.Length;
 import javax.measure.quantity.Speed;
 import javax.measure.quantity.Temperature;
+import javax.measure.quantity.Time;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
@@ -84,6 +85,10 @@ final class RachioQuantityTypes {
 
     static State seconds(int seconds) {
         return new QuantityType<>(seconds, Units.SECOND);
+    }
+
+    static State days(int days) {
+        return new QuantityType<Time>(days, Units.DAY);
     }
 
     static State inchesOrNull(double value) {

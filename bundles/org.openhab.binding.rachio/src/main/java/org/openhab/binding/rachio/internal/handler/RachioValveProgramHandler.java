@@ -15,7 +15,6 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -33,7 +32,6 @@ import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveDayViewsResponse;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartHoseTimerGsonDTO.RachioValveProgram;
 import org.openhab.core.library.types.DateTimeType;
-import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
@@ -335,8 +333,7 @@ public class RachioValveProgramHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_VALVE_PROGRAM_LAST_RUN_TIME, dateTimeOrUndef(currentProgram.lastRunTime));
         updateChannel(CHANNEL_VALVE_PROGRAM_DURATION, RachioQuantityTypes.seconds(currentProgram.getDurationSeconds()));
         updateChannel(CHANNEL_VALVE_PROGRAM_DAYS_OF_WEEK, stringOrUndef(currentProgram.getDaysOfWeek()));
-        updateChannel(CHANNEL_VALVE_PROGRAM_INTERVAL_DAYS,
-                new DecimalType(BigDecimal.valueOf(currentProgram.intervalDays)));
+        updateChannel(CHANNEL_VALVE_PROGRAM_INTERVAL_DAYS, RachioQuantityTypes.days(currentProgram.intervalDays));
         updateChannel(CHANNEL_VALVE_PROGRAM_SEASONAL_ADJUSTMENT,
                 RachioQuantityTypes.fractionOrUndef(currentProgram.seasonalAdjustment));
         updateChannel(CHANNEL_VALVE_PROGRAM_UPDATED_AT,

@@ -196,9 +196,6 @@
 		<item-type>String</item-type>
 		<label>Active Zone ID</label>
 		<description>Rachio zone ID of the currently active watering zone, populated from webhook zone run events.</description>
-		<tags>
-			<tag>Status</tag>
-		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_latitude" advanced="true">
@@ -259,9 +256,6 @@
 		<item-type>String</item-type>
 		<label>Last API Event Type</label>
 		<description>Type of the most recent event retrieved from the Rachio event history endpoint.</description>
-		<tags>
-			<tag>Status</tag>
-		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_lastApiEventTime">
@@ -278,9 +272,6 @@
 		<item-type>String</item-type>
 		<label>Last API Event Summary</label>
 		<description>Summary of the most recent event retrieved from the Rachio event history endpoint.</description>
-		<tags>
-			<tag>Status</tag>
-		</tags>
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastSummary">
@@ -322,7 +313,7 @@
 	<channel-type id="dev_forecastPrecipitationProbability">
 		<item-type unitHint="%">Number:Dimensionless</item-type>
 		<label>Precipitation Probability</label>
-		<description>Today's forecast precipitation probability.</description>
+		<description>Today's forecast precipitation probability as a 0..1 fraction, displayed with a percent unit hint.</description>
 		<tags>
 			<tag>Measurement</tag>
 			<tag>Rain</tag>

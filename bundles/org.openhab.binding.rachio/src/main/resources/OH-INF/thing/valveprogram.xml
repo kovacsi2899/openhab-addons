@@ -127,7 +127,7 @@
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="valveprogram_intervalDays">
-		<item-type>Number</item-type>
+		<item-type unitHint="d">Number:Time</item-type>
 		<label>Interval Days</label>
 		<description>Program interval in days when provided by Rachio.</description>
 		<state readOnly="true"/>

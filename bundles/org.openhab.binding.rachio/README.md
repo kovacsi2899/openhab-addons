@@ -67,6 +67,7 @@ Quantity commands are also accepted for the updated command channels.
 Forecast channels follow the Cloud Connector `forecastUnits` setting.
 With `METRIC`, forecast temperatures, precipitation, and wind are published as °C, mm, and m/s.
 With `US`, they are published as °F, in, and mph.
+Precipitation probability follows the Rachio forecast API's 0..1 fraction semantics and uses a `%` unit hint for display.
 Zone soil-water telemetry returned by the Rachio controller API is published as inches, while `moistureLevel` commands use millimeters as required by the Rachio moisture endpoint.
 
 The Thing definitions include semantic equipment and channel tags for common status, control, measurement, timestamp, duration, water, rain, wind, temperature, and battery channels.
@@ -214,7 +215,7 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |forecastTodayHigh|Today's `Number:Temperature` high temperature in the configured forecast units.                                    |
 |forecastTodayLow|Today's `Number:Temperature` low temperature in the configured forecast units.                                      |
 |forecastPrecipitation|Today's `Number:Length` forecast precipitation amount in the configured forecast units.                       |
-|forecastPrecipitationProbability|Today's `Number:Dimensionless` precipitation probability, published as percent.                         |
+|forecastPrecipitationProbability|Today's `Number:Dimensionless` precipitation probability. Rachio values are 0..1 fractions; the channel has a `%` unit hint for display.|
 |forecastWind|Today's `Number:Speed` wind speed in the configured forecast units.                                                   |
 |forecastUpdated|Timestamp of the forecast data when provided by Rachio.                                                               |
 |lastSkipType|Most recent weather intelligence skip event type.                                                                        |
@@ -356,7 +357,7 @@ Valve Programs expose schedule metadata and upcoming skip controls.
 |lastRunTime|Last run time when available from Rachio or Summary day views.|
 |duration|`Number:Time` Program duration, published in seconds.|
 |daysOfWeek|Days-of-week structure returned by Rachio.|
-|intervalDays|Program interval in days when provided by Rachio.|
+|intervalDays|`Number:Time` Program interval, published in days when provided by Rachio.|
 |seasonalAdjustment|`Number:Dimensionless` seasonal adjustment fraction when provided by Rachio.|
 |updatedAt|Last update time when provided by Rachio.|
 |nextProgramRunSkipped|ON when the next upcoming run for this program is currently skipped.|

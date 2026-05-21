@@ -60,6 +60,8 @@ class RachioQuantityTypesTest {
     @Test
     void typedStateHelpersPublishExpectedUnits() {
         assertQuantityUnit(RachioQuantityTypes.seconds(30), Units.SECOND);
+        assertQuantityUnit(RachioQuantityTypes.days(3), Units.DAY);
+        assertQuantityUnit(RachioQuantityTypes.fractionOrUndef(0.7), Units.ONE);
         assertQuantityUnit(RachioQuantityTypes.temperatureOrUndef(72, "US"), ImperialUnits.FAHRENHEIT);
         assertQuantityUnit(RachioQuantityTypes.windSpeedOrUndef(5, "US"), ImperialUnits.MILES_PER_HOUR);
     }

@@ -28,6 +28,7 @@ import java.util.Objects;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.types.State;
@@ -39,6 +40,7 @@ import org.xml.sax.SAXException;
  *
  * @author openHAB Contributors - Initial contribution
  */
+@NonNullByDefault
 class RachioZoneChannelTest {
     @Test
     void thingXmlFilesAreWellFormed()
@@ -93,10 +95,13 @@ class RachioZoneChannelTest {
         assertThat(zoneXml, containsString("<item-type unitHint=\"ft²\">Number:Area</item-type>"));
         assertThat(zoneXml, containsString("<item-type unitHint=\"mm\">Number:Length</item-type>"));
         assertThat(deviceXml, containsString("<item-type>Number:Temperature</item-type>"));
+        assertThat(deviceXml, containsString("<item-type>Number:Length</item-type>"));
+        assertThat(deviceXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
         assertThat(deviceXml, containsString("<item-type>Number:Speed</item-type>"));
         assertThat(valveXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
         assertThat(scheduleXml, containsString("<item-type unitHint=\"1\">Number:Dimensionless</item-type>"));
         assertThat(valveProgramXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
+        assertThat(valveProgramXml, containsString("<item-type unitHint=\"d\">Number:Time</item-type>"));
     }
 
     @Test

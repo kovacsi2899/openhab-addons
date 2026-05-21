@@ -284,7 +284,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_FORECAST_PRECIPITATION,
                     RachioQuantityTypes.precipitationOrUndef(d.forecastPrecipitation, forecastUnits));
             updateChannel(CHANNEL_FORECAST_PRECIPITATION_PROBABILITY,
-                    RachioQuantityTypes.percentOrUndef(d.forecastPrecipitationProbability));
+                    RachioQuantityTypes.fractionOrUndef(d.forecastPrecipitationProbability));
             updateChannel(CHANNEL_FORECAST_WIND, RachioQuantityTypes.windSpeedOrUndef(d.forecastWind, forecastUnits));
             updateChannel(CHANNEL_FORECAST_UPDATED, dateTimeOrUndef(d.forecastUpdated));
             updateChannel(CHANNEL_LAST_SKIP_TYPE, stringOrUndef(d.lastSkipType));
