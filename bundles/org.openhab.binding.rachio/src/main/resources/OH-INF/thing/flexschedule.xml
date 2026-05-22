@@ -24,6 +24,10 @@
 			<channel id="lastUpdate" typeId="lastUpdate"/>
 		</channels>
 
+		<properties>
+			<property name="thingTypeVersion">1</property>
+		</properties>
+
 		<representation-property>flexScheduleRuleId</representation-property>
 
 		<config-description>

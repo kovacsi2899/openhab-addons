@@ -22,8 +22,12 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -49,8 +53,59 @@ class RachioZoneChannelTest {
         factory.setNamespaceAware(true);
         for (String file : List.of("cloud.xml", "device.xml", "zone.xml", "schedule.xml", "flexschedule.xml",
                 "basestation.xml", "valve.xml", "valveprogram.xml")) {
-            factory.newDocumentBuilder().parse(resource(file).toFile());
+            factory.newDocumentBuilder().parse(resource("/OH-INF/thing/" + file).toFile());
         }
+    }
+
+    @Test
+    void updateXmlDeclaresQuantityChannelMigrations()
+            throws IOException, ParserConfigurationException, SAXException, URISyntaxException {
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.newDocumentBuilder().parse(resource("/OH-INF/update/update.xml").toFile());
+
+        String updateXml = readResource("/OH-INF/update/update.xml");
+
+        assertUpdateThingTypesAreUnique(updateXml);
+        assertThingTypeVersion("device.xml");
+        assertThingTypeVersion("zone.xml");
+        assertThingTypeVersion("schedule.xml");
+        assertThingTypeVersion("flexschedule.xml");
+        assertThingTypeVersion("valve.xml");
+        assertThingTypeVersion("valveprogram.xml");
+
+        assertUpdateChannel(updateXml, "pauseTime", "dev_pauseTime");
+        assertUpdateChannel(updateXml, "runTime", "dev_runTime");
+        assertUpdateChannel(updateXml, "rainDelay", "dev_rainDelay");
+        assertUpdateChannel(updateXml, "currentScheduleDuration", "dev_currentScheduleDuration");
+        assertUpdateChannel(updateXml, "forecastTodayHigh", "dev_forecastTodayHigh");
+        assertUpdateChannel(updateXml, "forecastTodayLow", "dev_forecastTodayLow");
+        assertUpdateChannel(updateXml, "forecastPrecipitation", "dev_forecastPrecipitation");
+        assertUpdateChannel(updateXml, "forecastPrecipitationProbability", "dev_forecastPrecipitationProbability");
+        assertUpdateChannel(updateXml, "forecastWind", "dev_forecastWind");
+        assertUpdateChannel(updateXml, "runTime", "zone_runTime");
+        assertUpdateChannel(updateXml, "runTotal", "zone_runTotal");
+        assertUpdateChannel(updateXml, "availableWater", "zone_availableWater");
+        assertUpdateChannel(updateXml, "depthOfWater", "zone_depthOfWater");
+        assertUpdateChannel(updateXml, "saturatedDepthOfWater", "zone_saturatedDepthOfWater");
+        assertUpdateChannel(updateXml, "managementAllowedDepletion", "zone_managementAllowedDepletion");
+        assertUpdateChannel(updateXml, "rootZoneDepth", "zone_rootZoneDepth");
+        assertUpdateChannel(updateXml, "efficiency", "zone_efficiency");
+        assertUpdateChannel(updateXml, "yardAreaSquareFeet", "zone_yardAreaSquareFeet");
+        assertUpdateChannel(updateXml, "fixedRuntime", "zone_fixedRuntime");
+        assertUpdateChannel(updateXml, "maxRuntime", "zone_maxRuntime");
+        assertUpdateChannel(updateXml, "runtimeNoMultiplier", "zone_runtimeNoMultiplier");
+        assertUpdateChannel(updateXml, "moistureLevel", "zone_moistureLevel");
+        assertUpdateChannel(updateXml, "moisturePercent", "zone_moisturePercent");
+        assertUpdateChannel(updateXml, "seasonalAdjustment", "schedule_seasonalAdjustment");
+        assertUpdateChannel(updateXml, "runTime", "valve_runTime");
+        assertUpdateChannel(updateXml, "defaultRuntime", "valve_defaultRuntime");
+        assertUpdateChannel(updateXml, "batteryLevel", "valve_batteryLevel");
+        assertUpdateChannel(updateXml, "nextPlannedRunDuration", "valve_nextPlannedRunDuration");
+        assertUpdateChannel(updateXml, "lastCompletedRunDuration", "valve_lastCompletedRunDuration");
+        assertUpdateChannel(updateXml, "duration", "valveprogram_duration");
+        assertUpdateChannel(updateXml, "intervalDays", "valveprogram_intervalDays");
+        assertUpdateChannel(updateXml, "seasonalAdjustment", "valveprogram_seasonalAdjustment");
     }
 
     @Test
@@ -96,12 +151,24 @@ class RachioZoneChannelTest {
         assertThat(zoneXml, containsString("<item-type unitHint=\"mm\">Number:Length</item-type>"));
         assertThat(deviceXml, containsString("<item-type>Number:Temperature</item-type>"));
         assertThat(deviceXml, containsString("<item-type>Number:Length</item-type>"));
-        assertThat(deviceXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
+        assertThat(deviceXml, containsString("<item-type unitHint=\"one\">Number:Dimensionless</item-type>"));
         assertThat(deviceXml, containsString("<item-type>Number:Speed</item-type>"));
         assertThat(valveXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
-        assertThat(scheduleXml, containsString("<item-type unitHint=\"1\">Number:Dimensionless</item-type>"));
+        assertThat(scheduleXml, containsString("<item-type unitHint=\"one\">Number:Dimensionless</item-type>"));
         assertThat(valveProgramXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
         assertThat(valveProgramXml, containsString("<item-type unitHint=\"d\">Number:Time</item-type>"));
+    }
+
+    @Test
+    void fixedUnitQuantityChannelsDeclareUnitHints() throws IOException, URISyntaxException {
+        for (String file : List.of("zone.xml", "schedule.xml", "valve.xml", "valveprogram.xml")) {
+            assertAllQuantityChannelsHaveUnitHint(readThingXml(file));
+        }
+
+        String deviceXml = readThingXml("device.xml");
+        assertAllQuantityChannelsHaveUnitHint(deviceXml.replace("<item-type>Number:Temperature</item-type>", "")
+                .replace("<item-type>Number:Length</item-type>", "")
+                .replace("<item-type>Number:Speed</item-type>", ""));
     }
 
     @Test
@@ -130,10 +197,41 @@ class RachioZoneChannelTest {
     }
 
     private String readThingXml(String fileName) throws IOException, URISyntaxException {
-        return Files.readString(resource(fileName), StandardCharsets.UTF_8);
+        return readResource("/OH-INF/thing/" + fileName);
     }
 
-    private Path resource(String fileName) throws URISyntaxException {
-        return Path.of(Objects.requireNonNull(getClass().getResource("/OH-INF/thing/" + fileName)).toURI());
+    private String readResource(String resourcePath) throws IOException, URISyntaxException {
+        return Files.readString(resource(resourcePath), StandardCharsets.UTF_8);
+    }
+
+    private Path resource(String resourcePath) throws URISyntaxException {
+        return Path.of(Objects.requireNonNull(getClass().getResource(resourcePath)).toURI());
+    }
+
+    private void assertAllQuantityChannelsHaveUnitHint(String xml) {
+        Matcher matcher = Pattern.compile("<item-type(?![^>]*unitHint)[^>]*>Number:[^<]+</item-type>").matcher(xml);
+        assertThat(matcher.find(), is(false));
+    }
+
+    private void assertThingTypeVersion(String fileName) throws IOException, URISyntaxException {
+        assertThat(readThingXml(fileName), containsString("<property name=\"thingTypeVersion\">1</property>"));
+    }
+
+    private void assertUpdateChannel(String xml, String channelId, String typeId) {
+        assertThat(xml, containsString("<update-channel id=\"" + channelId + "\">"));
+        assertThat(xml, containsString("<type>rachio:" + typeId + "</type>"));
+    }
+
+    private void assertUpdateThingTypesAreUnique(String xml) {
+        Matcher matcher = Pattern.compile("<thing-type uid=\"([^\"]+)\">").matcher(xml);
+        Set<String> seenThingTypes = new HashSet<>();
+        while (matcher.find()) {
+            assertThat("Duplicate update thing type " + matcher.group(1), seenThingTypes.add(matcher.group(1)),
+                    is(true));
+        }
+        Set<String> expectedThingTypes = Set.of("rachio:device", "rachio:zone", "rachio:schedule",
+                "rachio:flexschedule", "rachio:valve", "rachio:valveprogram");
+        assertThat(seenThingTypes.size(), is(expectedThingTypes.size()));
+        assertThat(seenThingTypes.containsAll(expectedThingTypes), is(true));
     }
 }

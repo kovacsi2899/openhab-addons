@@ -102,12 +102,13 @@ The binding preserves Rachio rate-limit handling and includes local client-side 
 - Legacy valid callback URLs with embedded credentials remain supported for backward compatibility.
 - Discovery-generated controller, zone, schedule, flex schedule, base station, valve, and valve program Things use stable Rachio identifiers.
 - Branch 25/25.1 changes several channel item types from plain `Number` to typed Quantity channels without renaming channel IDs.
-  Branch 26 should add Thing type update instructions for:
+  Branch 26 adds Thing type update instructions and sets `thingTypeVersion` to `1` for:
   `device` channels `pauseTime`, `runTime`, `rainDelay`, `currentScheduleDuration`, `forecastTodayHigh`, `forecastTodayLow`, `forecastPrecipitation`, `forecastPrecipitationProbability`, and `forecastWind`;
   `zone` channels `runTime`, `runTotal`, `availableWater`, `depthOfWater`, `saturatedDepthOfWater`, `managementAllowedDepletion`, `rootZoneDepth`, `efficiency`, `yardAreaSquareFeet`, `fixedRuntime`, `maxRuntime`, `runtimeNoMultiplier`, `moistureLevel`, and `moisturePercent`;
   `schedule`/`flexschedule` channel `seasonalAdjustment`;
   `valve` channels `runTime`, `defaultRuntime`, `batteryLevel`, `nextPlannedRunDuration`, and `lastCompletedRunDuration`;
   and `valveprogram` channels `duration`, `intervalDays`, and `seasonalAdjustment`.
+- Branch 25.2 finalized unit hints for fixed-unit Quantity channels. Dynamic forecast temperature, precipitation, and wind channels intentionally publish explicit runtime `QuantityType` units based on `forecastUnits` instead of declaring a single fixed XML unit hint.
 
 ## Future Work
 

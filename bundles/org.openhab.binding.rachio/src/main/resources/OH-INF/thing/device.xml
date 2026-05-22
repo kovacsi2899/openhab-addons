@@ -59,6 +59,10 @@
 			<channel id="scheduleEnd" typeId="scheduleEnd"/>
 		</channels>
 
+		<properties>
+			<property name="thingTypeVersion">1</property>
+		</properties>
+
 		<representation-property>deviceId</representation-property>
 
 		<config-description>
@@ -311,9 +315,9 @@
 		<state readOnly="true"/>
 	</channel-type>
 	<channel-type id="dev_forecastPrecipitationProbability">
-		<item-type unitHint="%">Number:Dimensionless</item-type>
+		<item-type unitHint="one">Number:Dimensionless</item-type>
 		<label>Precipitation Probability</label>
-		<description>Today's forecast precipitation probability as a 0..1 fraction, displayed with a percent unit hint.</description>
+		<description>Today's forecast precipitation probability as a 0..1 fraction.</description>
 		<tags>
 			<tag>Measurement</tag>
 			<tag>Rain</tag>

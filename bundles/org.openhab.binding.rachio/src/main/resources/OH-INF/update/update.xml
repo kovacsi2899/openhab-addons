@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<update:update-descriptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:update="https://openhab.org/schemas/update-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/update-description/v1.0.0 https://openhab.org/schemas/update-description-1.0.0.xsd">
+
+	<thing-type uid="rachio:device">
+		<instruction-set targetVersion="1">
+			<update-channel id="pauseTime">
+				<type>rachio:dev_pauseTime</type>
+			</update-channel>
+			<update-channel id="runTime">
+				<type>rachio:dev_runTime</type>
+			</update-channel>
+			<update-channel id="rainDelay">
+				<type>rachio:dev_rainDelay</type>
+			</update-channel>
+			<update-channel id="currentScheduleDuration">
+				<type>rachio:dev_currentScheduleDuration</type>
+			</update-channel>
+			<update-channel id="forecastTodayHigh">
+				<type>rachio:dev_forecastTodayHigh</type>
+			</update-channel>
+			<update-channel id="forecastTodayLow">
+				<type>rachio:dev_forecastTodayLow</type>
+			</update-channel>
+			<update-channel id="forecastPrecipitation">
+				<type>rachio:dev_forecastPrecipitation</type>
+			</update-channel>
+			<update-channel id="forecastPrecipitationProbability">
+				<type>rachio:dev_forecastPrecipitationProbability</type>
+			</update-channel>
+			<update-channel id="forecastWind">
+				<type>rachio:dev_forecastWind</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:zone">
+		<instruction-set targetVersion="1">
+			<update-channel id="runTime">
+				<type>rachio:zone_runTime</type>
+			</update-channel>
+			<update-channel id="runTotal">
+				<type>rachio:zone_runTotal</type>
+			</update-channel>
+			<update-channel id="availableWater">
+				<type>rachio:zone_availableWater</type>
+			</update-channel>
+			<update-channel id="depthOfWater">
+				<type>rachio:zone_depthOfWater</type>
+			</update-channel>
+			<update-channel id="saturatedDepthOfWater">
+				<type>rachio:zone_saturatedDepthOfWater</type>
+			</update-channel>
+			<update-channel id="managementAllowedDepletion">
+				<type>rachio:zone_managementAllowedDepletion</type>
+			</update-channel>
+			<update-channel id="rootZoneDepth">
+				<type>rachio:zone_rootZoneDepth</type>
+			</update-channel>
+			<update-channel id="efficiency">
+				<type>rachio:zone_efficiency</type>
+			</update-channel>
+			<update-channel id="yardAreaSquareFeet">
+				<type>rachio:zone_yardAreaSquareFeet</type>
+			</update-channel>
+			<update-channel id="fixedRuntime">
+				<type>rachio:zone_fixedRuntime</type>
+			</update-channel>
+			<update-channel id="maxRuntime">
+				<type>rachio:zone_maxRuntime</type>
+			</update-channel>
+			<update-channel id="runtimeNoMultiplier">
+				<type>rachio:zone_runtimeNoMultiplier</type>
+			</update-channel>
+			<update-channel id="moistureLevel">
+				<type>rachio:zone_moistureLevel</type>
+			</update-channel>
+			<update-channel id="moisturePercent">
+				<type>rachio:zone_moisturePercent</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:schedule">
+		<instruction-set targetVersion="1">
+			<update-channel id="seasonalAdjustment">
+				<type>rachio:schedule_seasonalAdjustment</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:flexschedule">
+		<instruction-set targetVersion="1">
+			<update-channel id="seasonalAdjustment">
+				<type>rachio:schedule_seasonalAdjustment</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:valve">
+		<instruction-set targetVersion="1">
+			<update-channel id="runTime">
+				<type>rachio:valve_runTime</type>
+			</update-channel>
+			<update-channel id="defaultRuntime">
+				<type>rachio:valve_defaultRuntime</type>
+			</update-channel>
+			<update-channel id="batteryLevel">
+				<type>rachio:valve_batteryLevel</type>
+			</update-channel>
+			<update-channel id="nextPlannedRunDuration">
+				<type>rachio:valve_nextPlannedRunDuration</type>
+			</update-channel>
+			<update-channel id="lastCompletedRunDuration">
+				<type>rachio:valve_lastCompletedRunDuration</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:valveprogram">
+		<instruction-set targetVersion="1">
+			<update-channel id="duration">
+				<type>rachio:valveprogram_duration</type>
+			</update-channel>
+			<update-channel id="intervalDays">
+				<type>rachio:valveprogram_intervalDays</type>
+			</update-channel>
+			<update-channel id="seasonalAdjustment">
+				<type>rachio:valveprogram_seasonalAdjustment</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+</update:update-descriptions>

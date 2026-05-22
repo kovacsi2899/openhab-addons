@@ -39,6 +39,10 @@
 			<channel id="lastEventTime" typeId="lastEventTime"/>
 		</channels>
 
+		<properties>
+			<property name="thingTypeVersion">1</property>
+		</properties>
+
 		<representation-property>valveId</representation-property>
 
 		<config-description>

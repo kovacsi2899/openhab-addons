@@ -65,13 +65,52 @@ Existing rules that send plain numbers remain supported: runtime and delay comma
 Quantity commands are also accepted for the updated command channels.
 
 Forecast channels follow the Cloud Connector `forecastUnits` setting.
-With `METRIC`, forecast temperatures, precipitation, and wind are published as °C, mm, and m/s.
-With `US`, they are published as °F, in, and mph.
-Precipitation probability follows the Rachio forecast API's 0..1 fraction semantics and uses a `%` unit hint for display.
+With `METRIC`, forecast temperatures, precipitation, and wind are published as Celsius, millimeters, and meters per second.
+With `US`, they are published as Fahrenheit, inches, and miles per hour.
+Because those forecast units are selected at runtime, the temperature, precipitation, and wind channels publish explicit `QuantityType` units instead of declaring one fixed XML unit hint.
+Precipitation probability follows the Rachio forecast API's 0..1 fraction semantics and uses the `one` unit hint.
 Zone soil-water telemetry returned by the Rachio controller API is published as inches, while `moistureLevel` commands use millimeters as required by the Rachio moisture endpoint.
 
 The Thing definitions include semantic equipment and channel tags for common status, control, measurement, timestamp, duration, water, rain, wind, temperature, and battery channels.
-Existing managed Things may need thing-type update instructions in a later migration branch to pick up changed item types automatically.
+
+### Upgrading Existing Rachio Things and Items
+
+Channel IDs were not renamed, so existing channel links should remain valid.
+Managed Things created in the openHAB UI are migrated automatically by the Rachio thing-type update instructions when the updated binding is loaded.
+Text-file `.things` definitions do not need channel migration because their channel structure comes from the current binding XML.
+
+Thing-type update instructions update Things, not Items.
+Existing Items that were created before this change are not converted automatically, so manually created `.items` entries and managed Items may need their item type changed from plain `Number` to the matching `Number:<dimension>` type.
+Runtime and delay command compatibility is preserved: plain numeric commands are still accepted and interpreted as seconds for runtime and delay channels.
+Zone `moistureLevel` plain numeric commands are still interpreted as millimeters.
+`moisturePercent` and `forecastPrecipitationProbability` continue to use Rachio's 0..1 fraction semantics; percent display patterns can be used where you want the UI to show a percent.
+
+|Thing type|Channels|New Item type|
+|:---------|:-------|:------------|
+|device|`pauseTime`, `runTime`, `rainDelay`, `currentScheduleDuration`|`Number:Time`|
+|device|`forecastTodayHigh`, `forecastTodayLow`|`Number:Temperature`|
+|device|`forecastPrecipitation`|`Number:Length`|
+|device|`forecastPrecipitationProbability`|`Number:Dimensionless`|
+|device|`forecastWind`|`Number:Speed`|
+|zone|`runTime`, `runTotal`, `fixedRuntime`, `maxRuntime`, `runtimeNoMultiplier`|`Number:Time`|
+|zone|`availableWater`, `depthOfWater`, `saturatedDepthOfWater`, `rootZoneDepth`, `moistureLevel`|`Number:Length`|
+|zone|`yardAreaSquareFeet`|`Number:Area`|
+|zone|`managementAllowedDepletion`, `efficiency`, `moisturePercent`|`Number:Dimensionless`|
+|schedule, flexschedule|`seasonalAdjustment`|`Number:Dimensionless`|
+|valve|`runTime`, `defaultRuntime`, `nextPlannedRunDuration`, `lastCompletedRunDuration`|`Number:Time`|
+|valve|`batteryLevel`|`Number:Dimensionless`|
+|valveprogram|`duration`, `intervalDays`|`Number:Time`|
+|valveprogram|`seasonalAdjustment`|`Number:Dimensionless`|
+
+Valve Program `intervalDays` is represented as `Number:Time` with day semantics.
+
+Example updated Items:
+
+```text
+Number:Time Rachio_Zone1_RunTime "Zone 1 runtime [%d s]" { channel="rachio:zone:cloud:zone1:runTime" }
+Number:Length Rachio_Zone1_MoistureLevel "Zone 1 moisture [%.1f mm]" { channel="rachio:zone:cloud:zone1:moistureLevel" }
+Number:Dimensionless Rachio_ForecastPrecipProbability "Rain probability [%.0f %%]" { channel="rachio:device:cloud:controller1:forecastPrecipitationProbability" }
+```
 
 **Option A: Using openHAB UI**
 
@@ -215,7 +254,7 @@ Legacy `callbackUrl` values that already contain validly encoded credentials, su
 |forecastTodayHigh|Today's `Number:Temperature` high temperature in the configured forecast units.                                    |
 |forecastTodayLow|Today's `Number:Temperature` low temperature in the configured forecast units.                                      |
 |forecastPrecipitation|Today's `Number:Length` forecast precipitation amount in the configured forecast units.                       |
-|forecastPrecipitationProbability|Today's `Number:Dimensionless` precipitation probability. Rachio values are 0..1 fractions; the channel has a `%` unit hint for display.|
+|forecastPrecipitationProbability|Today's `Number:Dimensionless` precipitation probability. Rachio values are 0..1 fractions and the channel uses the `one` unit hint.|
 |forecastWind|Today's `Number:Speed` wind speed in the configured forecast units.                                                   |
 |forecastUpdated|Timestamp of the forecast data when provided by Rachio.                                                               |
 |lastSkipType|Most recent weather intelligence skip event type.                                                                        |
