@@ -56,6 +56,7 @@ public class RachioWebHookServlet extends HttpServlet {
     private static final String WEBHOOK_SIGNATURE_HEADER = "x-signature";
     private final Logger logger = LoggerFactory.getLogger(RachioWebHookServlet.class);
     private final Gson gson = new Gson();
+    private final RachioWebhookDuplicateEventCache duplicateEventCache = new RachioWebhookDuplicateEventCache();
 
     private final HttpService httpService;
     private final RachioHandlerFactory rachioHandlerFactory;
@@ -147,6 +148,12 @@ public class RachioWebHookServlet extends HttpServlet {
 
             event.apiResult.setRateLimit(request.getHeader(RACHIO_JSON_RATE_LIMIT),
                     request.getHeader(RACHIO_JSON_RATE_REMAINING), request.getHeader(RACHIO_JSON_RATE_RESET));
+
+            if (isDuplicateEvent(event)) {
+                resp.setStatus(HttpServletResponse.SC_OK);
+                resp.getWriter().write("");
+                return;
+            }
 
             if (!rachioHandlerFactory.webHookEvent(ipAddress, event)) {
                 logger.debug("RachioWebHook: Unable to route validated webhook event ({})", describeEvent(event));
@@ -269,14 +276,33 @@ public class RachioWebHookServlet extends HttpServlet {
         return value.startsWith("{") && value.endsWith("}");
     }
 
+    private boolean isDuplicateEvent(RachioEventGsonDTO event) {
+        if (duplicateEventCache.isDuplicate(event.eventId)) {
+            logger.debug("RachioWebHook: Ignoring duplicate validated webhook event ({})", describeEvent(event));
+            return true;
+        }
+        if (isBlank(event.eventId)) {
+            logger.trace("RachioWebHook: Validated webhook event has no eventId; duplicate detection skipped ({})",
+                    describeEvent(event));
+        }
+        return false;
+    }
+
     private String describeEvent(RachioEventGsonDTO event) {
         return "eventId=" + printable(event.eventId) + ", eventType=" + printable(event.eventType) + ", resourceType="
                 + printable(event.resourceType) + ", resourceId=" + printable(event.resourceId) + ", deviceId="
-                + printable(event.deviceId);
+                + printable(event.deviceId) + ", externalId=" + printable(event.externalId);
     }
 
-    private String printable(String value) {
-        return value.isEmpty() ? "n/a" : value;
+    private boolean isBlank(@Nullable String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String printable(@Nullable String value) {
+        if (value == null || value.isBlank()) {
+            return "n/a";
+        }
+        return value;
     }
 
     private void setHeaders(HttpServletResponse response) {

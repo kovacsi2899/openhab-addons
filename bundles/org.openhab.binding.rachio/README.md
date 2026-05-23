@@ -44,6 +44,46 @@ All devices are connected to this thing, all zones to the corresponding device.
 |valve|Each Smart Hose Timer valve can be represented by a `valve` thing for manual start/stop and default runtime control.|
 |valveprogram|Each Smart Hose Timer Program can be represented by a `valveprogram` thing for schedule metadata, skip controls, and Program webhook state.|
 
+## Rachio API Coverage
+
+This binding maps the official Rachio API to openHAB Things, channels, and commands for monitoring and day-to-day control.
+It is not intended to replace the Rachio mobile or web app for full device configuration.
+Rachio API identifiers are real UUIDs from the API; a controller `deviceId` is not the controller MAC address.
+
+### Supported
+
+- Rachio account / Cloud Connector
+- Irrigation controller discovery
+- Controller status and basic control
+- Zone discovery and zone start/stop
+- Multiple-zone start
+- Fixed schedule discovery and basic control
+- Flex schedule discovery and read-only status
+- Current schedule
+- Forecast
+- Recent controller events
+- Rain delay
+- Webhook registration and routing
+- Webhook signature validation with the `x-signature` header
+- Webhook duplicate event protection using Rachio `eventId`
+- Smart Hose Timer base stations
+- Smart Hose Timer valves
+- Smart Hose Timer valve programs
+- Smart Hose Timer planned run and program skip controls where represented by current channels
+- QuantityType channel support for physical values
+
+### Partially Supported
+
+- Full Rachio schedule-rule API: discovery, read-only metadata, start, skip, skip-forward, and seasonal-adjustment control are represented; full schedule-rule create/update/delete editing is not mapped to openHAB channels or actions in this PR scope.
+- Smart Hose Timer Program API: discovered programs, summary/planned-run state, webhook state, and skip controls are represented; the binding does not currently expose the internal create/update/delete Program API helpers as a full schedule editor.
+- Webhook event types: the binding queries Rachio's `listWebhookEventTypes` catalog and subscribes to supported irrigation, valve, and program event types that match the implemented Thing types.
+
+### Will Be Supported in a Future Iteration
+
+- Smart Lighting Controller resources and `LIGHTING_CONTROLLER` webhook events.
+- Any Rachio API feature that is not currently represented by an openHAB Thing, channel, or action and is intentionally outside this PR scope.
+- Optional richer diagnostics for Smart Hose Timer state synchronization.
+
 ###  Configuration
 
 Account-level settings belong on the Rachio Cloud Connector Thing (`rachio:cloud`).
@@ -460,7 +500,7 @@ Weather skip notifications update the controller `lastSkip*` channels and the no
 Smart Hose Timer valve run start/end events update matching `valve` Things.
 Smart Hose Timer Program rain-skip-created/canceled events update matching `valveprogram` Things.
 Smart Lighting events are prepared internally but are not user-facing yet.
-Unsupported resource-family events are safely ignored with DEBUG logging.
+Resource-family events that are not represented by current Things are safely ignored with DEBUG logging.
 
 ### Property/Home API
 
