@@ -1,14 +1,17 @@
 # Rachio Sprinkler Binding
 
 This binding integrates Rachio sprinkler controllers and Smart Hose Timer resources with openHAB.
+
 It uses Rachio Cloud APIs, so you need a Rachio account and a Rachio API key before openHAB can discover or control your Rachio resources.
 
 The binding supports monitoring and selected day-to-day control functions such as running zones, stopping watering, rain delay, schedule controls, Smart Hose Timer valve controls, and webhook-driven status updates.
+
 Use the Rachio mobile or web app for full device setup, account administration, and detailed schedule or program editing.
 
 ## Supported Things
 
 The Rachio Cloud Connector is a Bridge Thing.
+
 Controller, zone, schedule, flex schedule, Smart Hose Timer BaseStation, valve, and valve program Things are discovered under that bridge when the corresponding Rachio resources exist.
 
 | Thing | Description |
@@ -44,20 +47,26 @@ Controller, zone, schedule, flex schedule, Smart Hose Timer BaseStation, valve, 
 ### Thing migration
 
 Managed Things created in the openHAB UI are migrated automatically by Rachio thing-type update instructions when the updated binding is loaded.
+
 Text-file `.things` definitions do not need channel migration because their channel structure comes from the current binding XML.
+
 Thing-type update instructions update Things, not Items.
 
 Existing channel links should remain valid because channel IDs were not renamed.
+
 Discovery is recommended for new or repaired Things because it fills the real Rachio API identifiers automatically.
 
 ### Item migration for Quantity channels
 
 Existing Items are not automatically converted from plain `Number` to `Number:*`.
+
 Update manually created `.items` entries and managed Items where you want correct unit-aware behavior.
+
 Runtime and delay command compatibility is preserved: plain numeric commands are still accepted and interpreted as seconds.
+
 Zone `moistureLevel` plain numeric commands are still interpreted as millimeters.
-`moisturePercent` and `forecastPrecipitationProbability` use Rachio 0..1 fraction semantics.
-Percent display patterns can be used if you want the UI to show a percent.
+
+`moisturePercent` and `forecastPrecipitationProbability` use Rachio 0..1 fraction semantics. Percent display patterns can be used if you want the UI to show a percent.
 
 | Thing type | Channels | New Item type |
 | :--- | :--- | :--- |
@@ -87,11 +96,15 @@ Number:Dimensionless Rachio_ForecastPrecipProbability "Rain probability [%.0f %%
 ### Controller and zone identity migration
 
 `deviceId` must be the Rachio API controller UUID.
+
 It is not the controller MAC address.
+
 `zoneId` must be the Rachio API zone UUID.
 
 Discovered Things may still use MAC-derived openHAB Thing UIDs for compatibility, but API calls use the configured Rachio UUIDs.
+
 Using Inbox discovery is the easiest and safest way to obtain these identifiers.
+
 Manual Things are supported, but only if the correct Rachio UUIDs are configured.
 
 ### Webhook and callback migration
@@ -110,12 +123,14 @@ callbackUsername="user@example.com"
 callbackPassword="raw-password-with-special-characters"
 ```
 
-Enter raw username and password values.
-The binding percent-encodes them internally before registering the webhook URL with Rachio.
+Enter raw username and password values. The binding percent-encodes them internally before registering the webhook URL with Rachio.
+
 Legacy `callbackUrl` values with already-encoded embedded credentials, such as `https://user%40example.com:pass%3Fword@home.myopenhab.org/rachio/webhook`, remain supported for backward compatibility.
+
 `callbackUsername` and `callbackPassword` take precedence when both models are configured.
 
 Use `clearAllCallbacks=false` for normal operation.
+
 Set `clearAllCallbacks=true` only as a cleanup or migration tool to remove stale callback URLs, then set it back to `false` after successful registration.
 
 ### Post-upgrade validation checklist
@@ -145,6 +160,7 @@ For migration details, see [Migration from older Rachio binding versions](#migra
 6. Save the Thing configuration.
 
 After the bridge connects successfully, supported Things are discovered automatically and appear in the Inbox.
+
 Use Scan later if you want to refresh discovery results manually.
 
 ### `.things` setup
@@ -186,6 +202,7 @@ The bridge Thing does not have channels.
 | `clearAllCallbacks` | Cleanup switch for stale Rachio callback registrations. Leave `false` for normal operation. |
 
 Cloud Connector Thing configuration is authoritative.
+
 The effective precedence is:
 
 ```text
@@ -203,6 +220,7 @@ callbackPassword="raw-password-with-special-characters"
 ```
 
 Webhook forwarding through openHAB Cloud / myopenHAB.org does not require exposing any Items in the Cloud Connector configuration.
+
 Check openHAB logs for successful webhook registration after saving the bridge.
 
 ## Adding Controllers and Zones
@@ -214,13 +232,17 @@ Recommended: use Inbox discovery.
 3. Accept the discovered controller, zone, schedule, flex schedule, BaseStation, valve, and valve program Things you want to use.
 
 Manual creation is also supported with real Rachio UUIDs.
+
 Use `deviceId` for the controller API UUID and `zoneId` for the zone API UUID.
+
 For older binding upgrade details, see [Controller and zone identity migration](#controller-and-zone-identity-migration).
 
 ## Rachio API Coverage
 
 This binding maps the official Rachio API to openHAB Things, channels, and commands for monitoring and day-to-day control.
+
 It is not intended to replace the Rachio mobile or web app for full device configuration.
+
 Rachio API identifiers are real UUIDs from the API; a controller `deviceId` is not the controller MAC address.
 
 ### Supported
@@ -246,7 +268,9 @@ Rachio API identifiers are real UUIDs from the API; a controller `deviceId` is n
 - QuantityType channel support for physical values
 
 Schedule-rule, Smart Hose Timer Program, and webhook support is intentionally scoped to the openHAB Things and channels listed below.
+
 The binding does not expose a full schedule/program create-update-delete editor; use the Rachio app for full device and schedule configuration.
+
 For webhook event types, the binding queries Rachio's `listWebhookEventTypes` catalog and subscribes to supported irrigation, valve, and program events that match the implemented Thing types.
 
 ### Will be supported
@@ -309,12 +333,17 @@ For webhook event types, the binding queries Rachio's `listWebhookEventTypes` ca
 | `lastSkipReason` | Summary or reason from the most recent weather intelligence skip event. |
 
 When starting zones from the controller Thing with `runZones` and `run`, controller `runTime` controls the duration for every selected zone.
+
 If controller `runTime` is greater than 0, that value is used.
+
 If controller `runTime` is 0, the bridge `defaultRuntime` is used.
+
 Zone-specific `runTime` values only apply when starting an individual zone from that zone Thing.
 
 Forecast channels follow the Cloud Connector `forecastUnits` setting.
+
 With `METRIC`, forecast temperatures, precipitation, and wind are published as Celsius, millimeters, and meters per second.
+
 With `US`, they are published as Fahrenheit, inches, and miles per hour.
 
 ## Zone Thing
@@ -348,21 +377,29 @@ With `US`, they are published as Fahrenheit, inches, and miles per hour.
 | `lastEventTime` | Timestamp of the last received event. |
 
 The existing `imageUrl` channel remains available for URL-based integrations.
+
 The `image` channel downloads the same zone picture as native openHAB image data and can be linked to an `Image` Item.
+
 If an image cannot be downloaded, the zone remains online and the URL channel is still updated.
 
 ## Smart Hose Timer Things
 
 Smart Hose Timer support covers BaseStations, Valves, and Valve Programs.
+
 Discovery is recommended after the Cloud Connector is online.
+
 Manual creation is supported when the real Rachio IDs are configured:
 
 ```text
-Thing basestation hosehub "Hose Timer Hub" [ baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" ]
+Thing basestation hosehub "Hose Timer Hub" [
+    baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+]
+
 Thing valve garden "Garden Hose Valve" [
     valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 ]
+
 Thing valveprogram morninghose "Morning Hose Program" [
     programId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
     valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -407,7 +444,9 @@ Thing valveprogram morninghose "Morning Hose Program" [
 | `lastEventTime` | Timestamp of the most recent valve webhook event. |
 
 The Smart Hose Timer API is asynchronous.
+
 After changing `defaultRuntime`, Rachio may report `stateMatches=OFF` until the physical valve downloads and applies the cloud-side update.
+
 Summary day-view polling uses the bridge `hoseSummaryLookbackDays` and `hoseSummaryLookaheadDays` configuration.
 
 ### Valve Program channels
@@ -436,12 +475,15 @@ Summary day-view polling uses the bridge `hoseSummaryLookbackDays` and `hoseSumm
 | `lastEventTime` | Timestamp of the most recent Program webhook event. |
 
 Skip commands use Summary day-view identifiers.
+
 When a planned run ID and date are available, the binding uses the planned-run skip override endpoints.
+
 When only a Program ID and timestamp are available, it falls back to the Program skip override endpoints.
 
 ## Schedule Things
 
 Fixed schedule rules are represented by `schedule` Things.
+
 Flex schedules are represented by read-only `flexschedule` Things.
 
 | Channel | Description |
@@ -460,25 +502,35 @@ Flex schedules are represented by read-only `flexschedule` Things.
 | `lastUpdate` | Timestamp of last schedule state update. |
 
 Manual schedule creation requires `scheduleRuleId`.
+
 Manual flex schedule creation requires `flexScheduleRuleId`.
+
 Discovery creates schedule and flex schedule Things when the Rachio controller payload includes the corresponding rule IDs.
 
 ## Webhook Events
 
 The binding registers for supported Rachio WebhookService event types, including schedule started/stopped/completed, zone run started/stopped/completed/paused, rain/freeze/wind/climate skip notifications, no-skip notifications, Smart Hose Timer valve run events, and Smart Hose Timer Program rain-skip events.
+
 Inbound WebhookService events are verified with the `x-signature` header before they are parsed or routed.
+
 Duplicate webhook deliveries are detected with the Rachio `eventId` and acknowledged without routing the same event twice.
 
 Schedule events update controller schedule channels and matching `schedule` Things when present.
+
 Zone run events update the corresponding zone Thing when the event carries enough zone identity information.
+
 Weather skip notifications update the controller `lastSkip*` channels and the normal `lastEvent` channels.
+
 Smart Hose Timer valve run start/end events update matching `valve` Things.
+
 Smart Hose Timer Program rain-skip-created/canceled events update matching `valveprogram` Things.
 
 ## Property/Home API
 
 The binding includes internal support for Rachio's modern Property Service on `https://cloud-rest.rach.io`.
+
 This is infrastructure for future multi-product support and does not currently create user-facing Property/Home Things.
+
 The implemented API layer can list properties for a user, retrieve a property by ID, and look up a property by documented entity resource identifiers.
 
 ## Full Example
@@ -494,27 +546,32 @@ Bridge rachio:cloud:1 @ "Sprinkler" [
     callbackUsername="user@example.com",
     callbackPassword="raw-password-with-special-characters",
     clearAllCallbacks=false
-]
-{
+] {
     Thing device controller "Rachio Controller" @ "Sprinkler" [
         deviceId="811aea42-2bf5-4761-9f97-900108d6f04e"
     ]
+
     Thing zone controller-zone1 "Front Lawn" @ "Sprinkler" [
         zoneId="a4f319e9-f88e-476f-b341-0ea571a202a0"
     ]
+
     Thing schedule morning "Morning Schedule" @ "Sprinkler" [
         scheduleRuleId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
+
     Thing flexschedule flex "Flex Schedule" @ "Sprinkler" [
         flexScheduleRuleId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
+
     Thing basestation hosehub "Hose Timer Hub" @ "Garden" [
         baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
+
     Thing valve gardenhose "Garden Hose Valve" @ "Garden" [
         valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
         baseStationId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
     ]
+
     Thing valveprogram morninghose "Morning Hose Program" @ "Garden" [
         programId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
         valveId="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
@@ -532,21 +589,25 @@ Switch Rachio_Controller_Run "Run Selected Zones" { channel="rachio:device:1:con
 String Rachio_Controller_RunZones "Run Zone List" { channel="rachio:device:1:controller:runZones" }
 Number:Time Rachio_Controller_RunTime "Controller Runtime [%d s]" { channel="rachio:device:1:controller:runTime" }
 Number:Time Rachio_Controller_RainDelay "Rain Delay [%d s]" { channel="rachio:device:1:controller:rainDelay" }
+
 Number:Temperature Rachio_Forecast_High "Forecast High" { channel="rachio:device:1:controller:forecastTodayHigh" }
 Number:Length Rachio_Forecast_Precipitation "Forecast Precipitation" { channel="rachio:device:1:controller:forecastPrecipitation" }
 Number:Dimensionless Rachio_Forecast_PrecipitationProbability "Rain Probability [%.0f %%]" { channel="rachio:device:1:controller:forecastPrecipitationProbability" }
+
 String Rachio_Zone1_Name "Zone Name" { channel="rachio:zone:1:controller-zone1:name" }
 Switch Rachio_Zone1_Run "Run Zone" { channel="rachio:zone:1:controller-zone1:run" }
 Number:Time Rachio_Zone1_RunTime "Zone Runtime [%d s]" { channel="rachio:zone:1:controller-zone1:runTime" }
 Number:Length Rachio_Zone1_MoistureLevel "Moisture Level [%.1f mm]" { channel="rachio:zone:1:controller-zone1:moistureLevel" }
 Number:Dimensionless Rachio_Zone1_MoisturePercent "Moisture [%.0f %%]" { channel="rachio:zone:1:controller-zone1:moisturePercent" }
 Image Rachio_Zone1_Image "Zone Image" { channel="rachio:zone:1:controller-zone1:image" }
+
 Switch HoseValve_Run "Run Hose Valve" { channel="rachio:valve:1:gardenhose:run" }
 Number:Time HoseValve_RunTime "Hose Runtime [%d s]" { channel="rachio:valve:1:gardenhose:runTime" }
 Number:Time HoseValve_DefaultRuntime "Default Hose Runtime [%d s]" { channel="rachio:valve:1:gardenhose:defaultRuntime" }
 Number:Dimensionless HoseValve_BatteryLevel "Valve Battery [%.0f %%]" { channel="rachio:valve:1:gardenhose:batteryLevel" }
 Number:Time HoseValve_NextRunDuration "Next Hose Run Duration [%d s]" { channel="rachio:valve:1:gardenhose:nextPlannedRunDuration" }
 Switch HoseValve_SkipNext "Skip Next Hose Run" { channel="rachio:valve:1:gardenhose:skipNextPlannedRun" }
+
 String HoseProgram_Name "Program Name" { channel="rachio:valveprogram:1:morninghose:name" }
 Number:Time HoseProgram_Duration "Program Duration [%d s]" { channel="rachio:valveprogram:1:morninghose:duration" }
 Number:Time HoseProgram_Interval "Program Interval [%.0f d]" { channel="rachio:valveprogram:1:morninghose:intervalDays" }
