@@ -31,16 +31,16 @@ Example: 2 controllers with 8 zones each under the same account creates 19 Thing
 The Cloud API Connector is represented by a Bridge Thing.
 All devices are connected to this Thing, and all zones are connected to the corresponding device.
 
-|Thing |Description                                                                                                            |
-|:-----|:----------------------------------------------------------------------------------------------------------------------|
-|cloud |Each Rachio account is represented by a `cloud` thing. The binding supports multiple accounts at the same time.          |
-|device|Each sprinkler controller is represented by a `device` thing, which links to the cloud thing.                             |
-|zone  |Each zone for each controller creates a `zone` thing, which links to the device thing and directly to the bridge thing.|
-|schedule|Each fixed schedule rule can be represented by a `schedule` thing. Discovery creates these when schedule IDs are present in the controller response.|
-|flexschedule|Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response.|
-|basestation|Each Smart Hose Timer Wi-Fi hub can be represented by a read-only `basestation` thing.|
-|valve|Each Smart Hose Timer valve can be represented by a `valve` thing for manual start/stop and default runtime control.|
-|valveprogram|Each Smart Hose Timer Program can be represented by a `valveprogram` thing for schedule metadata, skip controls, and Program webhook state.|
+| Thing | Description |
+| :--- | :--- |
+| `cloud` | Each Rachio account is represented by a `cloud` thing. The binding supports multiple accounts at the same time. |
+| `device` | Each sprinkler controller is represented by a `device` thing, which links to the cloud thing. |
+| `zone` | Each zone for each controller creates a `zone` thing, which links to the device thing and directly to the bridge thing. |
+| `schedule` | Each fixed schedule rule can be represented by a `schedule` thing. Discovery creates these when schedule IDs are present in the controller response. |
+| `flexschedule` | Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response. |
+| `basestation` | Each Smart Hose Timer Wi-Fi hub can be represented by a read-only `basestation` thing. |
+| `valve` | Each Smart Hose Timer valve can be represented by a `valve` thing for manual start/stop and default runtime control. |
+| `valveprogram` | Each Smart Hose Timer Program can be represented by a `valveprogram` thing for schedule metadata, skip controls, and Program webhook state. |
 
 ## Rachio API Coverage
 
@@ -77,7 +77,7 @@ For webhook event types, the binding queries Rachio's `listWebhookEventTypes` ca
 ### Will be supported
 
 - Smart Lighting Controller resources and `LIGHTING_CONTROLLER` webhook events.
-- Any Rachio API feature that is not currently represented by an openHAB Thing, channel, or action and is intentionally outside this PR scope.
+- Additional Rachio API features that are useful in openHAB and fit the binding model may be added in future iterations.
 - Optional richer diagnostics for Smart Hose Timer state synchronization.
 
 ### Not planned / not applicable
@@ -126,22 +126,22 @@ Runtime and delay command compatibility is preserved: plain numeric commands are
 Zone `moistureLevel` plain numeric commands are still interpreted as millimeters.
 `moisturePercent` and `forecastPrecipitationProbability` continue to use Rachio's 0..1 fraction semantics; percent display patterns can be used where you want the UI to show a percent.
 
-|Thing type|Channels|New Item type|
-|:---------|:-------|:------------|
-|device|`pauseTime`, `runTime`, `rainDelay`, `currentScheduleDuration`|`Number:Time`|
-|device|`forecastTodayHigh`, `forecastTodayLow`|`Number:Temperature`|
-|device|`forecastPrecipitation`|`Number:Length`|
-|device|`forecastPrecipitationProbability`|`Number:Dimensionless`|
-|device|`forecastWind`|`Number:Speed`|
-|zone|`runTime`, `runTotal`, `fixedRuntime`, `maxRuntime`, `runtimeNoMultiplier`|`Number:Time`|
-|zone|`availableWater`, `depthOfWater`, `saturatedDepthOfWater`, `rootZoneDepth`, `moistureLevel`|`Number:Length`|
-|zone|`yardAreaSquareFeet`|`Number:Area`|
-|zone|`managementAllowedDepletion`, `efficiency`, `moisturePercent`|`Number:Dimensionless`|
-|schedule, flexschedule|`seasonalAdjustment`|`Number:Dimensionless`|
-|valve|`runTime`, `defaultRuntime`, `nextPlannedRunDuration`, `lastCompletedRunDuration`|`Number:Time`|
-|valve|`batteryLevel`|`Number:Dimensionless`|
-|valveprogram|`duration`, `intervalDays`|`Number:Time`|
-|valveprogram|`seasonalAdjustment`|`Number:Dimensionless`|
+| Thing type | Channels | New Item type |
+| :--- | :--- | :--- |
+| `device` | `pauseTime`, `runTime`, `rainDelay`, `currentScheduleDuration` | `Number:Time` |
+| `device` | `forecastTodayHigh`, `forecastTodayLow` | `Number:Temperature` |
+| `device` | `forecastPrecipitation` | `Number:Length` |
+| `device` | `forecastPrecipitationProbability` | `Number:Dimensionless` |
+| `device` | `forecastWind` | `Number:Speed` |
+| `zone` | `runTime`, `runTotal`, `fixedRuntime`, `maxRuntime`, `runtimeNoMultiplier` | `Number:Time` |
+| `zone` | `availableWater`, `depthOfWater`, `saturatedDepthOfWater`, `rootZoneDepth`, `moistureLevel` | `Number:Length` |
+| `zone` | `yardAreaSquareFeet` | `Number:Area` |
+| `zone` | `managementAllowedDepletion`, `efficiency`, `moisturePercent` | `Number:Dimensionless` |
+| `schedule`, `flexschedule` | `seasonalAdjustment` | `Number:Dimensionless` |
+| `valve` | `runTime`, `defaultRuntime`, `nextPlannedRunDuration`, `lastCompletedRunDuration` | `Number:Time` |
+| `valve` | `batteryLevel` | `Number:Dimensionless` |
+| `valveprogram` | `duration`, `intervalDays` | `Number:Time` |
+| `valveprogram` | `seasonalAdjustment` | `Number:Dimensionless` |
 
 Valve Program `intervalDays` is represented as `Number:Time` with day semantics.
 
@@ -190,22 +190,19 @@ Bridge rachio:cloud:1 [
 }
 ```
 
-|Parameter        |Description                                                                                                                 |
-|:----------------|:---------------------------------------------------------------------------------------------------------------------------|
-|apikey           |API token required to access the Rachio Cloud account. Create it in the Rachio Web App account settings.|
-|pollingInterval  |Delay between two status polls. A value around 10 minutes is usually enough for regular status updates when webhooks are configured. If you cannot use events, a smaller delay can provide quicker updates for running zones.|
-|                 |Important: Please make sure to use an interval > 90sec. Rachio allows 3,500 API requests per day, and the limit resets at midnight UTC. This means if you are accessing the API too frequently your account can get blocked until the next reset.|
-|defaultRuntime   |You could run zones in 2 different ways:|
-|                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
-|                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This starts the zone for &lt;n&gt; seconds. This variant usually requires an openHAB rule that sets runTime and then sends ON to the run channel.|
-|eventHistoryLookbackHours|Hours of recent controller event history to retrieve. Set to 0 to disable event history polling.|
-|forecastUnits    |Units for the Rachio forecast endpoint: `METRIC` or `US`.|
-|hoseSummaryLookbackDays|Days of recent Smart Hose Timer Summary day-view data to retrieve for valve and program run state. Default is 2; set to 0 to skip historical runs.|
-|hoseSummaryLookaheadDays|Days of upcoming Smart Hose Timer Summary day-view data to retrieve for planned runs and skip controls. Default is 7.|
-|callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. Prefer openHAB Cloud / myopenHAB.org or a properly authenticated reverse proxy; do not expose an unauthenticated openHAB endpoint directly to the Internet.|
-|callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
-|callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
-|clearAllCallbacks|The binding dynamically registers callbacks and supports multiple applications receiving events. If your callback setup changes, enable this once to clear stale URLs so the old callback no longer receives events. Disable it again after a successful registration.|
+| Parameter | Description |
+| :--- | :--- |
+| `apikey` | API token required to access the Rachio Cloud account. Create it in the Rachio Web App account settings. |
+| `pollingInterval` | Delay between status polls. A value around 10 minutes is usually enough when webhooks are configured; use an interval greater than 90 seconds to avoid unnecessary API load. |
+| `defaultRuntime` | Runtime in seconds used when a zone or valve run command has no explicit runtime. To run a zone for a custom duration, set the relevant `runTime` channel and then send ON to the `run` channel. |
+| `eventHistoryLookbackHours` | Hours of recent controller event history to retrieve. Set to 0 to disable event history polling. |
+| `forecastUnits` | Units for the Rachio forecast endpoint: `METRIC` or `US`. |
+| `hoseSummaryLookbackDays` | Days of recent Smart Hose Timer Summary day-view data to retrieve for valve and program run state. Default is 2; set to 0 to skip historical runs. |
+| `hoseSummaryLookaheadDays` | Days of upcoming Smart Hose Timer Summary day-view data to retrieve for planned runs and skip controls. Default is 7. |
+| `callbackUrl` | Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. |
+| `callbackUsername` | Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio. |
+| `callbackPassword` | Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio. |
+| `clearAllCallbacks` | The binding dynamically registers callbacks and supports multiple applications receiving events. If your callback setup changes, enable this once to clear stale URLs so the old callback no longer receives events. Disable it again after a successful registration. |
 
 The bridge thing doesn't have any channels.
 
@@ -512,18 +509,18 @@ Current internal lookup helpers cover the documented location, base station, and
 No controller, valve, or lighting-controller Property lookup helpers are exposed until Rachio documents those direct lookup parameters.
 Future Smart Hose Timer and Smart Lighting support can build on this without changing existing controller, zone, schedule, or flex schedule Things.
 
-# Full example
+## Full Example
 
-## Thing Definition
+### Thing Definition
 
-```
-Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  pollingInterval=180, defaultRuntime=120  ]
+```text
+Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", pollingInterval=180, defaultRuntime=120 ]
 {
     // Controller
     Thing device XXXXXXXXXXXX "Rachio-XXXXXX" @ "Sprinkler" [
         deviceId="811aea42-2bf5-4761-9f97-900108d6f04e"
     ]
-    
+
     // Zones
     Thing zone XXXXXXXXXXXX-1 "Rachio zone 1" @ "Sprinkler" [
         zoneId="a4f319e9-f88e-476f-b341-0ea571a202a0"
@@ -559,70 +556,81 @@ Bridge rachio:cloud:1 @ "Sprinkler" [ apikey="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
 
 ### Items Definition
 
-```
-    // Sprinkler Controller
-    String   RachioC04DAC_Name          "Name"               {channel="rachio:device:1:XXXXXXXXXXXX:name"}
-    Switch   RachioC04DAC_Active        "Active"             {channel="rachio:device:1:XXXXXXXXXXXX:active"}
-    Switch   RachioC04DAC_Online        "Online"             {channel="rachio:device:1:XXXXXXXXXXXX:online"}
-    Switch   RachioC04DAC_Paused        "Paused"             {channel="rachio:device:1:XXXXXXXXXXXX:paused"}
-    Number   RachioC04DAC_PauseTime     "Pause Time"         {channel="rachio:device:1:XXXXXXXXXXXX:pauseTime"}
-    Switch   RachioC04DAC_SleepMode     "Sleep Mode"         {channel="rachio:device:1:XXXXXXXXXXXX:sleepMode"}
-    Switch   RachioC04DAC_Stop          "Stop Watering"      {channel="rachio:device:1:XXXXXXXXXXXX:stop"}
-    Switch   RachioC04DAC_Run           "Run Multiple Zones" {channel="rachio:device:1:XXXXXXXXXXXX:run"}
-    String   RachioC04DAC_RunZones      "Run Zone List"      {channel="rachio:device:1:XXXXXXXXXXXX:runZones"}
-    Number   RachioC04DAC_RunTime       "Run Time"           {channel="rachio:device:1:XXXXXXXXXXXX:runTime"}
-    Number   RachioC04DAC_RainDelay     "Rain Delay"         {channel="rachio:device:1:XXXXXXXXXXXX:rainDelay"}
-    Switch   RachioC04DAC_RainSensorTr  "Rain Sensor"        {channel="rachio:device:1:XXXXXXXXXXXX:rainSensorTripped"}
-    Number   RachioC04DAC_ActiveZoneNo  "Active Zone Number" {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneNumber"}
-    String   RachioC04DAC_ActiveZone    "Active Zone"        {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneName"}
-    String   RachioC04DAC_ActiveZoneId  "Active Zone ID"     {channel="rachio:device:1:XXXXXXXXXXXX:activeZoneId"}
-    String   RachioC04DAC_lastEvent     "Last Event"         {channel="rachio:device:1:XXXXXXXXXXXX:lastEvent"}
-    DateTime RachioC04DAC_lastEventTime "Last Event Time"    {channel="rachio:device:1:XXXXXXXXXXXX:lastEventTime"}
-    DateTime RachioC04DAC_lastUpdate    "Last Update"        {channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate"}
+```text
+// Sprinkler Controller
+String RachioC04DAC_Name "Name" { channel="rachio:device:1:XXXXXXXXXXXX:name" }
+Switch RachioC04DAC_Active "Active" { channel="rachio:device:1:XXXXXXXXXXXX:active" }
+Switch RachioC04DAC_Online "Online" { channel="rachio:device:1:XXXXXXXXXXXX:online" }
+Switch RachioC04DAC_Paused "Paused" { channel="rachio:device:1:XXXXXXXXXXXX:paused" }
+Number:Time RachioC04DAC_PauseTime "Pause Time [%d s]" { channel="rachio:device:1:XXXXXXXXXXXX:pauseTime" }
+Switch RachioC04DAC_SleepMode "Sleep Mode" { channel="rachio:device:1:XXXXXXXXXXXX:sleepMode" }
+Switch RachioC04DAC_Stop "Stop Watering" { channel="rachio:device:1:XXXXXXXXXXXX:stop" }
+Switch RachioC04DAC_Run "Run Multiple Zones" { channel="rachio:device:1:XXXXXXXXXXXX:run" }
+String RachioC04DAC_RunZones "Run Zone List" { channel="rachio:device:1:XXXXXXXXXXXX:runZones" }
+Number:Time RachioC04DAC_RunTime "Run Time [%d s]" { channel="rachio:device:1:XXXXXXXXXXXX:runTime" }
+Number:Time RachioC04DAC_RainDelay "Rain Delay [%d s]" { channel="rachio:device:1:XXXXXXXXXXXX:rainDelay" }
+Switch RachioC04DAC_RainSensorTr "Rain Sensor" { channel="rachio:device:1:XXXXXXXXXXXX:rainSensorTripped" }
+Number RachioC04DAC_ActiveZoneNo "Active Zone Number" { channel="rachio:device:1:XXXXXXXXXXXX:activeZoneNumber" }
+String RachioC04DAC_ActiveZone "Active Zone" { channel="rachio:device:1:XXXXXXXXXXXX:activeZoneName" }
+String RachioC04DAC_ActiveZoneId "Active Zone ID" { channel="rachio:device:1:XXXXXXXXXXXX:activeZoneId" }
+String RachioC04DAC_LastEvent "Last Event" { channel="rachio:device:1:XXXXXXXXXXXX:lastEvent" }
+DateTime RachioC04DAC_LastEventTime "Last Event Time" { channel="rachio:device:1:XXXXXXXXXXXX:lastEventTime" }
+DateTime RachioC04DAC_LastUpdate "Last Update" { channel="rachio:device:1:XXXXXXXXXXXX:lastUpdate" }
+Number:Temperature RachioC04DAC_ForecastHigh "Forecast High" { channel="rachio:device:1:XXXXXXXXXXXX:forecastTodayHigh" }
+Number:Temperature RachioC04DAC_ForecastLow "Forecast Low" { channel="rachio:device:1:XXXXXXXXXXXX:forecastTodayLow" }
+Number:Length RachioC04DAC_ForecastPrecip "Forecast Precipitation" { channel="rachio:device:1:XXXXXXXXXXXX:forecastPrecipitation" }
+Number:Dimensionless RachioC04DAC_ForecastPrecipProbability "Rain Probability [%.0f %%]" { channel="rachio:device:1:XXXXXXXXXXXX:forecastPrecipitationProbability" }
 
-    // Zone1
-    String   RachioZone1_Name           "Zone Name"       {channel="rachio:zone:1:XXXXXXXXXXXX-1:name"}
-    Number   RachioZone1_Number         "Zone Number"     {channel="rachio:zone:1:XXXXXXXXXXXX-1:number"}  
-    Switch   RachioZone1_Enabled        "Zone Enabled"    {channel="rachio:zone:1:XXXXXXXXXXXX-1:enabled"}
-    Switch   RachioZone1_Run            "Run Zone"        {channel="rachio:zone:1:XXXXXXXXXXXX-1:run"}
-    Number   RachioZone1_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTime"}
-    Number   RachioZone1_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-1:runTotal"}
-    String   RachioZone1_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-1:imageUrl"}
-    Image    RachioZone1_Image          "Zone Image"      {channel="rachio:zone:1:XXXXXXXXXXXX-1:image"}
-    String   RachioZone1_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEvent"}
-    DateTime RachioZone1_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEventTime"}
-    DateTime RachioZone1_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-1:lastUpdate"}
+// Zone 1
+String RachioZone1_Name "Zone Name" { channel="rachio:zone:1:XXXXXXXXXXXX-1:name" }
+Number RachioZone1_Number "Zone Number" { channel="rachio:zone:1:XXXXXXXXXXXX-1:number" }
+Switch RachioZone1_Enabled "Zone Enabled" { channel="rachio:zone:1:XXXXXXXXXXXX-1:enabled" }
+Switch RachioZone1_Run "Run Zone" { channel="rachio:zone:1:XXXXXXXXXXXX-1:run" }
+Number:Time RachioZone1_RunTime "Zone Runtime [%d s]" { channel="rachio:zone:1:XXXXXXXXXXXX-1:runTime" }
+Number:Time RachioZone1_RunTotal "Total Runtime [%d s]" { channel="rachio:zone:1:XXXXXXXXXXXX-1:runTotal" }
+Number:Length RachioZone1_MoistureLevel "Moisture Level [%.1f mm]" { channel="rachio:zone:1:XXXXXXXXXXXX-1:moistureLevel" }
+Number:Dimensionless RachioZone1_MoisturePercent "Moisture [%.0f %%]" { channel="rachio:zone:1:XXXXXXXXXXXX-1:moisturePercent" }
+String RachioZone1_ImageUrl "Zone Image URL" { channel="rachio:zone:1:XXXXXXXXXXXX-1:imageUrl" }
+Image RachioZone1_Image "Zone Image" { channel="rachio:zone:1:XXXXXXXXXXXX-1:image" }
+String RachioZone1_LastEvent "Last Event" { channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEvent" }
+DateTime RachioZone1_LastEventTime "Last Event Time" { channel="rachio:zone:1:XXXXXXXXXXXX-1:lastEventTime" }
+DateTime RachioZone1_LastUpdate "Last Update" { channel="rachio:zone:1:XXXXXXXXXXXX-1:lastUpdate" }
 
-    // Zone2
-    String   RachioZone2_Name           "Zone Name"       {channel="rachio:zone:1:XXXXXXXXXXXX-2:name"}
-    Number   RachioZone2_Number         "Zone Number"     {channel="rachio:zone:1:XXXXXXXXXXXX-2:number"}
-    Switch   RachioZone2_Enabled        "Zone Enabled"    {channel="rachio:zone:1:XXXXXXXXXXXX-2:enabled"}
-    Switch   RachioZone2_Run            "Run Zone"        {channel="rachio:zone:1:XXXXXXXXXXXX-2:run"} 
-    Number   RachioZone2_RunTime        "Zone Runtime"    {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTime"}
-    Number   RachioZone2_RunTotal       "Total Runtime"   {channel="rachio:zone:1:XXXXXXXXXXXX-2:runTotal"}
-    String   RachioZone2_ImageUrl       "Zone Image URL"  {channel="rachio:zone:1:XXXXXXXXXXXX-2:imageUrl"}
-    Image    RachioZone2_Image          "Zone Image"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:image"}
-    String   RachioZone2_lastEvent      "Last Event"      {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent"}
-    DateTime RachioZone2_lastEventTime  "Last Event Time" {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime"}
-    DateTime RachioZone2_lastUpdate     "Last Update"     {channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate"}
+// Zone 2
+String RachioZone2_Name "Zone Name" { channel="rachio:zone:1:XXXXXXXXXXXX-2:name" }
+Number RachioZone2_Number "Zone Number" { channel="rachio:zone:1:XXXXXXXXXXXX-2:number" }
+Switch RachioZone2_Enabled "Zone Enabled" { channel="rachio:zone:1:XXXXXXXXXXXX-2:enabled" }
+Switch RachioZone2_Run "Run Zone" { channel="rachio:zone:1:XXXXXXXXXXXX-2:run" }
+Number:Time RachioZone2_RunTime "Zone Runtime [%d s]" { channel="rachio:zone:1:XXXXXXXXXXXX-2:runTime" }
+Number:Time RachioZone2_RunTotal "Total Runtime [%d s]" { channel="rachio:zone:1:XXXXXXXXXXXX-2:runTotal" }
+String RachioZone2_ImageUrl "Zone Image URL" { channel="rachio:zone:1:XXXXXXXXXXXX-2:imageUrl" }
+Image RachioZone2_Image "Zone Image" { channel="rachio:zone:1:XXXXXXXXXXXX-2:image" }
+String RachioZone2_LastEvent "Last Event" { channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEvent" }
+DateTime RachioZone2_LastEventTime "Last Event Time" { channel="rachio:zone:1:XXXXXXXXXXXX-2:lastEventTime" }
+DateTime RachioZone2_LastUpdate "Last Update" { channel="rachio:zone:1:XXXXXXXXXXXX-2:lastUpdate" }
 
-    // Smart Hose Timer Valve
-    String   HoseValve_Name             "Valve Name"             {channel="rachio:valve:1:gardenhose:name"}
-    Switch   HoseValve_Run              "Run Hose Valve"         {channel="rachio:valve:1:gardenhose:run"}
-    Number   HoseValve_RunTime          "Hose Runtime"           {channel="rachio:valve:1:gardenhose:runTime"}
-    Number   HoseValve_DefaultRuntime   "Default Hose Runtime"   {channel="rachio:valve:1:gardenhose:defaultRuntime"}
-    DateTime HoseValve_NextRun          "Next Hose Run"          {channel="rachio:valve:1:gardenhose:nextPlannedRunTime"}
-    Switch   HoseValve_NextRunSkipped   "Next Hose Run Skipped"  {channel="rachio:valve:1:gardenhose:nextPlannedRunSkipped"}
-    Switch   HoseValve_SkipNext         "Skip Next Hose Run"     {channel="rachio:valve:1:gardenhose:skipNextPlannedRun"}
-    Switch   HoseValve_CancelSkip       "Cancel Hose Skip"       {channel="rachio:valve:1:gardenhose:cancelNextPlannedRunSkip"}
+// Smart Hose Timer Valve
+String HoseValve_Name "Valve Name" { channel="rachio:valve:1:gardenhose:name" }
+Switch HoseValve_Run "Run Hose Valve" { channel="rachio:valve:1:gardenhose:run" }
+Number:Time HoseValve_RunTime "Hose Runtime [%d s]" { channel="rachio:valve:1:gardenhose:runTime" }
+Number:Time HoseValve_DefaultRuntime "Default Hose Runtime [%d s]" { channel="rachio:valve:1:gardenhose:defaultRuntime" }
+Number:Dimensionless HoseValve_BatteryLevel "Valve Battery [%.0f %%]" { channel="rachio:valve:1:gardenhose:batteryLevel" }
+DateTime HoseValve_NextRun "Next Hose Run" { channel="rachio:valve:1:gardenhose:nextPlannedRunTime" }
+Number:Time HoseValve_NextRunDuration "Next Hose Run Duration [%d s]" { channel="rachio:valve:1:gardenhose:nextPlannedRunDuration" }
+Switch HoseValve_NextRunSkipped "Next Hose Run Skipped" { channel="rachio:valve:1:gardenhose:nextPlannedRunSkipped" }
+Switch HoseValve_SkipNext "Skip Next Hose Run" { channel="rachio:valve:1:gardenhose:skipNextPlannedRun" }
+Switch HoseValve_CancelSkip "Cancel Hose Skip" { channel="rachio:valve:1:gardenhose:cancelNextPlannedRunSkip" }
 
-    // Smart Hose Timer Program
-    String   HoseProgram_Name           "Program Name"           {channel="rachio:valveprogram:1:morninghose:name"}
-    Switch   HoseProgram_Enabled        "Program Enabled"        {channel="rachio:valveprogram:1:morninghose:enabled"}
-    DateTime HoseProgram_NextRun        "Program Next Run"       {channel="rachio:valveprogram:1:morninghose:nextRunTime"}
-    Switch   HoseProgram_NextSkipped    "Program Run Skipped"    {channel="rachio:valveprogram:1:morninghose:nextProgramRunSkipped"}
-    Switch   HoseProgram_SkipNext       "Skip Program Run"       {channel="rachio:valveprogram:1:morninghose:skipNextPlannedRun"}
-    Switch   HoseProgram_CancelSkip     "Cancel Program Skip"    {channel="rachio:valveprogram:1:morninghose:cancelNextPlannedRunSkip"}
+// Smart Hose Timer Program
+String HoseProgram_Name "Program Name" { channel="rachio:valveprogram:1:morninghose:name" }
+Switch HoseProgram_Enabled "Program Enabled" { channel="rachio:valveprogram:1:morninghose:enabled" }
+DateTime HoseProgram_NextRun "Program Next Run" { channel="rachio:valveprogram:1:morninghose:nextRunTime" }
+Number:Time HoseProgram_Duration "Program Duration [%d s]" { channel="rachio:valveprogram:1:morninghose:duration" }
+Number:Time HoseProgram_Interval "Program Interval [%.0f d]" { channel="rachio:valveprogram:1:morninghose:intervalDays" }
+Number:Dimensionless HoseProgram_SeasonalAdjustment "Seasonal Adjustment [%.0f %%]" { channel="rachio:valveprogram:1:morninghose:seasonalAdjustment" }
+Switch HoseProgram_NextSkipped "Program Run Skipped" { channel="rachio:valveprogram:1:morninghose:nextProgramRunSkipped" }
+Switch HoseProgram_SkipNext "Skip Program Run" { channel="rachio:valveprogram:1:morninghose:skipNextPlannedRun" }
+Switch HoseProgram_CancelSkip "Cancel Program Skip" { channel="rachio:valveprogram:1:morninghose:cancelNextPlannedRunSkip" }
 ```
 
 ### Rule Example
