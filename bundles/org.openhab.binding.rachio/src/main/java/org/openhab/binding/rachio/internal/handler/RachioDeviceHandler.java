@@ -249,7 +249,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         if (d != null) {
             RachioBridgeHandler handler = cloudHandler;
             String forecastUnits = handler != null ? handler.getForecastUnits() : DEFAULT_FORECAST_UNITS;
-            logger.debug("Updating  status");
+            logger.debug("Updating device status");
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_NAME, new StringType(d.getThingName()));
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ONLINE, d.getOnline());
             updateChannel(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE, d.getEnabled());

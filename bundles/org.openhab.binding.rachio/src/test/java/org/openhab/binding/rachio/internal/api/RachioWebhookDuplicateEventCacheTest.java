@@ -28,23 +28,29 @@ import org.junit.jupiter.api.Test;
 @NonNullByDefault
 class RachioWebhookDuplicateEventCacheTest {
     @Test
-    void eventIdIsDuplicateOnlyWhileRetained() {
+    void eventIdIsProcessedOnlyAfterMarkingAndWhileRetained() {
         AtomicLong clockMillis = new AtomicLong(1_000);
         RachioWebhookDuplicateEventCache cache = new RachioWebhookDuplicateEventCache(1_000, 2048, clockMillis::get);
 
-        assertThat(cache.isDuplicate("event-1"), is(false));
-        assertThat(cache.isDuplicate("event-1"), is(true));
+        assertThat(cache.isProcessed("event-1"), is(false));
+        assertThat(cache.isProcessed("event-1"), is(false));
+
+        cache.markProcessed("event-1");
+        assertThat(cache.isProcessed("event-1"), is(true));
 
         clockMillis.addAndGet(1_001);
-        assertThat(cache.isDuplicate("event-1"), is(false));
+        assertThat(cache.isProcessed("event-1"), is(false));
     }
 
     @Test
     void blankEventIdsAreNotCached() {
         RachioWebhookDuplicateEventCache cache = new RachioWebhookDuplicateEventCache();
 
-        assertThat(cache.isDuplicate(""), is(false));
-        assertThat(cache.isDuplicate("  "), is(false));
+        cache.markProcessed("");
+        cache.markProcessed("  ");
+
+        assertThat(cache.isProcessed(""), is(false));
+        assertThat(cache.isProcessed("  "), is(false));
         assertThat(cache.size(), is(0));
     }
 
@@ -55,9 +61,9 @@ class RachioWebhookDuplicateEventCacheTest {
             return clockMillis.getAndIncrement();
         });
 
-        assertThat(cache.isDuplicate("event-1"), is(false));
-        assertThat(cache.isDuplicate("event-2"), is(false));
-        assertThat(cache.isDuplicate("event-3"), is(false));
+        cache.markProcessed("event-1");
+        cache.markProcessed("event-2");
+        cache.markProcessed("event-3");
 
         assertThat(cache.size(), is(2));
     }

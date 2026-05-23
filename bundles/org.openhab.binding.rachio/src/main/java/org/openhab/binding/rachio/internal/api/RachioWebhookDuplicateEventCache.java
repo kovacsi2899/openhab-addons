@@ -23,7 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 
 /**
- * Small bounded in-memory cache for deduplicating validated Rachio webhook event IDs.
+ * Small bounded in-memory cache for deduplicating successfully processed Rachio webhook event IDs.
  *
  * @author openHAB Contributors - Initial contribution
  */
@@ -49,29 +49,51 @@ class RachioWebhookDuplicateEventCache {
         this.clockMillis = clockMillis;
     }
 
-    boolean isDuplicate(@Nullable String eventId) {
-        if (eventId == null || eventId.isBlank()) {
+    boolean isProcessed(@Nullable String eventId) {
+        @Nullable
+        String normalizedEventId = normalizeEventId(eventId);
+        if (normalizedEventId == null) {
             return false;
         }
 
         long now = clockMillis.getAsLong();
         cleanupIfNeeded(now);
 
-        String normalizedEventId = eventId.trim();
-        Long previous = eventIds.putIfAbsent(normalizedEventId, now);
+        @Nullable
+        Long previous = eventIds.get(normalizedEventId);
         if (previous == null) {
-            trimToMaxEntries();
             return false;
         }
 
-        if (isExpired(previous.longValue(), now) && eventIds.replace(normalizedEventId, previous, now)) {
+        if (isExpired(previous.longValue(), now)) {
+            eventIds.remove(normalizedEventId, previous);
             return false;
         }
         return true;
     }
 
+    void markProcessed(@Nullable String eventId) {
+        @Nullable
+        String normalizedEventId = normalizeEventId(eventId);
+        if (normalizedEventId == null) {
+            return;
+        }
+
+        long now = clockMillis.getAsLong();
+        cleanupIfNeeded(now);
+        eventIds.put(normalizedEventId, now);
+        trimToMaxEntries();
+    }
+
     int size() {
         return eventIds.size();
+    }
+
+    private @Nullable String normalizeEventId(@Nullable String eventId) {
+        if (eventId == null || eventId.isBlank()) {
+            return null;
+        }
+        return eventId.trim();
     }
 
     private void cleanupIfNeeded(long now) {

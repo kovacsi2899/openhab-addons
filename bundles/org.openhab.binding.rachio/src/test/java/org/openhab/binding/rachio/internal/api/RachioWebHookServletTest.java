@@ -57,7 +57,7 @@ class RachioWebHookServletTest {
     void duplicateWebhookEventIsAcknowledgedButRoutedOnce() throws Exception {
         RachioHandlerFactory handlerFactory = mockHandlerFactory(true);
         RachioWebHookServlet servlet = servlet(handlerFactory);
-        String body = eventJson("event-1");
+        String body = eventJson("abc");
 
         HttpServletResponse firstResponse = response();
         servlet.service(request(body, VALID_SIGNATURE), firstResponse);
@@ -67,6 +67,41 @@ class RachioWebHookServletTest {
         verify(handlerFactory, times(1)).webHookEvent(eq("127.0.0.1"), any(RachioEventGsonDTO.class));
         verify(firstResponse).setStatus(HttpServletResponse.SC_OK);
         verify(duplicateResponse).setStatus(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    void failedWebhookProcessingLeavesEventRetryable() throws Exception {
+        RachioHandlerFactory handlerFactory = mockHandlerFactory(true);
+        when(handlerFactory.webHookEvent(anyString(), any(RachioEventGsonDTO.class)))
+                .thenThrow(new RuntimeException("simulated failure")).thenReturn(true);
+        RachioWebHookServlet servlet = servlet(handlerFactory);
+        String body = eventJson("abc");
+
+        HttpServletResponse failedResponse = response();
+        servlet.service(request(body, VALID_SIGNATURE), failedResponse);
+        HttpServletResponse retryResponse = response();
+        servlet.service(request(body, VALID_SIGNATURE), retryResponse);
+
+        verify(handlerFactory, times(2)).webHookEvent(eq("127.0.0.1"), any(RachioEventGsonDTO.class));
+        verify(failedResponse).sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        verify(retryResponse).setStatus(HttpServletResponse.SC_OK);
+    }
+
+    @Test
+    void unroutedWebhookProcessingLeavesEventRetryable() throws Exception {
+        RachioHandlerFactory handlerFactory = mockHandlerFactory(true);
+        when(handlerFactory.webHookEvent(anyString(), any(RachioEventGsonDTO.class))).thenReturn(false, true);
+        RachioWebHookServlet servlet = servlet(handlerFactory);
+        String body = eventJson("abc");
+
+        HttpServletResponse failedResponse = response();
+        servlet.service(request(body, VALID_SIGNATURE), failedResponse);
+        HttpServletResponse retryResponse = response();
+        servlet.service(request(body, VALID_SIGNATURE), retryResponse);
+
+        verify(handlerFactory, times(2)).webHookEvent(eq("127.0.0.1"), any(RachioEventGsonDTO.class));
+        verify(failedResponse).setStatus(HttpServletResponse.SC_OK);
+        verify(retryResponse).setStatus(HttpServletResponse.SC_OK);
     }
 
     @Test

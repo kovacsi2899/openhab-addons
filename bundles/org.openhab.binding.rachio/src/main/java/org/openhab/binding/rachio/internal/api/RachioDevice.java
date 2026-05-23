@@ -96,7 +96,7 @@ public class RachioDevice extends RachioCloudDevice {
         try {
             RachioApi.copyMatchingFields(device, this);
             updateRainDelayFromExpirationDate();
-            logger.trace("Adding ddevice '{}' (id='{}', model='{}', on={}, status={}, deleted={})", device.name,
+            logger.trace("Adding device '{}' (id='{}', model='{}', on={}, status={}, deleted={})", device.name,
                     device.id, device.model, device.on, device.status, device.deleted);
             if (!device.deleted) {
                 zoneList = new HashMap<String, RachioZone>(); // discard current list

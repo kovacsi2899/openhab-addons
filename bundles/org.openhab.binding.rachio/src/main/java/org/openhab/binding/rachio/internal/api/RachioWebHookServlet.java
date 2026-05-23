@@ -73,9 +73,9 @@ public class RachioWebHookServlet extends HttpServlet {
         this.rachioHandlerFactory = rachioHandlerFactory;
         try {
             httpService.registerServlet(SERVLET_WEBHOOK_PATH, this, null, httpService.createDefaultHttpContext());
-            logger.debug("RchioWebhook: Started servlet at {}", SERVLET_WEBHOOK_PATH);
+            logger.debug("RachioWebhook: Started servlet at {}", SERVLET_WEBHOOK_PATH);
         } catch (ServletException | NamespaceException e) {
-            logger.warn("RchioWebhook: Could not start Rachio Webhook servlet", e);
+            logger.warn("RachioWebhook: Could not start Rachio Webhook servlet", e);
         }
     }
 
@@ -139,9 +139,11 @@ public class RachioWebHookServlet extends HttpServlet {
         }
 
         String data = new String(rawBody, StandardCharsets.UTF_8);
+        @Nullable
+        RachioEventGsonDTO event = null;
         try {
             logger.trace("RachioWebHook: Received {} byte webhook payload", rawBody.length);
-            RachioEventGsonDTO event = parseEvent(data);
+            event = parseEvent(data);
             event.normalize();
             logger.trace("RachioEvent {}.{} for device '{}': {}", event.category, event.type, event.deviceId,
                     event.summary);
@@ -155,8 +157,12 @@ public class RachioWebHookServlet extends HttpServlet {
                 return;
             }
 
-            if (!rachioHandlerFactory.webHookEvent(ipAddress, event)) {
-                logger.debug("RachioWebHook: Unable to route validated webhook event ({})", describeEvent(event));
+            logger.trace("RachioWebHook: Processing validated webhook event ({})", describeEvent(event));
+            if (rachioHandlerFactory.webHookEvent(ipAddress, event)) {
+                markEventProcessed(event);
+            } else {
+                logger.debug("RachioWebHook: Unable to route validated webhook event; event remains retryable ({})",
+                        describeEvent(event));
             }
             resp.setStatus(HttpServletResponse.SC_OK);
             resp.getWriter().write("");
@@ -165,7 +171,15 @@ public class RachioWebHookServlet extends HttpServlet {
                     e.getMessage());
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (RuntimeException e) {
-            logger.debug("RachioWebHook: Exception processing validated webhook callback: {}", e.getMessage(), e);
+            @Nullable
+            RachioEventGsonDTO failedEvent = event;
+            if (failedEvent != null) {
+                logger.debug(
+                        "RachioWebHook: Exception processing validated webhook event; event remains retryable ({}): {}",
+                        describeEvent(failedEvent), e.getMessage(), e);
+            } else {
+                logger.debug("RachioWebHook: Exception processing validated webhook callback: {}", e.getMessage(), e);
+            }
             resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
@@ -277,15 +291,26 @@ public class RachioWebHookServlet extends HttpServlet {
     }
 
     private boolean isDuplicateEvent(RachioEventGsonDTO event) {
-        if (duplicateEventCache.isDuplicate(event.eventId)) {
-            logger.debug("RachioWebHook: Ignoring duplicate validated webhook event ({})", describeEvent(event));
-            return true;
-        }
         if (isBlank(event.eventId)) {
             logger.trace("RachioWebHook: Validated webhook event has no eventId; duplicate detection skipped ({})",
                     describeEvent(event));
+            return false;
+        }
+        if (duplicateEventCache.isProcessed(event.eventId)) {
+            logger.debug("RachioWebHook: Skipping duplicate processed webhook event ({})", describeEvent(event));
+            return true;
         }
         return false;
+    }
+
+    private void markEventProcessed(RachioEventGsonDTO event) {
+        if (isBlank(event.eventId)) {
+            logger.trace("RachioWebHook: Processed webhook event has no eventId; duplicate cache not updated ({})",
+                    describeEvent(event));
+            return;
+        }
+        duplicateEventCache.markProcessed(event.eventId);
+        logger.trace("RachioWebHook: Marked webhook event as processed ({})", describeEvent(event));
     }
 
     private String describeEvent(RachioEventGsonDTO event) {
