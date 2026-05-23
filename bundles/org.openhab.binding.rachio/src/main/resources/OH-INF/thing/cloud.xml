@@ -15,8 +15,8 @@
 
 		<config-description>
 			<parameter name="apikey" type="text">
-				<label>Rachio apikey</label>
-				<description>Visit Rachio Cloud Portal to create an apikey</description>
+				<label>Rachio API Key</label>
+				<description>Visit the Rachio Web App account settings to create an API key.</description>
 				<required>false</required>
 			</parameter>
 			<parameter name="pollingInterval" type="integer" min="30" step="30">
@@ -83,7 +83,7 @@
 			</parameter>
 			<parameter name="clearAllCallbacks" type="boolean">
 				<label>Clear Callbacks</label>
-				<description>If true all callbacks will be cleared on registrations.</description>
+				<description>If true, existing callbacks for this binding instance are cleared during registration.</description>
 				<required>false</required>
 				<default>false</default>
 			</parameter>

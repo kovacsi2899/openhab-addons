@@ -95,7 +95,7 @@
 	<channel-type id="zone_runTime">
 		<item-type unitHint="s">Number:Time</item-type>
 		<label>Runtime</label>
-		<description>Set > 0 to start zone for given secs</description>
+		<description>Set &gt; 0 to start the zone for the given number of seconds.</description>
 		<tags>
 			<tag>Control</tag>
 			<tag>Duration</tag>

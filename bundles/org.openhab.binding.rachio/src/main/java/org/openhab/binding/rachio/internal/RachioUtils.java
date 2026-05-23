@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.rachio.internal;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -90,11 +89,7 @@ public class RachioUtils {
     }
 
     public static String urlEncode(String input) {
-        try {
-            return URLEncoder.encode(input, StandardCharsets.UTF_8.toString());
-        } catch (UnsupportedEncodingException e) {
-            return input;
-        }
+        return URLEncoder.encode(input, StandardCharsets.UTF_8);
     }
 
     public static Long now() {

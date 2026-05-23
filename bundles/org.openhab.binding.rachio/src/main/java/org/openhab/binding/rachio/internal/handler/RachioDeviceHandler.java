@@ -166,10 +166,10 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             if (channel.equals(RachioBindingConstants.CHANNEL_DEVICE_ACTIVE)) {
                 if (command instanceof OnOffType) {
                     if (command == OnOffType.OFF) {
-                        logger.debug("{}: Pause device {} (disable watering, schedules etc.)", thingId, d.name);
+                        logger.debug("{}: Pause device {} (disable watering, schedules etc.)", thingId, d.name);
                         handler.disableDevice(d.id);
                     } else {
-                        logger.debug("{}: Resume device {} (enable watering, schedules etc.)", thingId, d.name);
+                        logger.debug("{}: Resume device {} (enable watering, schedules etc.)", thingId, d.name);
                         handler.enableDevice(d.id);
                     }
                 }

@@ -77,7 +77,7 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
         logger.debug("RachioHandlerFactory: Initialized Rachio Thing handler.");
         bridgeList = new HashMap<String, RachioBridge>();
 
-        logger.debug("RachioBridge: Activate, configurarion:");
+        logger.debug("RachioHandlerFactory: Activating with binding-level configuration");
         bindingConfig.updateConfig(configProperties);
     }
 
@@ -109,10 +109,10 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
                 return createDevice(thing);
             }
         } catch (RuntimeException e) {
-            logger.debug("RachioHandlerFactory:Exception while creating Rachio Thing handler: {}", e.toString());
+            logger.debug("RachioHandlerFactory: Exception while creating Rachio Thing handler: {}", e.toString());
         }
 
-        logger.debug("RachioHandlerFactory:: Unable to create thing handler!");
+        logger.debug("RachioHandlerFactory: Unable to create thing handler");
         return null;
     }
 
@@ -133,7 +133,8 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     /**
      * Called from the webhook servlet. event.externalId is used to route the event to the corresponding bridge handler
      *
-     * @param event
+     * @param ipAddress source IP address from the servlet request
+     * @param event parsed webhook event
      */
     public boolean webHookEvent(String ipAddress, RachioEventGsonDTO event) {
         try {

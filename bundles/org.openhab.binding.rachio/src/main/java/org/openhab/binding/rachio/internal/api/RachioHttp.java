@@ -149,13 +149,12 @@ public class RachioHttp {
             HttpURLConnection request = (HttpURLConnection) location.openConnection();
             if (!apikey.isEmpty()) {
                 request.setRequestProperty("Authorization", "Bearer " + apikey);
-                result.apikey = apikey;
             }
             request.setRequestMethod(method);
             request.setConnectTimeout(15000); // set timeout to 15 seconds
             request.setRequestProperty("User-Agent", SERVLET_WEBHOOK_USER_AGENT);
             request.setRequestProperty("Content-Type", SERVLET_WEBHOOK_APPLICATION_JSON);
-            logger.trace("RachioHttp[Call #{}]: Call Rachio cloud service: {} '{}')", apiCalls,
+            logger.trace("RachioHttp[Call #{}]: Call Rachio cloud service: {} '{}'", apiCalls,
                     request.getRequestMethod(), sanitizeForLogging(result.url));
             if (method.equals(HTTP_METHOD_PUT) || method.equals(HTTP_METHOD_POST)) {
                 request.setDoOutput(true);
@@ -172,8 +171,9 @@ public class RachioHttp {
                         request.getHeaderField(RACHIO_JSON_RATE_REMAINING),
                         request.getHeaderField(RACHIO_JSON_RATE_RESET));
                 if (result.isRateLimitBlocked()) {
-                    String message = MessageFormat.format("RachioHttp: Critcal API rate limit: {0} / {1}, reset at {2}",
-                            result.rateRemaining, result.rateLimit, result.rateReset);
+                    String message = MessageFormat.format(
+                            "RachioHttp: Critical API rate limit: {0} / {1}, reset at {2}", result.rateRemaining,
+                            result.rateLimit, result.rateReset);
                     throw new RachioApiException(message, result);
                 }
             }

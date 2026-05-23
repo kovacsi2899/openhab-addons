@@ -1,18 +1,16 @@
 # Rachio Sprinkler Binding
 
-This binding integrates your Rachio sprinkler system into openHAB and allows to retrieve status information and control some functions like running zones, stop watering etc. 
+This binding integrates your Rachio sprinkler system into openHAB, retrieves status information, and controls common functions such as running zones and stopping watering.
 
-The binding uses the Rachio Cloud API, so you need an account. 
+The binding uses the Rachio Cloud API, so you need a Rachio account.
 You need to get an API key before the binding can discover your devices.
-Go to [Rachio Web App](https://rachio.com->login), click on Account Settings in the left navigation.
+Go to the [Rachio Web App](https://app.rach.io/), click Account Settings in the left navigation.
 At the bottom you'll find a link "Get API key".
 
-To receive events from the Rachio cloud service e.g. start/stop zones & skip watering, configure a public HTTPS callback URL that can reach your openHAB instance.
+To receive events from the Rachio cloud service, such as start/stop zone and skip-watering events, configure a public HTTPS callback URL that can reach your openHAB instance.
 
-The device setup is read from the Rachio online service, when a Rachio Cloud Connector thing is configured, and therefore it shares the same items as the Smartphone and Web Apps, so there is no special setup required.
-In fact all Apps (including this binding) control the same device.
-The binding implements monitoring and control functions, but no configuration etc. 
-To change configuration you could use the Rachio smartphone app or website.
+The device setup is read from the Rachio online service when a Rachio Cloud Connector Thing is configured.
+The binding implements monitoring and day-to-day control, but it is not intended to replace the Rachio mobile or web app for full device configuration.
 
 Once the binding is able to connect to the Cloud API it automatically starts discovery for supported resources under this account.
 As a result the following things can appear in the Inbox:
@@ -26,18 +24,18 @@ As a result the following things can appear in the Inbox:
 - n valves for each Smart Hose Timer BaseStation
 - n valve programs for Smart Hose Timer schedules returned by the Rachio Program API
 
-Example: 2 controllers with 8 zones each under the same account creates 19 things (1xbridge, 2xdevice, 16xzone). 
+Example: 2 controllers with 8 zones each under the same account creates 19 Things (1 cloud bridge, 2 devices, 16 zones).
 
 ## Supported Things
 
-The Cloud API Connector is represented by a Bridge Thing. 
-All devices are connected to this thing, all zones to the corresponding device. 
+The Cloud API Connector is represented by a Bridge Thing.
+All devices are connected to this Thing, and all zones are connected to the corresponding device.
 
 |Thing |Description                                                                                                            |
 |:-----|:----------------------------------------------------------------------------------------------------------------------|
 |cloud |Each Rachio account is represented by a `cloud` thing. The binding supports multiple accounts at the same time.          |
 |device|Each sprinkler controller is represented by a `device` thing, which links to the cloud thing.                             |
-|zone  |Each zone for each controller creates a `zone` thing, which links to the device thing (and  directly to the bridge thing)|
+|zone  |Each zone for each controller creates a `zone` thing, which links to the device thing and directly to the bridge thing.|
 |schedule|Each fixed schedule rule can be represented by a `schedule` thing. Discovery creates these when schedule IDs are present in the controller response.|
 |flexschedule|Each flex schedule rule can be represented by a read-only `flexschedule` thing when flex schedule IDs are present in the controller response.|
 |basestation|Each Smart Hose Timer Wi-Fi hub can be represented by a read-only `basestation` thing.|
@@ -72,19 +70,22 @@ Rachio API identifiers are real UUIDs from the API; a controller `deviceId` is n
 - Smart Hose Timer planned run and program skip controls where represented by current channels
 - QuantityType channel support for physical values
 
-### Partially Supported
+Schedule-rule, Smart Hose Timer Program, and webhook support is intentionally scoped to the openHAB Things and channels listed above.
+The binding does not expose a full schedule/program create-update-delete editor; use the Rachio app for full device and schedule configuration.
+For webhook event types, the binding queries Rachio's `listWebhookEventTypes` catalog and subscribes to supported irrigation, valve, and program events that match the implemented Thing types.
 
-- Full Rachio schedule-rule API: discovery, read-only metadata, start, skip, skip-forward, and seasonal-adjustment control are represented; full schedule-rule create/update/delete editing is not mapped to openHAB channels or actions in this PR scope.
-- Smart Hose Timer Program API: discovered programs, summary/planned-run state, webhook state, and skip controls are represented; the binding does not currently expose the internal create/update/delete Program API helpers as a full schedule editor.
-- Webhook event types: the binding queries Rachio's `listWebhookEventTypes` catalog and subscribes to supported irrigation, valve, and program event types that match the implemented Thing types.
-
-### Will Be Supported in a Future Iteration
+### Will be supported
 
 - Smart Lighting Controller resources and `LIGHTING_CONTROLLER` webhook events.
 - Any Rachio API feature that is not currently represented by an openHAB Thing, channel, or action and is intentionally outside this PR scope.
 - Optional richer diagnostics for Smart Hose Timer state synchronization.
 
-###  Configuration
+### Not planned / not applicable
+
+- Full replacement of the Rachio mobile or web app for device setup, watering schedule editing, or account administration.
+- Changing Rachio cloud account settings outside the official Rachio app and web app flows.
+
+### Configuration
 
 Account-level settings belong on the Rachio Cloud Connector Thing (`rachio:cloud`).
 This includes the API token, polling/default runtime values, event and forecast preferences, Smart Hose Timer summary windows, and webhook callback settings.
@@ -158,9 +159,9 @@ Number:Dimensionless Rachio_ForecastPrecipProbability "Rain probability [%.0f %%
 - Click Add Manually at the end of the list, this will open a list of addable things.
 - Select the Rachio Binding
 - Select Rachio Cloud Connector thing
-- Enter at least the api key, other settings are optional
+- Enter at least the API key; other settings are optional.
 
-To receive events from the Rachio Cloud service set the callbackUrl to a public HTTPS URL that forwards to `/rachio/webhook`, for example `https://host.example.org/rachio/webhook`.
+To receive events from the Rachio Cloud service, set `callbackUrl` to a public HTTPS URL that forwards to `/rachio/webhook`, for example `https://host.example.org/rachio/webhook`.
 
 Save the Thing configuration.
 
@@ -191,12 +192,12 @@ Bridge rachio:cloud:1 [
 
 |Parameter        |Description                                                                                                                 |
 |:----------------|:---------------------------------------------------------------------------------------------------------------------------|
-|apikey           |This is a token required to access the Rachio Cloud account. See Discovery on information how to get that code.|
-|pollingInterval  |Specifies the delay between two status polls. Usually something like 10 minutes should be enough to have a regular status update when the interfaces is configured. If you don't want/can use events a smaller delay might be interesting to get quicker responses on running zones etc.|
+|apikey           |API token required to access the Rachio Cloud account. Create it in the Rachio Web App account settings.|
+|pollingInterval  |Delay between two status polls. A value around 10 minutes is usually enough for regular status updates when webhooks are configured. If you cannot use events, a smaller delay can provide quicker updates for running zones.|
 |                 |Important: Please make sure to use an interval > 90sec. Rachio allows 3,500 API requests per day, and the limit resets at midnight UTC. This means if you are accessing the API too frequently your account can get blocked until the next reset.|
 |defaultRuntime   |You could run zones in 2 different ways:|
 |                 |1. Just by pushing the button in your UI. The zone will start watering for &lt;defaultRuntime&gt; seconds.| 
-|                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This will start the zone for &lt;n&gt; seconds. Usually this variant required a OH rule setting the runTime and then sending a ON to the run channel.|
+|                 |2. Setting the zone's channel runTime to &lt;n&gt; seconds and then starting the zone. This starts the zone for &lt;n&gt; seconds. This variant usually requires an openHAB rule that sets runTime and then sends ON to the run channel.|
 |eventHistoryLookbackHours|Hours of recent controller event history to retrieve. Set to 0 to disable event history polling.|
 |forecastUnits    |Units for the Rachio forecast endpoint: `METRIC` or `US`.|
 |hoseSummaryLookbackDays|Days of recent Smart Hose Timer Summary day-view data to retrieve for valve and program run state. Default is 2; set to 0 to skip historical runs.|
@@ -204,7 +205,7 @@ Bridge rachio:cloud:1 [
 |callbackUrl      |Public HTTPS URL that forwards to `/rachio/webhook`. In the recommended Basic Auth setup, do not include credentials in this URL. For openHAB Cloud / myopenHAB.org, use `https://home.myopenhab.org/rachio/webhook`. Prefer openHAB Cloud / myopenHAB.org or a properly authenticated reverse proxy; do not expose an unauthenticated openHAB endpoint directly to the Internet.|
 |callbackUsername |Optional HTTP Basic Auth username for the webhook endpoint, for example your myopenHAB.org email address. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.|
 |callbackPassword |Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value, including special characters such as `@`, `?`, `#`, or `/`; the binding percent-encodes it before registering the webhook with Rachio.|
-|clearAllCallbacks|The binding dynamically registers the callback. It also supports multiple applications registered to receive events, e.g. a 2nd OH device with the binding providing the same functionality. If for any reason your device setup changes (e.g. new ip address) you need to clear the registered URL once to avoid the "old URL" still receiving events. This also allows to move for a test setup to the regular setup.|
+|clearAllCallbacks|The binding dynamically registers callbacks and supports multiple applications receiving events. If your callback setup changes, enable this once to clear stale URLs so the old callback no longer receives events. Disable it again after a successful registration.|
 
 The bridge thing doesn't have any channels.
 

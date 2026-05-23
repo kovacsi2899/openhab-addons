@@ -216,7 +216,7 @@ public class RachioDiscoveryService extends AbstractDiscoveryService implements 
                 counts.schedules += discoverScheduleRules(bridgeUID, dev);
                 counts.flexSchedules += discoverFlexScheduleRules(bridgeUID, dev);
             }
-            logger.debug("{}  Rachio device initialized.", deviceList.size());
+            logger.debug("{} Rachio device initialized.", deviceList.size());
 
             counts.add(discoverSmartHoseTimers(handler, bridgeUID));
 

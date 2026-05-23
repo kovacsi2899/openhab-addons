@@ -15,7 +15,6 @@ package org.openhab.binding.rachio.internal.api;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.*;
 
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -105,7 +104,6 @@ public class RachioApi {
     private final Logger logger = LoggerFactory.getLogger(RachioApi.class);
     private static final String MD5_HASH_ALGORITHM = "MD5";
     private static final String HMAC_SHA256_ALGORITHM = "HmacSHA256";
-    private static final String UTF8_CHAR_SET = "UTF-8";
     private static final int WEBHOOK_SIGNATURE_LENGTH_BYTES = 32;
     private static final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 
@@ -1476,7 +1474,6 @@ public class RachioApi {
     public Map<String, String> fillProperties() {
         Map<String, String> properties = new HashMap<>();
         properties.put(Thing.PROPERTY_VENDOR, RachioBindingConstants.BINDING_VENDOR);
-        properties.put(RachioBindingConstants.PROPERTY_APIKEY, apikey);
         properties.put(RachioBindingConstants.PROPERTY_PERSON_ID, personId);
         properties.put(RachioBindingConstants.PROPERTY_PERSON_USER, userName);
         properties.put(RachioBindingConstants.PROPERTY_PERSON_NAME, fullName);
@@ -1492,7 +1489,7 @@ public class RachioApi {
      */
     protected static String getMD5Hash(String unhashed) {
         try {
-            byte[] bytesOfMessage = unhashed.getBytes(UTF8_CHAR_SET);
+            byte[] bytesOfMessage = unhashed.getBytes(StandardCharsets.UTF_8);
 
             MessageDigest md5 = MessageDigest.getInstance(MD5_HASH_ALGORITHM);
 
@@ -1507,7 +1504,7 @@ public class RachioApi {
             String digest = sb.toString();
 
             return digest;
-        } catch (RuntimeException | UnsupportedEncodingException | NoSuchAlgorithmException e) {
+        } catch (RuntimeException | NoSuchAlgorithmException e) {
             // logger.warn("Unexpected exception while generating MD5: {} ({})", e.getMessage(), e.getClass());
             return "";
         }

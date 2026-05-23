@@ -94,7 +94,7 @@ public class RachioImageServlet extends HttpServlet {
                 ipAddress = request.getRemoteAddr();
             }
             String path = request.getRequestURI().substring(0, SERVLET_IMAGE_PATH.length());
-            logger.trace("RachioImage: Reqeust from {}:{}{} ({}:{}, {})", ipAddress, request.getRemotePort(), path,
+            logger.trace("RachioImage: Request from {}:{}{} ({}:{}, {})", ipAddress, request.getRemotePort(), path,
                     request.getRemoteHost(), request.getServerPort(), request.getProtocol());
             if (!request.getMethod().equalsIgnoreCase(HTTP_METHOD_GET)) {
                 logger.warn("RachioImage: Unexpected method='{}'", request.getMethod());
@@ -106,7 +106,7 @@ public class RachioImageServlet extends HttpServlet {
 
             String uri = request.getRequestURI().substring(request.getRequestURI().lastIndexOf("/") + 1);
             String imageUrl = SERVLET_IMAGE_URL_BASE + uri;
-            logger.debug("RachioImage: {} image '{}' from '{}'", request.getMethod(), uri, imageUrl);
+            logger.debug("RachioImage: {} image '{}' from '{}'", request.getMethod(), uri, imageUrl);
             setHeaders(resp);
             URL url = new URL(imageUrl);
             URLConnection conn = url.openConnection();

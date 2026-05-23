@@ -9,7 +9,7 @@
 
 	<config-description>
 		<parameter name="apikey" type="text">
-			<label>Rachio apikey</label>
+			<label>Rachio API Key</label>
 			<description>Deprecated fallback only. Configure the API token on the Rachio Cloud Connector Thing. Legacy
 				binding-level values are used only when the Thing value is absent.</description>
 			<required>false</required>

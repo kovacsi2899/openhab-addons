@@ -32,8 +32,6 @@ public class RachioApiResult {
 
     public String requestMethod = "";
     public String url = "";
-    @Nullable
-    public String apikey = "";
     public Integer responseCode = 0;
     public String resultString = "";
 
@@ -69,12 +67,12 @@ public class RachioApiResult {
         }
 
         if (isRateLimitCritical()) {
-            logger.warn("Remaing number of API calls is getting critical: limit={}, remaining={}, reset at {}",
+            logger.warn("Remaining number of API calls is getting critical: limit={}, remaining={}, reset at {}",
                     rateLimit, rateRemaining, rateReset);
             return;
         }
         if (isRateLimitWarning()) {
-            logger.warn("Remaing number of  API calls is low: limit={}, remaining={}, reset at {}", rateLimit,
+            logger.warn("Remaining number of API calls is low: limit={}, remaining={}, reset at {}", rateLimit,
                     rateRemaining, rateReset);
             return;
         }

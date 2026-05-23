@@ -77,7 +77,6 @@ public class RachioBindingConstants {
     public static final String PROPERTY_IP_DNS1 = "ipDNS1";
     public static final String PROPERTY_IP_DNS2 = "ipDNS2";
     public static final String PROPERTY_WIFI_RSSI = "wifiSignal";
-    public static final String PROPERTY_APIKEY = "apikey";
     public static final String PROPERTY_NAME = "name";
     public static final String PROPERTY_MODEL = "model";
     public static final String PROPERTY_EXT_ID = "externalId";

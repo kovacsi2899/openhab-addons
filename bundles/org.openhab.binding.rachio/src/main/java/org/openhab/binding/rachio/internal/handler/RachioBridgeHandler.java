@@ -89,7 +89,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
 
     /**
      * Thing Handler for the Bridge thing. Handles the cloud connection and links devices+zones to a bridge.
-     * Creates an instance of the RachioApi (holding all RachioDevices + RachioZones for the given apikey)
+     * Creates an instance of the RachioApi (holding all RachioDevices + RachioZones for the given API key)
      *
      * @param bridge: Bridge class object
      */
@@ -337,7 +337,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
             throws RachioApiException, UnknownHostException {
         if (thingConfig.apikey.isEmpty()) {
             throw new RachioApiException(
-                    "RachioCloud: Unable to connect to Rachio Cloud: apikey not set, check services/rachio.cfg!");
+                    "RachioCloud: Unable to connect to Rachio Cloud: API key is not set; configure the Rachio Cloud Connector Thing.");
         }
 
         // initialize API access, may throw an exception
@@ -642,7 +642,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     //
 
     /**
-     * Retrieve the apikey for connecting to rachio cloud
+     * Retrieve the API key for connecting to Rachio cloud
      *
      * @return the Rachio API key
      */

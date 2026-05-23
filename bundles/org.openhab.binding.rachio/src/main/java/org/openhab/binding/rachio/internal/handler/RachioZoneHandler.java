@@ -131,7 +131,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 return;
             }
         } catch (RuntimeException e) {
-            logger.debug("{}: Initialisation failed", thingId, e);
+            logger.debug("{}: Initialization failed", thingId, e);
         }
 
         updateStatus(ThingStatus.OFFLINE);
@@ -177,10 +177,10 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_RUN)) {
                 if (command == OnOffType.ON) {
                     int runtime = currentZone.getStartRunTime();
-                    logger.debug("{}: Starting zone {} for {} secs", thingId, currentZone.name, runtime);
+                    logger.debug("{}: Starting zone {} for {} sec", thingId, currentZone.name, runtime);
                     if (runtime == 0) {
                         runtime = handler.getDefaultRuntime();
-                        logger.debug("{}: Starting zone {} with default runtime ({} secs);", thingId, currentZone.name,
+                        logger.debug("{}: Starting zone {} with default runtime ({} sec);", thingId, currentZone.name,
                                 runtime);
                     }
                     handler.startZone(currentZone.id, runtime);
@@ -190,7 +190,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
                 }
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_RUN_TIME)) {
                 RachioQuantityTypes.durationSeconds(command).ifPresentOrElse(runtime -> {
-                    logger.debug("{}: Zone {} will start for {} sec", thingId, currentZone.name, runtime);
+                    logger.debug("{}: Zone {} will start for {} sec", thingId, currentZone.name, runtime);
                     currentZone.setStartRunTime(runtime);
                 }, () -> logger.debug("{}: Zone runtime command value is not a duration: {}", thingId, command));
             } else if (channel.equals(RachioBindingConstants.CHANNEL_ZONE_MOISTURE_LEVEL)) {
