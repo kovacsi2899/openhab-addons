@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<update:update-descriptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:update="https://openhab.org/schemas/update-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/update-description/v1.0.0 https://openhab.org/schemas/update-description-1.0.0.xsd">
+
+	<thing-type uid="rachio:flex-schedule">
+		<instruction-set targetVersion="1">
+			<update-channel id="name">
+				<type>rachio:schedule-name</type>
+			</update-channel>
+			<update-channel id="enabled">
+				<type>rachio:schedule-enabled</type>
+			</update-channel>
+			<update-channel id="type">
+				<type>rachio:schedule-type</type>
+			</update-channel>
+			<update-channel id="start-time">
+				<type>rachio:schedule-start-time</type>
+			</update-channel>
+			<update-channel id="last-run">
+				<type>rachio:schedule-last-run</type>
+			</update-channel>
+			<update-channel id="next-run">
+				<type>rachio:schedule-next-run</type>
+			</update-channel>
+			<update-channel id="zones">
+				<type>rachio:schedule-zones</type>
+			</update-channel>
+			<update-channel id="seasonal-adjustment">
+				<type>rachio:schedule-seasonal-adjustment</type>
+			</update-channel>
+			<update-channel id="last-update">
+				<type>rachio:last-update</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:base-station">
+		<instruction-set targetVersion="1">
+			<update-channel id="name">
+				<type>rachio:base-station-name</type>
+			</update-channel>
+			<update-channel id="online">
+				<type>rachio:base-station-online</type>
+			</update-channel>
+			<update-channel id="last-update">
+				<type>rachio:last-update</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+
+	<thing-type uid="rachio:valve-program">
+		<instruction-set targetVersion="1">
+			<update-channel id="name">
+				<type>rachio:valve-program-name</type>
+			</update-channel>
+			<update-channel id="enabled">
+				<type>rachio:valve-program-enabled</type>
+			</update-channel>
+			<update-channel id="program-type">
+				<type>rachio:valve-program-program-type</type>
+			</update-channel>
+			<update-channel id="valve-id">
+				<type>rachio:valve-program-valve-id</type>
+			</update-channel>
+			<update-channel id="start-time">
+				<type>rachio:valve-program-start-time</type>
+			</update-channel>
+			<update-channel id="next-run-time">
+				<type>rachio:valve-program-next-run-time</type>
+			</update-channel>
+			<update-channel id="last-run-time">
+				<type>rachio:valve-program-last-run-time</type>
+			</update-channel>
+			<update-channel id="duration">
+				<type>rachio:valve-program-duration</type>
+			</update-channel>
+			<update-channel id="days-of-week">
+				<type>rachio:valve-program-days-of-week</type>
+			</update-channel>
+			<update-channel id="interval-days">
+				<type>rachio:valve-program-interval-days</type>
+			</update-channel>
+			<update-channel id="seasonal-adjustment">
+				<type>rachio:valve-program-seasonal-adjustment</type>
+			</update-channel>
+			<update-channel id="updated-at">
+				<type>rachio:valve-program-updated-at</type>
+			</update-channel>
+			<update-channel id="next-program-run-skipped">
+				<type>rachio:valve-program-next-program-run-skipped</type>
+			</update-channel>
+			<update-channel id="skip-next-planned-run">
+				<type>rachio:valve-program-skip-next-planned-run</type>
+			</update-channel>
+			<update-channel id="cancel-next-planned-run-skip">
+				<type>rachio:valve-program-cancel-next-planned-run-skip</type>
+			</update-channel>
+			<update-channel id="last-rain-skip-planned-run-start-time">
+				<type>rachio:valve-program-last-rain-skip-planned-run-start-time</type>
+			</update-channel>
+			<update-channel id="last-rain-skip-canceled-planned-run-start-time">
+				<type>rachio:valve-program-last-rain-skip-canceled-planned-run-start-time</type>
+			</update-channel>
+			<update-channel id="last-update">
+				<type>rachio:last-update</type>
+			</update-channel>
+			<update-channel id="last-event">
+				<type>rachio:last-event</type>
+			</update-channel>
+			<update-channel id="last-event-time">
+				<type>rachio:last-event-time</type>
+			</update-channel>
+		</instruction-set>
+	</thing-type>
+</update:update-descriptions>
