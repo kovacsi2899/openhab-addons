@@ -21,7 +21,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE_LEGACY;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
 
 import java.util.Map;
@@ -172,6 +174,35 @@ class RachioScheduleHandlerStatusTest {
     }
 
     @Test
+    void currentFlexScheduleHandlerResolvesUuidFromThingUidDuringInitialization() {
+        ThingUID uid = new ThingUID(THING_TYPE_FLEX_SCHEDULE, new ThingUID(THING_TYPE_CLOUD, "bridge"), "uid-flex-id");
+        Thing thing = flexScheduleThing(uid, Map.of(), Map.of());
+        InitializingFlexScheduleHandler handler = new InitializingFlexScheduleHandler(thing, false, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.initialize();
+
+        assertThat(handler.loadedFlexScheduleRuleId, is("uid-flex-id"));
+        verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+    }
+
+    @Test
+    void legacyFlexScheduleHandlerResolvesUuidFromThingUidDuringInitialization() {
+        ThingUID uid = new ThingUID(THING_TYPE_FLEX_SCHEDULE_LEGACY, new ThingUID(THING_TYPE_CLOUD, "bridge"),
+                "legacy-uid-flex-id");
+        Thing thing = flexScheduleThing(uid, Map.of(), Map.of());
+        InitializingFlexScheduleHandler handler = new InitializingFlexScheduleHandler(thing, false, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.initialize();
+
+        assertThat(handler.loadedFlexScheduleRuleId, is("legacy-uid-flex-id"));
+        verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+    }
+
+    @Test
     void flexScheduleHandlerDoesNotGoOnlineAfterFailedInitializationLoad() {
         Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "config-flex-id"), Map.of());
         InitializingFlexScheduleHandler handler = new InitializingFlexScheduleHandler(thing, true, false);
@@ -241,7 +272,10 @@ class RachioScheduleHandlerStatusTest {
     }
 
     private Thing flexScheduleThing(Map<String, Object> configuration, Map<String, String> properties) {
-        ThingUID uid = new ThingUID(THING_TYPE_FLEX_SCHEDULE, "bridge", "flex");
+        return flexScheduleThing(new ThingUID(THING_TYPE_FLEX_SCHEDULE, "bridge", "flex"), configuration, properties);
+    }
+
+    private Thing flexScheduleThing(ThingUID uid, Map<String, Object> configuration, Map<String, String> properties) {
         Thing thing = thing(uid);
         when(thing.getConfiguration()).thenReturn(new Configuration(configuration));
         when(thing.getProperties()).thenReturn(properties);

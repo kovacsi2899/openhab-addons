@@ -37,20 +37,21 @@ public class RachioBindingConstants {
     public static final ThingTypeUID THING_TYPE_ZONE = new ThingTypeUID(BINDING_ID, "zone");
     public static final ThingTypeUID THING_TYPE_SCHEDULE = new ThingTypeUID(BINDING_ID, "schedule");
     public static final ThingTypeUID THING_TYPE_FLEX_SCHEDULE = new ThingTypeUID(BINDING_ID, "flex-schedule");
+    public static final ThingTypeUID THING_TYPE_FLEX_SCHEDULE_LEGACY = new ThingTypeUID(BINDING_ID, "flexschedule");
     public static final ThingTypeUID THING_TYPE_BASE_STATION = new ThingTypeUID(BINDING_ID, "base-station");
     public static final ThingTypeUID THING_TYPE_VALVE = new ThingTypeUID(BINDING_ID, "valve");
     public static final ThingTypeUID THING_TYPE_VALVE_PROGRAM = new ThingTypeUID(BINDING_ID, "valve-program");
 
     public static final Set<ThingTypeUID> SUPPORTED_BRIDGE_THING_TYPES_UIDS = Stream.of(THING_TYPE_CLOUD)
             .collect(Collectors.toSet());
-    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream
-            .of(THING_TYPE_DEVICE, THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEX_SCHEDULE,
-                    THING_TYPE_BASE_STATION, THING_TYPE_VALVE, THING_TYPE_VALVE_PROGRAM)
-            .collect(Collectors.toSet());
+    public static final Set<ThingTypeUID> SUPPORTED_DEVICE_THING_TYPES_UIDS = Stream.of(THING_TYPE_DEVICE,
+            THING_TYPE_ZONE, THING_TYPE_SCHEDULE, THING_TYPE_FLEX_SCHEDULE, THING_TYPE_FLEX_SCHEDULE_LEGACY,
+            THING_TYPE_BASE_STATION, THING_TYPE_VALVE, THING_TYPE_VALVE_PROGRAM).collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_ZONE_THING_TYPES_UIDS = Stream.of(THING_TYPE_ZONE)
             .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_SCHEDULE_THING_TYPES_UIDS = Stream
-            .of(THING_TYPE_SCHEDULE, THING_TYPE_FLEX_SCHEDULE).collect(Collectors.toSet());
+            .of(THING_TYPE_SCHEDULE, THING_TYPE_FLEX_SCHEDULE, THING_TYPE_FLEX_SCHEDULE_LEGACY)
+            .collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_HOSE_TIMER_THING_TYPES_UIDS = Stream
             .of(THING_TYPE_BASE_STATION, THING_TYPE_VALVE, THING_TYPE_VALVE_PROGRAM).collect(Collectors.toSet());
     public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Stream

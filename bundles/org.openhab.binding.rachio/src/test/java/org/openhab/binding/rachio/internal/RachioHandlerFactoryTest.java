@@ -18,6 +18,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE_LEGACY;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,13 @@ class RachioHandlerFactoryTest {
     }
 
     @Test
+    void supportsLegacyFlexScheduleThingType() {
+        RachioHandlerFactory factory = new RachioHandlerFactory();
+
+        assertThat(factory.supportsThingType(THING_TYPE_FLEX_SCHEDULE_LEGACY), is(true));
+    }
+
+    @Test
     void createsFlexScheduleHandlerForFlexScheduleThingType() {
         RachioHandlerFactory factory = new RachioHandlerFactory();
         ThingUID bridgeUID = new ThingUID(THING_TYPE_CLOUD, "bridge");
@@ -53,6 +61,20 @@ class RachioHandlerFactoryTest {
         when(thing.getThingTypeUID()).thenReturn(THING_TYPE_FLEX_SCHEDULE);
         when(thing.getUID()).thenReturn(thingUID);
         when(thing.getBridgeUID()).thenReturn(bridgeUID);
+
+        ThingHandler handler = factory.createHandler(thing);
+
+        assertThat(handler, instanceOf(RachioFlexScheduleHandler.class));
+    }
+
+    @Test
+    void createsFlexScheduleHandlerForLegacyFlexScheduleThingType() {
+        RachioHandlerFactory factory = new RachioHandlerFactory();
+        ThingUID bridgeUID = new ThingUID(THING_TYPE_CLOUD, "bridge");
+        ThingUID thingUID = new ThingUID(THING_TYPE_FLEX_SCHEDULE_LEGACY, bridgeUID, "flex-id");
+        Thing thing = Mockito.mock(Thing.class);
+        when(thing.getThingTypeUID()).thenReturn(THING_TYPE_FLEX_SCHEDULE_LEGACY);
+        when(thing.getUID()).thenReturn(thingUID);
 
         ThingHandler handler = factory.createHandler(thing);
 

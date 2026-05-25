@@ -50,7 +50,7 @@ class RachioZoneChannelTest {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         for (String file : List.of("cloud.xml", "device.xml", "zone.xml", "schedule.xml", "flex-schedule.xml",
-                "base-station.xml", "valve.xml", "valve-program.xml")) {
+                "flexschedule.xml", "base-station.xml", "valve.xml", "valve-program.xml")) {
             factory.newDocumentBuilder().parse(resource("/OH-INF/thing/" + file).toFile());
         }
     }
@@ -61,8 +61,16 @@ class RachioZoneChannelTest {
         assertThingTypeVersion("zone.xml");
         assertThingTypeVersion("schedule.xml");
         assertThingTypeVersion("flex-schedule.xml");
+        assertThingTypeVersion("flexschedule.xml");
         assertThingTypeVersion("valve.xml");
         assertThingTypeVersion("valve-program.xml");
+    }
+
+    @Test
+    void legacyFlexScheduleThingTypeIsHiddenFromManualCreation() throws IOException, URISyntaxException {
+        String xml = readThingXml("flexschedule.xml");
+
+        assertThat(xml, containsString("<thing-type id=\"flexschedule\" listed=\"false\">"));
     }
 
     @Test

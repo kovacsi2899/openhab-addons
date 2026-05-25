@@ -14,6 +14,7 @@ package org.openhab.binding.rachio.internal.discovery;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.verify;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_BASE_STATION_ID;
@@ -76,6 +77,7 @@ class RachioDiscoveryServiceTest {
 
         assertThat(result.getThingUID(), is(new ThingUID(THING_TYPE_FLEX_SCHEDULE, BRIDGE_UID, "flex-id")));
         assertThat(result.getThingUID().getAsString(), is("rachio:flex-schedule:bridge:flex-id"));
+        assertThat(result.getThingUID().getAsString(), not(is("rachio:flexschedule:bridge:flex-id")));
         assertThat(result.getBridgeUID(), is(BRIDGE_UID));
         assertThat(result.getRepresentationProperty(), is(PROPERTY_FLEX_SCHEDULE_RULE_ID));
         assertThat(result.getProperties().get(PROPERTY_FLEX_SCHEDULE_RULE_ID), is("flex-id"));
