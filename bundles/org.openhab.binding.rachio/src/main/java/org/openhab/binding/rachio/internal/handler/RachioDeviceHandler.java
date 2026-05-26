@@ -61,8 +61,6 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
     private static final long DEFAULT_WEBHOOK_REGISTRATION_RETRY_DELAY_SECONDS = 30;
     private static final long MIN_WEBHOOK_REGISTRATION_RETRY_DELAY_SECONDS = 5;
     private static final long MAX_WEBHOOK_REGISTRATION_RETRY_DELAY_SECONDS = 5 * 60;
-    private static final String CONTROLLER_OFFLINE_STATUS_DESCRIPTION = "Rachio controller reports OFFLINE";
-
     private final Logger logger = LoggerFactory.getLogger(RachioDeviceHandler.class);
 
     @Nullable
@@ -331,7 +329,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             dev.update(updatedDev);
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
             postChannelData();
-            updateThingStatusFromDeviceStatus();
+            updateThingStatusAfterSuccessfulCommunication();
             return true;
         }
         return false;
@@ -424,7 +422,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         refreshSmartIrrigationReadExtensions(true);
         RachioDevice d = dev;
         if (d != null) {
-            updateThingStatusFromDeviceStatus();
+            updateThingStatusAfterSuccessfulCommunication();
         }
     }
 
@@ -578,7 +576,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             if (update) {
                 postChannelData();
                 updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
-                updateThingStatusFromDeviceStatus();
+                updateThingStatusAfterSuccessfulCommunication();
                 return true;
             }
             logger.debug("{}: Unhandled event {}.{} for device {} ({}): {}", thingId, event.type, event.subType, d.name,
@@ -689,7 +687,7 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             handler.registerWebHook(device.id, RequestPurpose.BACKGROUND_REFRESH);
             clearPendingWebhookRegistration();
             logger.info("Deferred webhook registration for controller '{}' completed successfully.", device.id);
-            updateThingStatusFromDeviceStatus();
+            updateThingStatusAfterSuccessfulCommunication();
         } catch (RachioApiThrottledException e) {
             deferWebhookRegistration(device.id, e);
         } catch (RachioApiException e) {
@@ -724,29 +722,15 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         return webhookRegistrationPending;
     }
 
-    void refreshThingStatusFromCachedDevice() {
-        updateThingStatusFromDeviceStatus();
+    void refreshThingStatusAfterSuccessfulCommunication() {
+        updateThingStatusAfterSuccessfulCommunication();
     }
 
-    private void updateThingStatusFromDeviceStatus() {
-        RachioDevice device = dev;
-        if (device == null) {
+    private void updateThingStatusAfterSuccessfulCommunication() {
+        if (!isBridgeOnline() || dev == null) {
             return;
         }
-
-        ThingStatus reportedStatus = device.getStatus();
-        if (reportedStatus == ThingStatus.ONLINE) {
-            if (getThing().getStatus() != ThingStatus.ONLINE) {
-                logger.info("Rachio controller '{}' reports ONLINE.", device.id);
-            }
-            updateStatus(ThingStatus.ONLINE);
-            return;
-        }
-
-        if (getThing().getStatus() != ThingStatus.OFFLINE) {
-            logger.info("Rachio controller '{}' reports OFFLINE.", device.id);
-        }
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, CONTROLLER_OFFLINE_STATUS_DESCRIPTION);
+        updateStatus(ThingStatus.ONLINE);
     }
 
     private State stringOrUndef(String value) {

@@ -16,6 +16,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_ZONE_RUN_TIME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_DEVICE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_ZONE;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -33,6 +39,8 @@ import javax.xml.parsers.ParserConfigurationException;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
 import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.ThingUID;
 import org.openhab.core.types.State;
 import org.openhab.core.types.UnDefType;
 import org.xml.sax.SAXException;
@@ -77,19 +85,19 @@ class RachioZoneChannelTest {
     void zoneThingDeclaresTelemetryAndImageChannels() throws IOException, URISyntaxException {
         String xml = readThingXml("zone.xml");
 
-        assertThat(xml, containsString("id=\"available-water\""));
-        assertThat(xml, containsString("id=\"depth-of-water\""));
-        assertThat(xml, containsString("id=\"saturated-depth-of-water\""));
-        assertThat(xml, containsString("id=\"management-allowed-depletion\""));
-        assertThat(xml, containsString("id=\"root-zone-depth\""));
+        assertThat(xml, containsString("id=\"availableWater\""));
+        assertThat(xml, containsString("id=\"depthOfWater\""));
+        assertThat(xml, containsString("id=\"saturatedDepthOfWater\""));
+        assertThat(xml, containsString("id=\"managementAllowedDepletion\""));
+        assertThat(xml, containsString("id=\"rootZoneDepth\""));
         assertThat(xml, containsString("id=\"efficiency\""));
-        assertThat(xml, containsString("id=\"yard-area-square-feet\""));
-        assertThat(xml, containsString("id=\"last-watered-date\""));
-        assertThat(xml, containsString("id=\"fixed-runtime\""));
-        assertThat(xml, containsString("id=\"max-runtime\""));
-        assertThat(xml, containsString("id=\"runtime-no-multiplier\""));
-        assertThat(xml, containsString("id=\"schedule-data-modified\""));
-        assertThat(xml, containsString("id=\"image\" typeId=\"zone-image\""));
+        assertThat(xml, containsString("id=\"yardAreaSquareFeet\""));
+        assertThat(xml, containsString("id=\"lastWateredDate\""));
+        assertThat(xml, containsString("id=\"fixedRuntime\""));
+        assertThat(xml, containsString("id=\"maxRuntime\""));
+        assertThat(xml, containsString("id=\"runtimeNoMultiplier\""));
+        assertThat(xml, containsString("id=\"scheduleDataModified\""));
+        assertThat(xml, containsString("id=\"image\" typeId=\"zone_image\""));
         assertThat(xml, containsString("<item-type>Image</item-type>"));
     }
 
@@ -97,9 +105,41 @@ class RachioZoneChannelTest {
     void deviceThingDeclaresActiveZoneChannels() throws IOException, URISyntaxException {
         String xml = readThingXml("device.xml");
 
-        assertThat(xml, containsString("id=\"active-zone-number\""));
-        assertThat(xml, containsString("id=\"active-zone-name\""));
-        assertThat(xml, containsString("id=\"active-zone-id\""));
+        assertThat(xml, containsString("id=\"activeZoneNumber\""));
+        assertThat(xml, containsString("id=\"activeZoneName\""));
+        assertThat(xml, containsString("id=\"activeZoneId\""));
+    }
+
+    @Test
+    void existingDeviceZoneAndScheduleChannelIdsRemainCompatible() throws IOException, URISyntaxException {
+        String deviceXml = readThingXml("device.xml");
+        String zoneXml = readThingXml("zone.xml");
+        String scheduleXml = readThingXml("schedule.xml");
+        String legacyFlexXml = readThingXml("flexschedule.xml");
+        String currentFlexXml = readThingXml("flex-schedule.xml");
+
+        assertThat(deviceXml, containsString("<channel id=\"pauseTime\" typeId=\"dev_pauseTime\"/>"));
+        assertThat(deviceXml, containsString("<channel id=\"lastUpdate\" typeId=\"lastUpdate\"/>"));
+        assertThat(zoneXml, containsString("<channel id=\"runTime\" typeId=\"zone_runTime\"/>"));
+        assertThat(scheduleXml,
+                containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
+        assertThat(legacyFlexXml,
+                containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
+        assertThat(currentFlexXml,
+                containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
+    }
+
+    @Test
+    void existingItemChannelUidsRetainPublishedChannelIds() {
+        ThingUID device = new ThingUID(THING_TYPE_DEVICE, "bridge", "controller");
+        ThingUID zone = new ThingUID(THING_TYPE_ZONE, "bridge", "zone");
+        ThingUID schedule = new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule");
+
+        assertThat(new ChannelUID(device, CHANNEL_DEVICE_PAUSE_TIME).getAsString(),
+                is("rachio:device:controller:bridge:pauseTime"));
+        assertThat(new ChannelUID(zone, CHANNEL_ZONE_RUN_TIME).getAsString(), is("rachio:zone:zone:bridge:runTime"));
+        assertThat(new ChannelUID(schedule, CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT).getAsString(),
+                is("rachio:schedule:schedule:bridge:seasonalAdjustment"));
     }
 
     @Test

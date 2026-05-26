@@ -274,7 +274,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
                     } else {
                         logger.trace("RachioCloud: Device {} was not updated", checkDev.id);
                         if (deviceHandler != null) {
-                            deviceHandler.refreshThingStatusFromCachedDevice();
+                            deviceHandler.refreshThingStatusAfterSuccessfulCommunication();
                         }
                     }
 

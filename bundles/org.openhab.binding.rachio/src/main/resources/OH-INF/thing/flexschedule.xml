@@ -13,15 +13,15 @@
 		<description>A legacy Rachio flex schedule rule retained for existing Things.</description>
 
 		<channels>
-			<channel id="name" typeId="schedule-name"/>
-			<channel id="enabled" typeId="schedule-enabled"/>
-			<channel id="type" typeId="schedule-type"/>
-			<channel id="start-time" typeId="schedule-start-time"/>
-			<channel id="last-run" typeId="schedule-last-run"/>
-			<channel id="next-run" typeId="schedule-next-run"/>
-			<channel id="zones" typeId="schedule-zones"/>
-			<channel id="seasonal-adjustment" typeId="schedule-seasonal-adjustment"/>
-			<channel id="last-update" typeId="last-update"/>
+			<channel id="name" typeId="schedule_name"/>
+			<channel id="enabled" typeId="schedule_enabled"/>
+			<channel id="type" typeId="schedule_type"/>
+			<channel id="startTime" typeId="schedule_startTime"/>
+			<channel id="lastRun" typeId="schedule_lastRun"/>
+			<channel id="nextRun" typeId="schedule_nextRun"/>
+			<channel id="zones" typeId="schedule_zones"/>
+			<channel id="seasonalAdjustment" typeId="schedule_seasonalAdjustment"/>
+			<channel id="lastUpdate" typeId="lastUpdate"/>
 		</channels>
 
 		<properties>
