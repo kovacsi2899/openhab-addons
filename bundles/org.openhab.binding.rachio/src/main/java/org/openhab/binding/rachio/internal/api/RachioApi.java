@@ -634,8 +634,29 @@ public class RachioApi {
     }
 
     public void runMultipleZones(String zoneListJson) throws RachioApiException {
-        logger.debug("Start multiple zones '{}'.", zoneListJson);
+        int zoneCount = countStartMultipleZoneEntries(zoneListJson);
+        if (zoneCount >= 0) {
+            logger.debug("Start multiple zones: zoneCount={}.", zoneCount);
+        } else {
+            logger.debug("Start multiple zones: zoneCount=unknown, requestLength={}.", zoneListJson.length());
+        }
         httpPut(APIURL_BASE + APIURL_ZONE_PUT_MULTIPLE_START, zoneListJson, PRIORITY.HI);
+    }
+
+    private int countStartMultipleZoneEntries(String zoneListJson) {
+        try {
+            JsonElement root = JsonParser.parseString(zoneListJson);
+            if (root.isJsonObject()) {
+                @Nullable
+                JsonElement zones = root.getAsJsonObject().get("zones");
+                if (zones != null && zones.isJsonArray()) {
+                    return zones.getAsJsonArray().size();
+                }
+            }
+        } catch (RuntimeException e) {
+            logger.trace("Unable to summarize multi-zone start request JSON: {}", e.getMessage());
+        }
+        return -1;
     }
 
     public void runZone(String zoneId, int duration) throws RachioApiException {
@@ -1216,36 +1237,27 @@ public class RachioApi {
         return url.toString();
     }
 
-    private String sanitizeCallbackUrl(@Nullable String url) {
+    static String callbackUrlLogReference(@Nullable String url) {
         if (url == null || url.isBlank()) {
-            return "";
+            return "callbackUrlHash=none";
         }
-        try {
-            URI uri = new URI(url);
-            if (uri.getRawUserInfo() == null) {
-                return uri.toASCIIString();
-            }
-            URI sanitizedUri = new URI(uri.getScheme(), "***:***", uri.getHost(), uri.getPort(), uri.getPath(),
-                    uri.getQuery(), uri.getFragment());
-            return sanitizedUri.toASCIIString();
-        } catch (RuntimeException | URISyntaxException e) {
-            return "<redacted-callback-url>";
-        }
+        String hash = getMD5Hash(url);
+        return "callbackUrlHash=" + (hash.isBlank() ? "unavailable" : hash.substring(0, Math.min(12, hash.length())));
     }
 
     private RachioApiException sanitizeWebhookRegistrationException(RachioApiException e, String registrationUrl) {
         if (e instanceof RachioApiThrottledException) {
             return e;
         }
-        String sanitizedUrl = sanitizeCallbackUrl(registrationUrl);
+        String callbackUrlReference = callbackUrlLogReference(registrationUrl);
         RachioApiResult result = e.getApiResult();
-        result.resultString = result.resultString.replace(registrationUrl, sanitizedUrl);
+        result.resultString = result.resultString.replace(registrationUrl, callbackUrlReference);
 
         String message = e.getMessage();
         if (message == null || message.isBlank()) {
             message = "Rachio webhook registration failed";
         } else {
-            message = message.replace(registrationUrl, sanitizedUrl);
+            message = message.replace(registrationUrl, callbackUrlReference);
         }
         return new RachioApiException(message, result);
     }
@@ -1416,8 +1428,8 @@ public class RachioApi {
         List<RachioApiWebHookEntry> webhooks = parseWebHookList(json);
         logger.debug("Registered webhook count for target '{}': {}", target.describe(), webhooks.size());
         for (RachioApiWebHookEntry whe : webhooks) {
-            logger.debug("WebHook: id='{}', url='{}', externalId='{}', resourceId='{}'", whe.id,
-                    sanitizeCallbackUrl(whe.url), whe.externalId,
+            logger.debug("WebHook: id='{}', callbackUrl={}, externalId='{}', resourceId='{}'", whe.id,
+                    callbackUrlLogReference(whe.url), whe.externalId,
                     whe.resourceId == null ? null : whe.resourceId.getResourceId(target.getResourceType()));
             boolean matchesExternalId = externalIds.stream().anyMatch(id -> Objects.equals(whe.externalId, id));
             boolean matchesExpectedWebhook = target.matches(whe, callbackUrl, expectedExternalId);

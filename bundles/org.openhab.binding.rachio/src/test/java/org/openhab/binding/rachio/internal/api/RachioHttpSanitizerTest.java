@@ -14,6 +14,7 @@ package org.openhab.binding.rachio.internal.api;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.startsWith;
 
 import org.junit.jupiter.api.Test;
 
@@ -65,5 +66,17 @@ class RachioHttpSanitizerTest {
         assertThat(sanitized.contains("Bearer [redacted]"), is(true));
         assertThat(sanitized.contains("\"apikey\":\"[redacted]\""), is(true));
         assertThat(sanitized.contains("apikey=[redacted]"), is(true));
+    }
+
+    @Test
+    void callbackUrlLogReferenceUsesHashWithoutUrlPartsOrCredentials() {
+        String reference = RachioApi.callbackUrlLogReference(
+                "https://user@example.com:secret-password@home.myopenhab.org/rachio/webhook?token=callback-token");
+
+        assertThat(reference, startsWith("callbackUrlHash="));
+        assertThat(reference.contains("user@example.com"), is(false));
+        assertThat(reference.contains("secret-password"), is(false));
+        assertThat(reference.contains("home.myopenhab.org"), is(false));
+        assertThat(reference.contains("callback-token"), is(false));
     }
 }
