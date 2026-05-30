@@ -17,6 +17,15 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_DEVICE_PAUSE_TIME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_ENABLED;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_RUN;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_UPDATE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_NAME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_NEXT_RUN;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_START_TIME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_TYPE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_ZONES;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_ZONE_RUN_TIME;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_DEVICE;
@@ -58,7 +67,7 @@ class RachioZoneChannelTest {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
         for (String file : List.of("cloud.xml", "device.xml", "zone.xml", "schedule.xml", "flex-schedule.xml",
-                "flexschedule.xml", "base-station.xml", "valve.xml", "valve-program.xml")) {
+                "base-station.xml", "valve.xml", "valve-program.xml")) {
             factory.newDocumentBuilder().parse(resource("/OH-INF/thing/" + file).toFile());
         }
     }
@@ -69,16 +78,26 @@ class RachioZoneChannelTest {
         assertThingTypeVersion("zone.xml");
         assertThingTypeVersion("schedule.xml");
         assertThingTypeVersion("flex-schedule.xml");
-        assertThingTypeVersion("flexschedule.xml");
         assertThingTypeVersion("valve.xml");
         assertThingTypeVersion("valve-program.xml");
     }
 
     @Test
-    void legacyFlexScheduleThingTypeIsHiddenFromManualCreation() throws IOException, URISyntaxException {
-        String xml = readThingXml("flexschedule.xml");
+    void flexScheduleThingXmlDefinesHandlerUpdatedChannels() throws IOException, URISyntaxException {
+        String xml = readThingXml("flex-schedule.xml");
 
-        assertThat(xml, containsString("<thing-type id=\"flexschedule\" listed=\"false\">"));
+        assertThat(xml, containsString("<thing-type id=\"flex-schedule\">"));
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_NAME, "flex_schedule_name");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_ENABLED, "flex_schedule_enabled");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_TYPE, "flex_schedule_type");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_START_TIME, "flex_schedule_start_time");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_LAST_RUN, "flex_schedule_last_run");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_NEXT_RUN, "flex_schedule_next_run");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_ZONES, "flex_schedule_zones");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT, "flex_schedule_seasonal_adjustment");
+        assertChannel(xml, CHANNEL_FLEX_SCHEDULE_LAST_UPDATE, "flex_schedule_last_update");
+        assertThat(xml, containsString("<channel-type id=\"flex_schedule_seasonal_adjustment\">"));
+        assertThat(xml, containsString("<item-type unitHint=\"one\">Number:Dimensionless</item-type>"));
     }
 
     @Test
@@ -115,17 +134,11 @@ class RachioZoneChannelTest {
         String deviceXml = readThingXml("device.xml");
         String zoneXml = readThingXml("zone.xml");
         String scheduleXml = readThingXml("schedule.xml");
-        String legacyFlexXml = readThingXml("flexschedule.xml");
-        String currentFlexXml = readThingXml("flex-schedule.xml");
 
         assertThat(deviceXml, containsString("<channel id=\"pauseTime\" typeId=\"dev_pauseTime\"/>"));
         assertThat(deviceXml, containsString("<channel id=\"lastUpdate\" typeId=\"lastUpdate\"/>"));
         assertThat(zoneXml, containsString("<channel id=\"runTime\" typeId=\"zone_runTime\"/>"));
         assertThat(scheduleXml,
-                containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
-        assertThat(legacyFlexXml,
-                containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
-        assertThat(currentFlexXml,
                 containsString("<channel id=\"seasonalAdjustment\" typeId=\"schedule_seasonalAdjustment\"/>"));
     }
 
@@ -148,6 +161,7 @@ class RachioZoneChannelTest {
         String deviceXml = readThingXml("device.xml");
         String valveXml = readThingXml("valve.xml");
         String scheduleXml = readThingXml("schedule.xml");
+        String flexScheduleXml = readThingXml("flex-schedule.xml");
         String valveProgramXml = readThingXml("valve-program.xml");
 
         assertThat(zoneXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
@@ -160,13 +174,14 @@ class RachioZoneChannelTest {
         assertThat(deviceXml, containsString("<item-type>Number:Speed</item-type>"));
         assertThat(valveXml, containsString("<item-type unitHint=\"%\">Number:Dimensionless</item-type>"));
         assertThat(scheduleXml, containsString("<item-type unitHint=\"one\">Number:Dimensionless</item-type>"));
+        assertThat(flexScheduleXml, containsString("<item-type unitHint=\"one\">Number:Dimensionless</item-type>"));
         assertThat(valveProgramXml, containsString("<item-type unitHint=\"s\">Number:Time</item-type>"));
         assertThat(valveProgramXml, containsString("<item-type unitHint=\"d\">Number:Time</item-type>"));
     }
 
     @Test
     void fixedUnitQuantityChannelsDeclareUnitHints() throws IOException, URISyntaxException {
-        for (String file : List.of("zone.xml", "schedule.xml", "valve.xml", "valve-program.xml")) {
+        for (String file : List.of("zone.xml", "schedule.xml", "flex-schedule.xml", "valve.xml", "valve-program.xml")) {
             assertAllQuantityChannelsHaveUnitHint(readThingXml(file));
         }
 
@@ -220,5 +235,10 @@ class RachioZoneChannelTest {
 
     private void assertThingTypeVersion(String fileName) throws IOException, URISyntaxException {
         assertThat(readThingXml(fileName), containsString("<property name=\"thingTypeVersion\">1</property>"));
+    }
+
+    private void assertChannel(String xml, String id, String typeId) {
+        assertThat(xml, containsString("<channel id=\"" + id + "\" typeId=\"" + typeId + "\"/>"));
+        assertThat(xml, containsString("<channel-type id=\"" + typeId + "\">"));
     }
 }

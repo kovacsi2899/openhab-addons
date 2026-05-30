@@ -52,6 +52,7 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
     private final Logger logger = LoggerFactory.getLogger(RachioScheduleHandler.class);
     protected String scheduleRuleId = "";
     protected RachioScheduleRuleResponse scheduleRule = new RachioScheduleRuleResponse();
+    private boolean scheduleRuleLoaded = false;
 
     public RachioScheduleHandler(Thing thing) {
         super(thing);
@@ -84,6 +85,13 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         String channel = channelUID.getId();
+        if (command == RefreshType.REFRESH) {
+            if (loadScheduleRuleForRefreshIfCacheMissing(channel)) {
+                updateStatus(ThingStatus.ONLINE);
+            }
+            return;
+        }
+
         RachioBridgeHandler handler = cloudHandler;
         if (handler == null) {
             logger.debug("{}: Cloud handler is not initialized", thingId);
@@ -91,12 +99,6 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         }
 
         try {
-            if (command == RefreshType.REFRESH) {
-                if (refreshScheduleRule()) {
-                    updateStatus(ThingStatus.ONLINE);
-                }
-                return;
-            }
             if (channel.equals(CHANNEL_SCHEDULE_START) && command == OnOffType.ON) {
                 handler.startScheduleRule(scheduleRuleId);
                 updateChannel(CHANNEL_SCHEDULE_START, OnOffType.OFF);
@@ -123,6 +125,18 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         }
     }
 
+    private synchronized boolean loadScheduleRuleForRefreshIfCacheMissing(String channel) {
+        if (scheduleRuleLoaded) {
+            logger.trace("{}: Serving schedule channel '{}' REFRESH from cached rule '{}'", thingId, channel,
+                    scheduleRuleId);
+            postCachedChannelData(channel);
+            return false;
+        }
+        logger.debug("{}: Schedule rule cache is empty; loading rule '{}' for channel '{}' REFRESH", thingId,
+                scheduleRuleId, channel);
+        return refreshScheduleRule();
+    }
+
     @Override
     protected void goOnline() {
         if (refreshScheduleRule()) {
@@ -130,7 +144,7 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         }
     }
 
-    protected boolean refreshScheduleRule() {
+    protected synchronized boolean refreshScheduleRule() {
         RachioBridgeHandler handler = cloudHandler;
         if (handler == null) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE);
@@ -138,6 +152,7 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
         }
         try {
             scheduleRule = loadScheduleRule();
+            scheduleRuleLoaded = true;
             logger.debug("{}: Loaded schedule rule '{}'", thingId, scheduleRuleId);
             postChannelData();
             updateChannel(CHANNEL_LAST_UPDATE, getTimestamp());
@@ -159,6 +174,14 @@ public class RachioScheduleHandler extends AbstractRachioThingHandler {
             logger.debug("{}: Unable to load schedule rule '{}': {}", thingId, scheduleRuleId, e.getMessage());
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             return false;
+        }
+    }
+
+    private void postCachedChannelData(String channel) {
+        postChannelData();
+        State cachedState = channelData.get(channel);
+        if (cachedState != null) {
+            updateState(channel, cachedState);
         }
     }
 

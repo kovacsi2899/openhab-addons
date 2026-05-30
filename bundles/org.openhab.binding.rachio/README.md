@@ -32,7 +32,7 @@ Controller, zone, schedule, flex schedule, Smart Hose Timer base station, valve,
 - Account-level configuration now belongs on the Rachio Cloud Connector Thing (`rachio:cloud`).
 - Deprecated binding-level configuration is still accepted as a fallback for compatibility.
 - Cloud Connector Thing configuration is authoritative when both Thing-level and binding-level values are present.
-- Thing and channel IDs now follow the openHAB lower-case-hyphen naming convention.
+- New Thing type IDs introduced by this update use the openHAB lower-case-hyphen naming convention, while existing released channel IDs are preserved for Item-link compatibility.
 - Several physical numeric channels now use typed Quantity Item types such as `Number:Time`, `Number:Length`, `Number:Area`, `Number:Temperature`, `Number:Speed`, and `Number:Dimensionless`.
 - Controller and zone Things should use real Rachio API UUIDs (`deviceId`, `zoneId`), not the controller MAC address.
 - Webhook callback credentials should preferably be configured through `callbackUsername` and `callbackPassword`, not embedded in `callbackUrl`.
@@ -52,7 +52,12 @@ Managed Things created with earlier test builds may need to be recreated through
 
 Text-file `.things` definitions must use the current thing IDs, for example `flex-schedule`, `base-station`, and `valve-program`.
 
-Existing Item channel links from earlier test builds must be updated to the current lower-case-hyphen channel IDs.
+Existing Item channel links from released binding versions should continue to use their established channel IDs.
+Temporary development builds may have exposed experimental channel IDs that need to be corrected manually.
+
+Flex Schedule is introduced as a new Thing type: `rachio:flex-schedule`.
+Any `rachio:flexschedule` Things created by previous development builds should be deleted and rediscovered.
+They were never part of a released binding version.
 
 Discovery is recommended for new or repaired Things because it fills the real Rachio API identifiers automatically.
 
@@ -79,7 +84,8 @@ Zone `moisture-level` plain numeric commands are still interpreted as millimeter
 | `zone`                      | `available-water`, `depth-of-water`, `saturated-depth-of-water`, `root-zone-depth`, `moisture-level` | `Number:Length`        |
 | `zone`                      | `yard-area-square-feet`                                                                              | `Number:Area`          |
 | `zone`                      | `management-allowed-depletion`, `efficiency`, `moisture-percent`                                     | `Number:Dimensionless` |
-| `schedule`, `flex-schedule` | `seasonal-adjustment`                                                                                | `Number:Dimensionless` |
+| `schedule`                  | `seasonalAdjustment`                                                                                 | `Number:Dimensionless` |
+| `flex-schedule`             | `seasonal-adjustment`                                                                                | `Number:Dimensionless` |
 | `valve`                     | `run-time`, `default-runtime`, `next-planned-run-duration`, `last-completed-run-duration`            | `Number:Time`          |
 | `valve`                     | `battery-level`                                                                                      | `Number:Dimensionless` |
 | `valve-program`             | `duration`, `interval-days`                                                                          | `Number:Time`          |
@@ -483,24 +489,24 @@ When only a Program ID and timestamp are available, it falls back to the Program
 
 ## Schedule Things
 
-Fixed schedule rules are represented by `schedule` Things.
+Fixed schedule rules are represented by `schedule` Things and keep the established schedule channel IDs.
 
-Flex schedules are represented by read-only `flex-schedule` Things.
+Flex schedules are represented by read-only `flex-schedule` Things with lower-case-hyphen channel IDs.
 
-| Channel                 | Description                                                                                                                                                  |
-| :---                    | :---                                                                                                                                                         |
-| `name`                  | Schedule rule name.                                                                                                                                          |
-| `enabled`               | ON if the schedule rule is enabled.                                                                                                                          |
-| `type`                  | Schedule rule type.                                                                                                                                          |
-| `start-time`            | Schedule start time when provided by Rachio.                                                                                                                 |
-| `last-run`              | Last run time when provided by Rachio.                                                                                                                       |
-| `next-run`              | Next run time when provided by Rachio.                                                                                                                       |
-| `zones`                 | Comma-separated Rachio zone IDs associated with the schedule.                                                                                                |
-| `seasonal-adjustment`   | `Number:Dimensionless` seasonal adjustment value. Sending a plain number preserves the existing fraction semantics and updates the schedule rule adjustment. |
-| `start`                 | Send ON to start the schedule rule.                                                                                                                          |
-| `skip`                  | Send ON to skip the schedule rule.                                                                                                                           |
-| `skip-forward-zone-run` | Send ON to skip the currently running zone in the schedule context.                                                                                          |
-| `last-update`           | Timestamp of last schedule state update.                                                                                                                     |
+| Fixed schedule channel   | Flex schedule channel    | Description                                                                                                                                                  |
+| :---                     | :---                     | :---                                                                                                                                                         |
+| `name`                   | `name`                   | Schedule rule name.                                                                                                                                          |
+| `enabled`                | `enabled`                | ON if the schedule rule is enabled.                                                                                                                          |
+| `type`                   | `type`                   | Schedule rule type.                                                                                                                                          |
+| `startTime`              | `start-time`             | Schedule start time when provided by Rachio.                                                                                                                 |
+| `lastRun`                | `last-run`               | Last run time when provided by Rachio.                                                                                                                       |
+| `nextRun`                | `next-run`               | Next run time when provided by Rachio.                                                                                                                       |
+| `zones`                  | `zones`                  | Comma-separated Rachio zone IDs associated with the schedule.                                                                                                |
+| `seasonalAdjustment`    | `seasonal-adjustment`    | `Number:Dimensionless` seasonal adjustment value. Sending a plain number on fixed schedules preserves the existing fraction semantics and updates the rule. |
+| `start`                  | -                        | Send ON to start the fixed schedule rule.                                                                                                                     |
+| `skip`                   | -                        | Send ON to skip the fixed schedule rule.                                                                                                                      |
+| `skipForwardZoneRun`    | -                        | Send ON to skip the currently running zone in the fixed schedule context.                                                                                    |
+| `lastUpdate`             | `last-update`            | Timestamp of last schedule state update.                                                                                                                     |
 
 Manual schedule creation requires `scheduleRuleId`.
 

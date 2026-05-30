@@ -3,38 +3,6 @@
 	xmlns:update="https://openhab.org/schemas/update-description/v1.0.0"
 	xsi:schemaLocation="https://openhab.org/schemas/update-description/v1.0.0 https://openhab.org/schemas/update-description-1.0.0.xsd">
 
-	<thing-type uid="rachio:flex-schedule">
-		<instruction-set targetVersion="1">
-			<update-channel id="name">
-				<type>rachio:schedule_name</type>
-			</update-channel>
-			<update-channel id="enabled">
-				<type>rachio:schedule_enabled</type>
-			</update-channel>
-			<update-channel id="type">
-				<type>rachio:schedule_type</type>
-			</update-channel>
-			<update-channel id="startTime">
-				<type>rachio:schedule_startTime</type>
-			</update-channel>
-			<update-channel id="lastRun">
-				<type>rachio:schedule_lastRun</type>
-			</update-channel>
-			<update-channel id="nextRun">
-				<type>rachio:schedule_nextRun</type>
-			</update-channel>
-			<update-channel id="zones">
-				<type>rachio:schedule_zones</type>
-			</update-channel>
-			<update-channel id="seasonalAdjustment">
-				<type>rachio:schedule_seasonalAdjustment</type>
-			</update-channel>
-			<update-channel id="lastUpdate">
-				<type>rachio:lastUpdate</type>
-			</update-channel>
-		</instruction-set>
-	</thing-type>
-
 	<thing-type uid="rachio:base-station">
 		<instruction-set targetVersion="1">
 			<update-channel id="name">

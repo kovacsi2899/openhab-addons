@@ -100,8 +100,7 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
                 return createZone(thing);
             } else if (thingTypeUID.equals(THING_TYPE_SCHEDULE)) {
                 return createSchedule(thing);
-            } else if (thingTypeUID.equals(THING_TYPE_FLEX_SCHEDULE)
-                    || thingTypeUID.equals(THING_TYPE_FLEX_SCHEDULE_LEGACY)) {
+            } else if (thingTypeUID.equals(THING_TYPE_FLEX_SCHEDULE)) {
                 return createFlexSchedule(thing);
             } else if (thingTypeUID.equals(THING_TYPE_BASE_STATION)) {
                 return createBaseStation(thing);
@@ -228,11 +227,7 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
     }
 
     private RachioFlexScheduleHandler createFlexSchedule(Thing thing) {
-        if (thing.getThingTypeUID().equals(THING_TYPE_FLEX_SCHEDULE_LEGACY)) {
-            logger.debug("Flex schedule handler created for legacy Thing type: thingUid={}", thing.getUID());
-        } else {
-            logger.debug("Flex schedule handler created for current Thing type: thingUid={}", thing.getUID());
-        }
+        logger.debug("Flex schedule handler created: thingUid={}, bridgeUid={}", thing.getUID(), thing.getBridgeUID());
         return new RachioFlexScheduleHandler(thing);
     }
 

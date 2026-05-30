@@ -15,15 +15,25 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_ENABLED;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_RUN;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_UPDATE;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_NAME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_START_TIME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_LAST_RUN;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_NAME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_START_TIME;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_CLOUD;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE;
-import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE_LEGACY;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
 
 import java.util.Map;
@@ -40,11 +50,16 @@ import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.PRIORITY
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RateLimitThrottleException;
 import org.openhab.binding.rachio.internal.utils.ClientRateLimitManager.RequestPurpose;
 import org.openhab.core.config.core.Configuration;
+import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.StringType;
+import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.ThingHandlerCallback;
+import org.openhab.core.types.RefreshType;
 
 /**
  * Tests schedule handler status lifecycle around initial refresh failures.
@@ -104,6 +119,98 @@ class RachioScheduleHandlerStatusTest {
         handler.publicGoOnline();
 
         verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+    }
+
+    @Test
+    void multipleScheduleRefreshCommandsLoadMissingCacheOnlyOnce() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        CountingScheduleHandler handler = new CountingScheduleHandler(thing, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_NAME), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_START_TIME), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_LAST_RUN), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT),
+                RefreshType.REFRESH);
+
+        assertThat(handler.loadCount, is(1));
+    }
+
+    @Test
+    void multipleFlexScheduleRefreshCommandsLoadMissingCacheOnlyOnce() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        CountingFlexScheduleHandler handler = new CountingFlexScheduleHandler(thing, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_NAME), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_START_TIME), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_LAST_RUN), RefreshType.REFRESH);
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT),
+                RefreshType.REFRESH);
+
+        assertThat(handler.loadCount, is(1));
+    }
+
+    @Test
+    void scheduleInitializationStillLoadsMissingCache() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        CountingScheduleHandler handler = new CountingScheduleHandler(thing, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        assertThat(handler.loadCount, is(1));
+        verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+    }
+
+    @Test
+    void flexScheduleInitializationStillLoadsMissingCache() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        CountingFlexScheduleHandler handler = new CountingFlexScheduleHandler(thing, false);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        assertThat(handler.loadCount, is(1));
+        verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+    }
+
+    @Test
+    void failedScheduleLoadDoesNotPublishCachedChannelData() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        CountingScheduleHandler handler = new CountingScheduleHandler(thing, true);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_NAME), RefreshType.REFRESH);
+
+        assertThat(handler.loadCount, is(1));
+        verify(callback).statusUpdated(eq(thing),
+                argThat(status -> status.getStatus() == ThingStatus.OFFLINE
+                        && status.getStatusDetail() == ThingStatusDetail.COMMUNICATION_ERROR
+                        && String.valueOf(status.getDescription()).contains("not found")));
+        verify(callback, never()).stateUpdated(any(ChannelUID.class), any());
+    }
+
+    @Test
+    void failedFlexScheduleLoadDoesNotPublishCachedChannelData() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        CountingFlexScheduleHandler handler = new CountingFlexScheduleHandler(thing, true);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.handleCommand(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_NAME), RefreshType.REFRESH);
+
+        assertThat(handler.loadCount, is(1));
+        verify(callback).statusUpdated(eq(thing),
+                argThat(status -> status.getStatus() == ThingStatus.OFFLINE
+                        && status.getStatusDetail() == ThingStatusDetail.COMMUNICATION_ERROR
+                        && String.valueOf(status.getDescription()).contains("not found")));
+        verify(callback, never()).stateUpdated(any(ChannelUID.class), any());
     }
 
     @Test
@@ -188,18 +295,22 @@ class RachioScheduleHandlerStatusTest {
     }
 
     @Test
-    void legacyFlexScheduleHandlerResolvesUuidFromThingUidDuringInitialization() {
-        ThingUID uid = new ThingUID(THING_TYPE_FLEX_SCHEDULE_LEGACY, new ThingUID(THING_TYPE_CLOUD, "bridge"),
-                "legacy-uid-flex-id");
-        Thing thing = flexScheduleThing(uid, Map.of(), Map.of());
+    void flexScheduleHandlerPublishesCanonicalChannelIdsDuringInitialization() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "config-flex-id"), Map.of());
         InitializingFlexScheduleHandler handler = new InitializingFlexScheduleHandler(thing, false, false);
         ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
         handler.setCallback(callback);
 
         handler.initialize();
 
-        assertThat(handler.loadedFlexScheduleRuleId, is("legacy-uid-flex-id"));
-        verify(callback).statusUpdated(eq(thing), argThat(status -> status.getStatus() == ThingStatus.ONLINE));
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_NAME),
+                new StringType("Flex"));
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_ENABLED), OnOffType.ON);
+        verify(callback).stateUpdated(eq(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_START_TIME)),
+                argThat(DateTimeType.class::isInstance));
+        verify(callback).stateUpdated(eq(new ChannelUID(thing.getUID(), CHANNEL_FLEX_SCHEDULE_LAST_UPDATE)),
+                argThat(DateTimeType.class::isInstance));
+        verify(callback, never()).stateUpdated(eq(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_START_TIME)), any());
     }
 
     @Test
@@ -363,6 +474,41 @@ class RachioScheduleHandlerStatusTest {
         }
     }
 
+    private static class CountingScheduleHandler extends RachioScheduleHandler {
+        private final boolean loadFails;
+        private int loadCount;
+
+        CountingScheduleHandler(Thing thing, boolean loadFails) {
+            super(thing);
+            this.loadFails = loadFails;
+            this.scheduleRuleId = "schedule-id";
+            this.cloudHandler = Mockito.mock(RachioBridgeHandler.class);
+        }
+
+        void publicGoOnline() {
+            goOnline();
+        }
+
+        @Override
+        protected RachioScheduleRuleResponse loadScheduleRule() throws RachioApiException {
+            loadCount++;
+            if (loadFails) {
+                throw new RachioApiException("not found");
+            }
+
+            RachioScheduleRuleResponse response = new RachioScheduleRuleResponse();
+            response.id = "schedule-id";
+            response.name = "Morning";
+            response.enabled = true;
+            response.type = "FIXED";
+            response.startTime = "2026-05-30T08:00:00Z";
+            response.lastRun = "2026-05-29T08:00:00Z";
+            response.nextRun = "2026-05-31T08:00:00Z";
+            response.seasonalAdjustment = 1;
+            return response;
+        }
+    }
+
     private static class TestFlexScheduleHandler extends RachioFlexScheduleHandler {
         private final boolean refreshSuccess;
 
@@ -381,6 +527,41 @@ class RachioScheduleHandlerStatusTest {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "failed");
             }
             return refreshSuccess;
+        }
+    }
+
+    private static class CountingFlexScheduleHandler extends RachioFlexScheduleHandler {
+        private final boolean loadFails;
+        private int loadCount;
+
+        CountingFlexScheduleHandler(Thing thing, boolean loadFails) {
+            super(thing);
+            this.loadFails = loadFails;
+            this.flexScheduleRuleId = "flex-id";
+            this.cloudHandler = Mockito.mock(RachioBridgeHandler.class);
+        }
+
+        void publicGoOnline() {
+            goOnline();
+        }
+
+        @Override
+        protected RachioFlexScheduleRuleResponse loadFlexScheduleRule() throws RachioApiException {
+            loadCount++;
+            if (loadFails) {
+                throw new RachioApiException("not found");
+            }
+
+            RachioFlexScheduleRuleResponse response = new RachioFlexScheduleRuleResponse();
+            response.id = "flex-id";
+            response.name = "Flex";
+            response.enabled = true;
+            response.type = "FLEX";
+            response.startTime = "2026-05-30T08:00:00Z";
+            response.lastRun = "2026-05-29T08:00:00Z";
+            response.nextRun = "2026-05-31T08:00:00Z";
+            response.seasonalAdjustment = 1;
+            return response;
         }
     }
 
@@ -471,6 +652,9 @@ class RachioScheduleHandlerStatusTest {
             RachioFlexScheduleRuleResponse response = new RachioFlexScheduleRuleResponse();
             response.id = flexScheduleRuleId;
             response.name = "Flex";
+            response.enabled = true;
+            response.type = "FLEX";
+            response.startTime = "2026-05-30T08:00:00Z";
             return response;
         }
 
