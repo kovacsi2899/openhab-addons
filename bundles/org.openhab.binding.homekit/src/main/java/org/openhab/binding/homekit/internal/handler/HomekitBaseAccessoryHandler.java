@@ -15,8 +15,6 @@ package org.openhab.binding.homekit.internal.handler;
 import static org.openhab.binding.homekit.internal.HomekitBindingConstants.*;
 
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -966,15 +964,9 @@ public abstract class HomekitBaseAccessoryHandler extends BaseThingHandler imple
      *            expanded to the i18n text id "error.event-subscribe-error" for the UI
      */
     protected void onCommunicationError(Exception exception, String i18nSuffix) {
-        String message = exception.toString();
+        String message = exception.getMessage();
         logger.debug("{} {} {}, reconnecting..", thing.getUID(), i18nSuffix, message);
-        if (logger.isTraceEnabled()) {
-            try (StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw)) {
-                exception.printStackTrace(pw);
-                logger.trace("{} stack trace:\n{}", thing.getUID(), sw.toString().trim());
-            } catch (IOException e) {
-            }
-        }
+        logger.trace("{} stack trace", thing.getUID(), exception);
         String description = THING_STATUS_FMT.formatted("error." + i18nSuffix.replace(' ', '-'), message);
         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, description);
         scheduleConnectionAttempt();

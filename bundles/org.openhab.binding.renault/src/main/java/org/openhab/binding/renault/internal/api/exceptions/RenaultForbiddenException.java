@@ -21,7 +21,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  * @author Doug Culnane - Initial contribution
  */
 @NonNullByDefault
-public class RenaultForbiddenException extends RenaultException {
+public class RenaultForbiddenException extends Exception {
 
     private static final long serialVersionUID = 1L;
 

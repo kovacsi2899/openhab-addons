@@ -31,7 +31,6 @@ import org.openhab.binding.enocean.internal.eep.EEPFactory;
 import org.openhab.binding.enocean.internal.eep.EEPType;
 import org.openhab.binding.enocean.internal.injector.InjectorProfileType;
 import org.openhab.binding.enocean.internal.messages.BasePacket;
-import org.openhab.core.config.core.Configuration;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -195,14 +194,13 @@ public class EnOceanDatagramInjectorHandler extends EnOceanBaseThingHandler {
         String channelId = channelUID.getId();
         ChannelTypeUID channelTypeUID = channel.getChannelTypeUID();
         String channelTypeId = (channelTypeUID != null) ? channelTypeUID.getId() : "";
-        Configuration channelConfig = channel.getConfiguration();
 
         if (!localSendingProfileType.isChannelSupported(channelId, channelTypeId)) {
             return;
         }
 
         try {
-            boolean wasSent = sendMessage(localSendingProfileType, channelId, command, channelConfig);
+            boolean wasSent = sendMessage(localSendingProfileType, channelId, command);
             if (wasSent && localSendingProfileType.getChannelId().equals(channelId) && command instanceof State state) {
                 updateState(channelUID, state);
             }
@@ -210,7 +208,7 @@ public class EnOceanDatagramInjectorHandler extends EnOceanBaseThingHandler {
             if (localSendingProfileType == InjectorProfileType.MOTION_A5_07_01
                     && localSendingProfileType.getChannelId().equals(channelId) && command instanceof OnOffType onOff) {
                 if (onOff == OnOffType.ON) {
-                    startMotionRetriggerJob(localSendingProfileType, channelId, channelConfig);
+                    startMotionRetriggerJob(localSendingProfileType, channelId);
                 } else {
                     stopMotionRetriggerJob();
                     updateState(channelUID, OnOffType.OFF);
@@ -221,8 +219,7 @@ public class EnOceanDatagramInjectorHandler extends EnOceanBaseThingHandler {
         }
     }
 
-    private synchronized void startMotionRetriggerJob(InjectorProfileType profileType, String channelId,
-            Configuration channelConfig) {
+    private synchronized void startMotionRetriggerJob(InjectorProfileType profileType, String channelId) {
         stopMotionRetriggerJob();
         motionRetriggerJob = scheduler.scheduleWithFixedDelay(() -> {
             try {
@@ -230,7 +227,7 @@ public class EnOceanDatagramInjectorHandler extends EnOceanBaseThingHandler {
                     logger.debug("Motion retrigger skipped: injector not operational");
                     return;
                 }
-                sendMessage(profileType, channelId, OnOffType.ON, channelConfig);
+                sendMessage(profileType, channelId, OnOffType.ON);
             } catch (Exception e) {
                 logger.debug("Motion retrigger send failed", e);
             }
@@ -267,11 +264,10 @@ public class EnOceanDatagramInjectorHandler extends EnOceanBaseThingHandler {
         }
     }
 
-    private boolean sendMessage(InjectorProfileType profileType, String channelId, Command command,
-            Configuration channelConfig) {
+    private boolean sendMessage(InjectorProfileType profileType, String channelId, Command command) {
         EEP eep = EEPFactory.createEEP(profileType.getSendingEEPType());
-        if (eep.convertFromCommand(channelId, profileType.getEepChannelTypeId(), command, id -> getCurrentState(id),
-                channelConfig).hasData()) {
+        ChannelUID channelUID = new ChannelUID(getThing().getUID(), channelId);
+        if (eep.convertFromCommand(getThing(), channelUID, command, id -> getCurrentState(id), null).hasData()) {
             BasePacket msg = eep.setSenderId(senderId).setDestinationId(destinationId)
                     .setSuppressRepeating(getConfiguration().suppressRepeating).getERP1Message();
             if (msg == null) {

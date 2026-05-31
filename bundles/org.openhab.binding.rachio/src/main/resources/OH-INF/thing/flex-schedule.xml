@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="rachio"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<thing-type id="flex-schedule">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="cloud"/>
+		</supported-bridge-type-refs>
+
+		<label>Rachio Flex Schedule Rule</label>
+		<description>A read-only Rachio flex schedule rule.</description>
+
+		<channels>
+			<channel id="name" typeId="flex_schedule_name"/>
+			<channel id="enabled" typeId="flex_schedule_enabled"/>
+			<channel id="type" typeId="flex_schedule_type"/>
+			<channel id="start-time" typeId="flex_schedule_start_time"/>
+			<channel id="last-run" typeId="flex_schedule_last_run"/>
+			<channel id="next-run" typeId="flex_schedule_next_run"/>
+			<channel id="zones" typeId="flex_schedule_zones"/>
+			<channel id="seasonal-adjustment" typeId="flex_schedule_seasonal_adjustment"/>
+			<channel id="last-update" typeId="flex_schedule_last_update"/>
+		</channels>
+
+		<properties>
+			<property name="thingTypeVersion">1</property>
+		</properties>
+
+		<representation-property>flexScheduleRuleId</representation-property>
+
+		<config-description>
+			<parameter name="flexScheduleRuleId" type="text" required="false">
+				<label>Flex Schedule Rule ID</label>
+				<description>Rachio API flex schedule rule UUID. Required for manually created flex schedule Things.</description>
+			</parameter>
+		</config-description>
+	</thing-type>
+
+	<channel-type id="flex_schedule_name">
+		<item-type>String</item-type>
+		<label>Name</label>
+		<description>Flex schedule rule name.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_enabled">
+		<item-type>Switch</item-type>
+		<label>Enabled</label>
+		<description>ON if the flex schedule rule is enabled.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_type">
+		<item-type>String</item-type>
+		<label>Type</label>
+		<description>Flex schedule rule type.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_start_time">
+		<item-type>DateTime</item-type>
+		<label>Start Time</label>
+		<description>Flex schedule start time from Rachio startDate, with startTime used as a fallback when present.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_last_run">
+		<item-type>DateTime</item-type>
+		<label>Last Run</label>
+		<description>Last flex schedule run time when provided by Rachio. Remains UNDEF when the API does not provide a usable
+			value.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_next_run">
+		<item-type>DateTime</item-type>
+		<label>Next Run</label>
+		<description>Next flex schedule run time when provided by Rachio. Remains UNDEF when the API does not provide a usable
+			value.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_zones">
+		<item-type>String</item-type>
+		<label>Zones</label>
+		<description>Comma-separated Rachio zone IDs associated with this flex schedule.</description>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_seasonal_adjustment">
+		<item-type unitHint="one">Number:Dimensionless</item-type>
+		<label>Seasonal Adjustment</label>
+		<description>Seasonal adjustment value for the flex schedule rule.</description>
+		<tags>
+			<tag>Status</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+	<channel-type id="flex_schedule_last_update">
+		<item-type>DateTime</item-type>
+		<label>Last Update</label>
+		<description>Timestamp of last flex schedule state update.</description>
+		<tags>
+			<tag>Status</tag>
+			<tag>Timestamp</tag>
+		</tags>
+		<state readOnly="true"/>
+	</channel-type>
+</thing:thing-descriptions>

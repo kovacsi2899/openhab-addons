@@ -25,7 +25,6 @@ import org.openhab.binding.fineoffsetweatherstation.internal.domain.response.Bat
  * The binding of a sensor to the gateway.
  *
  * @author Andreas Berger - Initial contribution
- * @author Giovanni Fabiani - Add support for WS85 sensor
  */
 @NonNullByDefault
 public enum SensorGatewayBinding {
@@ -82,8 +81,7 @@ public enum SensorGatewayBinding {
     WH35_CH6((byte) 45, Sensor.WH35, 6),
     WH35_CH7((byte) 46, Sensor.WH35, 7),
     WH35_CH8((byte) 47, Sensor.WH35, 8),
-    WH90((byte) 48, Sensor.WH90, null),
-    WS85((byte) 49, Sensor.WS85, null);
+    WH90((byte) 48, Sensor.WH90, null);
 
     private static final Map<Byte, List<SensorGatewayBinding>> SENSOR_LOOKUP = new HashMap<>();
 

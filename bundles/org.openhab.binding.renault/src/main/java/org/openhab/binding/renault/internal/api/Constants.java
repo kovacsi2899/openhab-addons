@@ -58,7 +58,7 @@ public class Constants {
                 break;
             case "de_AT":
                 gigyaRootUrl = GIGYA_URL_EU;
-                gigyaApiKey = GIGYA_KEY_EU;
+                gigyaApiKey = "3__B4KghyeUb0GlpU62ZXKrjSfb7CPzwBS368wioftJUL5qXE0Z_sSy0rX69klXuHy";
                 kamereonRootUrl = KAMEREON_URL_EU;
                 break;
             case "de_CH":

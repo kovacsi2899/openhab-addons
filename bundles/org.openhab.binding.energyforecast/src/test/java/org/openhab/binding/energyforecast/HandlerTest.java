@@ -110,32 +110,27 @@ class HandlerTest {
     }
 
     @Test
-    void testConfigErrorTokenEmpty() {
+    void testConfigError() {
         List<?> testObjects = createHandler(null);
         EnergyForecastHandler tester = (EnergyForecastHandler) testObjects.get(0);
         assertNotNull(tester);
         CallbackMock callback = (CallbackMock) testObjects.get(1);
         assertNotNull(callback);
+        ThingImpl thing = (ThingImpl) testObjects.get(2);
+        assertNotNull(thing);
         tester.initialize();
 
         ThingStatusInfo statusInfo = callback.getStatus();
         assertEquals(ThingStatus.OFFLINE, statusInfo.getStatus());
         assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, statusInfo.getStatusDetail());
         assertEquals("@text/thing-status.energyforecast.token-empty", statusInfo.getDescription());
-    }
 
-    @Test
-    void testConfigErrorZoneEmpty() {
         Configuration config = new Configuration();
         config.put("token", "abc");
-        List<?> testObjects = createHandler(config);
-        EnergyForecastHandler tester = (EnergyForecastHandler) testObjects.get(0);
-        assertNotNull(tester);
-        CallbackMock callback = (CallbackMock) testObjects.get(1);
-        assertNotNull(callback);
+        thing.setConfiguration(config);
         tester.initialize();
 
-        ThingStatusInfo statusInfo = callback.getStatus();
+        statusInfo = callback.getStatus();
         assertEquals(ThingStatus.OFFLINE, statusInfo.getStatus());
         assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, statusInfo.getStatusDetail());
         assertEquals("@text/thing-status.energyforecast.zone-empty", statusInfo.getDescription());

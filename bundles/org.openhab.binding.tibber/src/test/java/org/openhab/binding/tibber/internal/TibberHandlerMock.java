@@ -20,7 +20,6 @@ import org.openhab.binding.tibber.internal.calculator.PriceCalculator;
 import org.openhab.binding.tibber.internal.handler.TibberHandler;
 import org.openhab.core.i18n.TimeZoneProvider;
 import org.openhab.core.scheduler.CronScheduler;
-import org.openhab.core.storage.StorageService;
 import org.openhab.core.thing.Thing;
 import org.osgi.framework.BundleContext;
 
@@ -28,19 +27,18 @@ import org.osgi.framework.BundleContext;
  * The {@link TibberHandlerMock} sets the PriceCalculator for unit testing.
  *
  * @author Bernd Weymann - Initial contribution
- * @author Bernd Weymann - Add history channel group
  */
 @NonNullByDefault
 public class TibberHandlerMock extends TibberHandler {
 
     public TibberHandlerMock(Thing thing, HttpClient httpClient, CronScheduler cron, BundleContext bundleContext,
-            TimeZoneProvider timeZoneProvider, StorageService storageService) {
-        super(thing, httpClient, cron, bundleContext, timeZoneProvider, storageService);
+            TimeZoneProvider timeZoneProvider) {
+        super(thing, httpClient, cron, bundleContext, timeZoneProvider);
     }
 
     public TibberHandlerMock() {
         super(mock(Thing.class), mock(HttpClient.class), mock(CronScheduler.class), mock(BundleContext.class),
-                mock(TimeZoneProvider.class), mock(StorageService.class));
+                mock(TimeZoneProvider.class));
     }
 
     public void setPriceCalculator(PriceCalculator calc) {

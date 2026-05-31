@@ -15,6 +15,7 @@ package org.openhab.binding.remehaheating.internal;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,7 +73,8 @@ public class RemehaHeatingHandlerTest {
         RemehaHeatingConfiguration config = new RemehaHeatingConfiguration();
         config.email = "";
         config.password = "";
-        lenient().when(configuration.as(RemehaHeatingConfiguration.class)).thenReturn(config);
+
+        when(configuration.as(RemehaHeatingConfiguration.class)).thenReturn(config);
 
         handler.initialize();
 

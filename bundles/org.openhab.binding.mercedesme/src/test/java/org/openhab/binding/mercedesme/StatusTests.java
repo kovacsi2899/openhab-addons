@@ -22,7 +22,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
@@ -87,91 +86,64 @@ public class StatusTests {
         return httpClient;
     }
 
-    private static AccountHandlerMock createAccountHandler(Map<String, Object> config, int tokenResponseCode,
-            ThingCallbackListener tcl) {
+    @Test
+    void testInvalidConfig() {
         BridgeImpl bi = new BridgeImpl(new ThingTypeUID("test", "account"), "MB");
+        Map<String, Object> config = new HashMap<>();
         bi.setConfiguration(new Configuration(config));
-        AccountHandlerMock ahm = new AccountHandlerMock(bi, null, getHttpClient(tokenResponseCode));
+        AccountHandlerMock ahm = new AccountHandlerMock(bi, null, getHttpClient(404));
+        ThingCallbackListener tcl = new ThingCallbackListener();
         ahm.setCallback(tcl);
-        return ahm;
-    }
-
-    private static void assertOfflineStatus(ThingStatusInfo tsi, ThingStatusDetail expectedDetail,
-            @Nullable String expectedDescription, String messagePrefix) {
-        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), messagePrefix + " offline");
-        assertEquals(expectedDetail, tsi.getStatusDetail(), messagePrefix + " detail");
-        if (expectedDescription != null) {
-            assertEquals(expectedDescription, tsi.getDescription(), messagePrefix + " text");
-        }
-    }
-
-    @Test
-    void testInvalidConfigEmailMissing() {
-        Map<String, Object> config = new HashMap<>();
-        ThingCallbackListener tcl = new ThingCallbackListener();
-        AccountHandlerMock ahm = createAccountHandler(config, 404, tcl);
         ahm.initialize();
         ThingStatusInfo tsi = tcl.getThingStatus();
-        assertOfflineStatus(tsi, ThingStatusDetail.CONFIGURATION_ERROR,
-                "@text/mercedesme.account.status.config.email-missing", "EMail");
+        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), "EMail offline");
+        assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, tsi.getStatusDetail(), "EMail config");
+        assertEquals("@text/mercedesme.account.status.config.email-missing", tsi.getDescription(), "EMail text");
         tearDown(ahm);
-    }
 
-    @Test
-    void testInvalidConfigPasswordMissing() {
-        Map<String, Object> config = new HashMap<>();
         config.put("email", JUNIT_EMAIL);
-        ThingCallbackListener tcl = new ThingCallbackListener();
-        AccountHandlerMock ahm = createAccountHandler(config, 404, tcl);
+        bi.setConfiguration(new Configuration(config));
+        tcl = new ThingCallbackListener();
+        ahm.setCallback(tcl);
         ahm.initialize();
-        ThingStatusInfo tsi = tcl.getThingStatus();
-        assertOfflineStatus(tsi, ThingStatusDetail.CONFIGURATION_ERROR,
-                "@text/mercedesme.account.status.config.password-missing", "Password");
+        tsi = tcl.getThingStatus();
+        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), "Password offline");
+        assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, tsi.getStatusDetail(), "Password config");
+        assertEquals("@text/mercedesme.account.status.config.password-missing", tsi.getDescription(), "Password text");
         tearDown(ahm);
-    }
 
-    @Test
-    void testInvalidConfigRegionMissing() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("email", JUNIT_EMAIL);
         config.put("password", JUNIT_PASSWORD);
-        ThingCallbackListener tcl = new ThingCallbackListener();
-        AccountHandlerMock ahm = createAccountHandler(config, 404, tcl);
+        bi.setConfiguration(new Configuration(config));
+        tcl = new ThingCallbackListener();
+        ahm.setCallback(tcl);
         ahm.initialize();
-        ThingStatusInfo tsi = tcl.getThingStatus();
-        assertOfflineStatus(tsi, ThingStatusDetail.CONFIGURATION_ERROR,
-                "@text/mercedesme.account.status.config.region-missing", "Region");
+        tsi = tcl.getThingStatus();
+        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), "Region offline");
+        assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, tsi.getStatusDetail(), "Region config");
+        assertEquals("@text/mercedesme.account.status.config.region-missing", tsi.getDescription(), "Region text");
         tearDown(ahm);
-    }
 
-    @Test
-    void testInvalidConfigAuthFailure() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("email", JUNIT_EMAIL);
-        config.put("password", JUNIT_PASSWORD);
         config.put("region", "row");
-        ThingCallbackListener tcl = new ThingCallbackListener();
-        AccountHandlerMock ahm = createAccountHandler(config, 404, tcl);
+        bi.setConfiguration(new Configuration(config));
+        tcl = new ThingCallbackListener();
+        ahm.setCallback(tcl);
         ahm.initialize();
         ahm.refresh();
-        ThingStatusInfo tsi = tcl.getThingStatus();
-        assertOfflineStatus(tsi, ThingStatusDetail.COMMUNICATION_ERROR, null, "Auth");
+        tsi = tcl.getThingStatus();
+        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), "Auth offline");
+        assertEquals(ThingStatusDetail.COMMUNICATION_ERROR, tsi.getStatusDetail(), "Auth detail");
         tearDown(ahm);
-    }
 
-    @Test
-    void testInvalidConfigRefreshIntervalInvalid() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("email", JUNIT_EMAIL);
-        config.put("password", JUNIT_PASSWORD);
-        config.put("region", "row");
         config.put("refreshInterval", 0);
-        ThingCallbackListener tcl = new ThingCallbackListener();
-        AccountHandlerMock ahm = createAccountHandler(config, 404, tcl);
+        bi.setConfiguration(new Configuration(config));
+        tcl = new ThingCallbackListener();
+        ahm.setCallback(tcl);
         ahm.initialize();
-        ThingStatusInfo tsi = tcl.getThingStatus();
-        assertOfflineStatus(tsi, ThingStatusDetail.CONFIGURATION_ERROR,
-                "@text/mercedesme.account.status.config.refresh-invalid[\"0\"]", "Refresh");
+        tsi = tcl.getThingStatus();
+        assertEquals(ThingStatus.OFFLINE, tsi.getStatus(), "Refresh offline");
+        assertEquals(ThingStatusDetail.CONFIGURATION_ERROR, tsi.getStatusDetail(), "Refresh config");
+        assertEquals("@text/mercedesme.account.status.config.refresh-invalid[\"0\"]", tsi.getDescription(),
+                "Refresh text");
         tearDown(ahm);
     }
 
