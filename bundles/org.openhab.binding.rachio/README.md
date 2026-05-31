@@ -30,8 +30,7 @@ Controller, zone, schedule, flex schedule, Smart Hose Timer base station, valve,
 ### What changed
 
 - Account-level configuration now belongs on the Rachio Cloud Connector Thing (`rachio:cloud`).
-- Deprecated binding-level configuration is still accepted as a fallback for compatibility.
-- Cloud Connector Thing configuration is authoritative when both Thing-level and binding-level values are present.
+- No binding-level configuration is used; configure API, polling, runtime, webhook, and Smart Hose Timer options on the Cloud Connector Thing.
 - New Thing type IDs introduced by this update use the openHAB lower-case-hyphen naming convention, while existing released channel IDs are preserved for Item-link compatibility.
 - Several physical numeric channels now use typed Quantity Item types such as `Number:Time`, `Number:Length`, `Number:Area`, `Number:Temperature`, `Number:Speed`, and `Number:Dimensionless`.
 - Controller and zone Things should use real Rachio API UUIDs (`deviceId`, `zoneId`), not the controller MAC address.
@@ -69,9 +68,9 @@ Update manually created `.items` entries and managed Items where you want correc
 
 Runtime and delay command compatibility is preserved: plain numeric commands are still accepted and interpreted as seconds.
 
-Zone `moisture-level` plain numeric commands are still interpreted as millimeters.
+Zone `moistureLevel` plain numeric commands are still interpreted as millimeters.
 
-`moisture-percent` and `forecast-precipitation-probability` use Rachio 0..1 fraction semantics. Percent display patterns can be used if you want the UI to show a percent.
+`moisturePercent` and `forecast-precipitation-probability` use Rachio 0..1 fraction semantics. Percent display patterns can be used if you want the UI to show a percent.
 
 | Thing type                  | Channels                                                                                             | New Item type          |
 | :---                        | :---                                                                                                 | :---                   |
@@ -81,9 +80,9 @@ Zone `moisture-level` plain numeric commands are still interpreted as millimeter
 | `device`                    | `forecast-precipitation-probability`                                                                 | `Number:Dimensionless` |
 | `device`                    | `forecast-wind`                                                                                      | `Number:Speed`         |
 | `zone`                      | `run-time`, `run-total`, `fixed-runtime`, `max-runtime`, `runtime-no-multiplier`                     | `Number:Time`          |
-| `zone`                      | `available-water`, `depth-of-water`, `saturated-depth-of-water`, `root-zone-depth`, `moisture-level` | `Number:Length`        |
+| `zone`                      | `available-water`, `depth-of-water`, `saturated-depth-of-water`, `root-zone-depth`, `moistureLevel`  | `Number:Length`        |
 | `zone`                      | `yard-area-square-feet`                                                                              | `Number:Area`          |
-| `zone`                      | `management-allowed-depletion`, `efficiency`, `moisture-percent`                                     | `Number:Dimensionless` |
+| `zone`                      | `management-allowed-depletion`, `efficiency`, `moisturePercent`                                      | `Number:Dimensionless` |
 | `schedule`                  | `seasonalAdjustment`                                                                                 | `Number:Dimensionless` |
 | `flex-schedule`             | `seasonal-adjustment`                                                                                | `Number:Dimensionless` |
 | `valve`                     | `run-time`, `default-runtime`, `next-planned-run-duration`, `last-completed-run-duration`            | `Number:Time`          |
@@ -95,7 +94,7 @@ Valve Program `interval-days` is represented as `Number:Time` with day semantics
 
 ```text
 Number:Time Rachio_Zone1_RunTime "Zone 1 runtime [%d s]" { channel="rachio:zone:cloud:zone1:run-time" }
-Number:Length Rachio_Zone1_MoistureLevel "Zone 1 moisture [%.1f mm]" { channel="rachio:zone:cloud:zone1:moisture-level" }
+Number:Length Rachio_Zone1_MoistureLevel "Zone 1 moisture [%.1f mm]" { channel="rachio:zone:cloud:zone1:moistureLevel" }
 Number:Dimensionless Rachio_ForecastPrecipProbability "Rain probability [%.0f %%]" { channel="rachio:device:cloud:controller1:forecast-precipitation-probability" }
 ```
 
@@ -207,13 +206,7 @@ The bridge Thing does not have channels.
 | `callbackPassword`          | Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.                              |
 | `clearAllCallbacks`         | Cleanup switch for stale Rachio callback registrations. Leave `false` for normal operation.                                                                                              |
 
-Cloud Connector Thing configuration is authoritative.
-
-The effective precedence is:
-
-```text
-Cloud Connector Thing configuration > deprecated binding-level fallback > built-in default
-```
+Cloud Connector Thing configuration is the only user configuration source. No binding-level or add-on-level configuration is read; unset optional parameters use the built-in defaults.
 
 ### openHAB Cloud / myopenHAB.org setup
 
@@ -377,8 +370,8 @@ With `US`, they are published as Fahrenheit, inches, and miles per hour.
 | `max-runtime`                  | `Number:Time` maximum runtime value returned by Rachio, published in seconds.                                                                                                 |
 | `runtime-no-multiplier`        | `Number:Time` runtime without multiplier value returned by Rachio, published in seconds.                                                                                      |
 | `schedule-data-modified`       | ON when Rachio reports modified schedule data for the zone.                                                                                                                   |
-| `moisture-level`               | `Number:Length` command channel for `zone/setMoistureLevel`. Plain numeric commands are millimeters.                                                                          |
-| `moisture-percent`             | `Number:Dimensionless` command channel for `zone/setMoisturePercent`. Plain numeric commands are a 0..1 fraction; quantity percentages such as `50 %` are converted to `0.5`. |
+| `moistureLevel`                | `Number:Length` command-only soil moisture adjustment input for `zone/setMoistureLevel`. Plain numeric commands are millimeters.                                              |
+| `moisturePercent`              | `Number:Dimensionless` command-only soil moisture adjustment input for `zone/setMoisturePercent`. Plain numeric commands are a 0..1 fraction; quantity percentages such as `50 %` are converted to `0.5`. |
 | `last-update`                  | Timestamp of last status update.                                                                                                                                              |
 | `last-event`                   | Last event received from the cloud.                                                                                                                                           |
 | `last-event-time`              | Timestamp of the last received event.                                                                                                                                         |
@@ -388,6 +381,11 @@ The existing `image-url` channel remains available for URL-based integrations.
 The `image` channel downloads the same zone picture as native openHAB image data and can be linked to an `Image` Item.
 
 If an image cannot be downloaded, the zone remains online and the URL channel is still updated.
+
+The Rachio public Zone object does not return readable `moistureLevel` or `moisturePercent` fields.
+Those channels are retained as command-only soil moisture adjustment inputs for external measurements or manual correction.
+After restart or before the first successful command, their Item state may be `UNDEF`.
+Readable water-model values are available through `availableWater`, `depthOfWater`, and `saturatedDepthOfWater`.
 
 ## Smart Hose Timer Things
 
@@ -498,9 +496,9 @@ Flex schedules are represented by read-only `flex-schedule` Things with lower-ca
 | `name`                   | `name`                   | Schedule rule name.                                                                                                                                          |
 | `enabled`                | `enabled`                | ON if the schedule rule is enabled.                                                                                                                          |
 | `type`                   | `type`                   | Schedule rule type.                                                                                                                                          |
-| `startTime`              | `start-time`             | Schedule start time when provided by Rachio.                                                                                                                 |
-| `lastRun`                | `last-run`               | Last run time when provided by Rachio.                                                                                                                       |
-| `nextRun`                | `next-run`               | Next run time when provided by Rachio.                                                                                                                       |
+| `startTime`              | `start-time`             | Schedule start time from Rachio `startDate`, with `startTime` used as a fallback when present.                                                              |
+| `lastRun`                | `last-run`               | Last run time when Rachio provides a usable best-effort field.                                                                                               |
+| `nextRun`                | `next-run`               | Next run time when Rachio provides a usable best-effort field.                                                                                               |
 | `zones`                  | `zones`                  | Comma-separated Rachio zone IDs associated with the schedule.                                                                                                |
 | `seasonalAdjustment`    | `seasonal-adjustment`    | `Number:Dimensionless` seasonal adjustment value. Sending a plain number on fixed schedules preserves the existing fraction semantics and updates the rule. |
 | `start`                  | -                        | Send ON to start the fixed schedule rule.                                                                                                                     |
@@ -513,6 +511,9 @@ Manual schedule creation requires `scheduleRuleId`.
 Manual flex schedule creation requires `flexScheduleRuleId`.
 
 Discovery creates schedule and flex schedule Things when the Rachio controller payload includes the corresponding rule IDs.
+
+Schedule and flex schedule DateTime channels support epoch milliseconds, epoch seconds, numeric strings, and ISO-8601 strings when those fields are present.
+`lastRun`/`last-run` and `nextRun`/`next-run` remain `UNDEF` when the Rachio API response does not include a usable value; the binding does not fabricate dates.
 
 ## Webhook Events
 
@@ -606,8 +607,8 @@ Number:Dimensionless Rachio_Forecast_PrecipitationProbability "Rain Probability 
 String Rachio_Zone1_Name "Zone Name" { channel="rachio:zone:1:controller-zone1:name" }
 Switch Rachio_Zone1_Run "Run Zone" { channel="rachio:zone:1:controller-zone1:run" }
 Number:Time Rachio_Zone1_RunTime "Zone Runtime [%d s]" { channel="rachio:zone:1:controller-zone1:run-time" }
-Number:Length Rachio_Zone1_MoistureLevel "Moisture Level [%.1f mm]" { channel="rachio:zone:1:controller-zone1:moisture-level" }
-Number:Dimensionless Rachio_Zone1_MoisturePercent "Moisture [%.0f %%]" { channel="rachio:zone:1:controller-zone1:moisture-percent" }
+Number:Length Rachio_Zone1_MoistureLevel "Moisture Level [%.1f mm]" { channel="rachio:zone:1:controller-zone1:moistureLevel" }
+Number:Dimensionless Rachio_Zone1_MoisturePercent "Moisture [%.0f %%]" { channel="rachio:zone:1:controller-zone1:moisturePercent" }
 Image Rachio_Zone1_Image "Zone Image" { channel="rachio:zone:1:controller-zone1:image" }
 
 Switch HoseValve_Run "Run Hose Valve" { channel="rachio:valve:1:gardenhose:run" }

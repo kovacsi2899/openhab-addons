@@ -121,6 +121,16 @@ class RachioZoneChannelTest {
     }
 
     @Test
+    void zoneMoistureChannelsAreDocumentedAsCommandOnlyAdjustments() throws IOException, URISyntaxException {
+        String xml = readThingXml("zone.xml");
+
+        assertThat(xml, containsString("id=\"moistureLevel\""));
+        assertThat(xml, containsString("id=\"moisturePercent\""));
+        assertThat(xml, containsString("Command-only soil moisture adjustment input for zone/setMoistureLevel"));
+        assertThat(xml, containsString("Command-only soil moisture adjustment input for zone/setMoisturePercent"));
+    }
+
+    @Test
     void deviceThingDeclaresActiveZoneChannels() throws IOException, URISyntaxException {
         String xml = readThingXml("device.xml");
 

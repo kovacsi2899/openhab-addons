@@ -75,7 +75,6 @@ import org.slf4j.LoggerFactory;
 public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     private final Logger logger = LoggerFactory.getLogger(RachioBridgeHandler.class);
     private final RachioApi rachioApi;
-    private RachioConfiguration bindingConfig = new RachioConfiguration();
     private RachioConfiguration thingConfig = new RachioConfiguration();
     private String personId = "";
     private final Set<RachioDiscoveryService> discoveryServices = new CopyOnWriteArraySet<>();
@@ -96,10 +95,6 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     public RachioBridgeHandler(final Bridge bridge) {
         super(bridge);
         rachioApi = new RachioApi(personId);
-    }
-
-    public void setConfiguration(RachioConfiguration defaultConfig) {
-        bindingConfig = new RachioConfiguration(defaultConfig);
     }
 
     /**
@@ -869,7 +864,7 @@ public class RachioBridgeHandler extends AbstractRachioBridgeHandler {
     }
 
     private RachioConfiguration.ResolvedConfiguration resolveEffectiveConfiguration() {
-        return RachioConfiguration.resolveEffectiveConfig(bindingConfig, getConfig().getProperties());
+        return RachioConfiguration.resolveEffectiveConfig(getConfig().getProperties());
     }
 
     private void logResolvedConfiguration(RachioConfiguration.ResolvedConfiguration resolvedConfiguration) {

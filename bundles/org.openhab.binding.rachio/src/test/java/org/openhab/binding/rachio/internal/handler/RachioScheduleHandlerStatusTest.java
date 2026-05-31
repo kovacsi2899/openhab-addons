@@ -25,10 +25,12 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_RUN;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_LAST_UPDATE;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_NAME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_NEXT_RUN;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_FLEX_SCHEDULE_START_TIME;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_LAST_RUN;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_NAME;
+import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_NEXT_RUN;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_SEASONAL_ADJUSTMENT;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.CHANNEL_SCHEDULE_START_TIME;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.PROPERTY_FLEX_SCHEDULE_RULE_ID;
@@ -36,6 +38,7 @@ import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_T
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_FLEX_SCHEDULE;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.THING_TYPE_SCHEDULE;
 
+import java.time.Instant;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -60,6 +63,7 @@ import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.ThingHandlerCallback;
 import org.openhab.core.types.RefreshType;
+import org.openhab.core.types.UnDefType;
 
 /**
  * Tests schedule handler status lifecycle around initial refresh failures.
@@ -69,6 +73,10 @@ import org.openhab.core.types.RefreshType;
 @NonNullByDefault
 @SuppressWarnings({ "null" })
 class RachioScheduleHandlerStatusTest {
+    private static final long START_EPOCH_MILLIS = 1_767_225_600_000L;
+    private static final long LAST_RUN_EPOCH_MILLIS = 1_767_139_200_000L;
+    private static final long NEXT_RUN_EPOCH_SECONDS = 1_767_312_000L;
+
     @Test
     void scheduleHandlerDoesNotOverwriteFailedInitialRefreshWithOnline() {
         Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
@@ -314,6 +322,149 @@ class RachioScheduleHandlerStatusTest {
     }
 
     @Test
+    void scheduleStartDateEpochMillisecondsUpdatesStartTime() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.startDate = Long.toString(START_EPOCH_MILLIS);
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_SCHEDULE_START_TIME, Instant.ofEpochMilli(START_EPOCH_MILLIS));
+    }
+
+    @Test
+    void scheduleStartDateEpochSecondsUpdatesStartTime() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.startDate = Long.toString(START_EPOCH_MILLIS / 1000L);
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_SCHEDULE_START_TIME, Instant.ofEpochMilli(START_EPOCH_MILLIS));
+    }
+
+    @Test
+    void scheduleStartTimeIsoFallbackUpdatesStartTime() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.startTime = "2026-05-30T08:00:00Z";
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_SCHEDULE_START_TIME, Instant.parse("2026-05-30T08:00:00Z"));
+    }
+
+    @Test
+    void scheduleLastRunEpochMillisecondsUpdatesLastRun() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.lastRun = Long.toString(LAST_RUN_EPOCH_MILLIS);
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_SCHEDULE_LAST_RUN, Instant.ofEpochMilli(LAST_RUN_EPOCH_MILLIS));
+    }
+
+    @Test
+    void scheduleNextRunEpochSecondsUpdatesNextRun() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.nextRun = Long.toString(NEXT_RUN_EPOCH_SECONDS);
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_SCHEDULE_NEXT_RUN, Instant.ofEpochSecond(NEXT_RUN_EPOCH_SECONDS));
+    }
+
+    @Test
+    void flexScheduleStartDateEpochMillisecondsUpdatesStartTime() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        RachioFlexScheduleRuleResponse response = flexScheduleResponse();
+        response.startDate = Long.toString(START_EPOCH_MILLIS);
+        ResponseFlexScheduleHandler handler = new ResponseFlexScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_FLEX_SCHEDULE_START_TIME,
+                Instant.ofEpochMilli(START_EPOCH_MILLIS));
+    }
+
+    @Test
+    void flexScheduleLastRunEpochValueUpdatesLastRun() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        RachioFlexScheduleRuleResponse response = flexScheduleResponse();
+        response.lastRun = Long.toString(LAST_RUN_EPOCH_MILLIS);
+        ResponseFlexScheduleHandler handler = new ResponseFlexScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_FLEX_SCHEDULE_LAST_RUN,
+                Instant.ofEpochMilli(LAST_RUN_EPOCH_MILLIS));
+    }
+
+    @Test
+    void flexScheduleNextRunEpochValueUpdatesNextRun() {
+        Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "flex-id"), Map.of());
+        RachioFlexScheduleRuleResponse response = flexScheduleResponse();
+        response.nextRun = Long.toString(NEXT_RUN_EPOCH_SECONDS);
+        ResponseFlexScheduleHandler handler = new ResponseFlexScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verifyDateTimeState(callback, thing, CHANNEL_FLEX_SCHEDULE_NEXT_RUN,
+                Instant.ofEpochSecond(NEXT_RUN_EPOCH_SECONDS));
+    }
+
+    @Test
+    void missingDateFieldsPublishUndef() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, scheduleResponse());
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_START_TIME), UnDefType.UNDEF);
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_LAST_RUN), UnDefType.UNDEF);
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_NEXT_RUN), UnDefType.UNDEF);
+    }
+
+    @Test
+    void invalidDateStringPublishesUndef() {
+        Thing thing = thing(new ThingUID(THING_TYPE_SCHEDULE, "bridge", "schedule"));
+        RachioScheduleRuleResponse response = scheduleResponse();
+        response.startDate = "not-a-date";
+        ResponseScheduleHandler handler = new ResponseScheduleHandler(thing, response);
+        ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
+        handler.setCallback(callback);
+
+        handler.publicGoOnline();
+
+        verify(callback).stateUpdated(new ChannelUID(thing.getUID(), CHANNEL_SCHEDULE_START_TIME), UnDefType.UNDEF);
+    }
+
+    @Test
     void flexScheduleHandlerDoesNotGoOnlineAfterFailedInitializationLoad() {
         Thing thing = flexScheduleThing(Map.of(PROPERTY_FLEX_SCHEDULE_RULE_ID, "config-flex-id"), Map.of());
         InitializingFlexScheduleHandler handler = new InitializingFlexScheduleHandler(thing, true, false);
@@ -404,6 +555,32 @@ class RachioScheduleHandlerStatusTest {
                 new RachioApiResult());
     }
 
+    private static RachioScheduleRuleResponse scheduleResponse() {
+        RachioScheduleRuleResponse response = new RachioScheduleRuleResponse();
+        response.id = "schedule-id";
+        response.name = "Morning";
+        response.enabled = true;
+        response.type = "FIXED";
+        response.seasonalAdjustment = 1;
+        return response;
+    }
+
+    private static RachioFlexScheduleRuleResponse flexScheduleResponse() {
+        RachioFlexScheduleRuleResponse response = new RachioFlexScheduleRuleResponse();
+        response.id = "flex-id";
+        response.name = "Flex";
+        response.enabled = true;
+        response.type = "FLEX";
+        response.seasonalAdjustment = 1;
+        return response;
+    }
+
+    private static void verifyDateTimeState(ThingHandlerCallback callback, Thing thing, String channel,
+            Instant expectedInstant) {
+        verify(callback).stateUpdated(eq(new ChannelUID(thing.getUID(), channel)), argThat(
+                state -> state instanceof DateTimeType dateTime && dateTime.getInstant().equals(expectedInstant)));
+    }
+
     private static class TestScheduleHandler extends RachioScheduleHandler {
         private final boolean refreshSuccess;
 
@@ -422,6 +599,26 @@ class RachioScheduleHandlerStatusTest {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "failed");
             }
             return refreshSuccess;
+        }
+    }
+
+    private static class ResponseScheduleHandler extends RachioScheduleHandler {
+        private final RachioScheduleRuleResponse response;
+
+        ResponseScheduleHandler(Thing thing, RachioScheduleRuleResponse response) {
+            super(thing);
+            this.response = response;
+            this.scheduleRuleId = "schedule-id";
+            this.cloudHandler = Mockito.mock(RachioBridgeHandler.class);
+        }
+
+        void publicGoOnline() {
+            goOnline();
+        }
+
+        @Override
+        protected RachioScheduleRuleResponse loadScheduleRule() {
+            return response;
         }
     }
 
@@ -561,6 +758,26 @@ class RachioScheduleHandlerStatusTest {
             response.lastRun = "2026-05-29T08:00:00Z";
             response.nextRun = "2026-05-31T08:00:00Z";
             response.seasonalAdjustment = 1;
+            return response;
+        }
+    }
+
+    private static class ResponseFlexScheduleHandler extends RachioFlexScheduleHandler {
+        private final RachioFlexScheduleRuleResponse response;
+
+        ResponseFlexScheduleHandler(Thing thing, RachioFlexScheduleRuleResponse response) {
+            super(thing);
+            this.response = response;
+            this.flexScheduleRuleId = "flex-id";
+            this.cloudHandler = Mockito.mock(RachioBridgeHandler.class);
+        }
+
+        void publicGoOnline() {
+            goOnline();
+        }
+
+        @Override
+        protected RachioFlexScheduleRuleResponse loadFlexScheduleRule() {
             return response;
         }
     }

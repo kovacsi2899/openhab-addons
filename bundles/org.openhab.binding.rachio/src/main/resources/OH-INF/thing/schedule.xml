@@ -68,7 +68,7 @@
 	<channel-type id="schedule_startTime">
 		<item-type>DateTime</item-type>
 		<label>Start Time</label>
-		<description>Schedule rule start time when provided by Rachio.</description>
+		<description>Schedule rule start time from Rachio startDate, with startTime used as a fallback when present.</description>
 		<tags>
 			<tag>Status</tag>
 			<tag>Timestamp</tag>
@@ -78,7 +78,7 @@
 	<channel-type id="schedule_lastRun">
 		<item-type>DateTime</item-type>
 		<label>Last Run</label>
-		<description>Last run time when provided by Rachio.</description>
+		<description>Last run time when provided by Rachio. Remains UNDEF when the API does not provide a usable value.</description>
 		<tags>
 			<tag>Status</tag>
 			<tag>Timestamp</tag>
@@ -88,7 +88,7 @@
 	<channel-type id="schedule_nextRun">
 		<item-type>DateTime</item-type>
 		<label>Next Run</label>
-		<description>Next run time when provided by Rachio.</description>
+		<description>Next run time when provided by Rachio. Remains UNDEF when the API does not provide a usable value.</description>
 		<tags>
 			<tag>Status</tag>
 			<tag>Timestamp</tag>

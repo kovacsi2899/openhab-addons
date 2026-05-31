@@ -231,7 +231,7 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             }
         } finally {
             if (!errorMessage.isEmpty()) {
-                logger.debug("{}: {}", thingId, errorMessage);
+                logger.warn("{}: Zone command failed: {}", thingId, errorMessage);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, errorMessage);
             }
         }
@@ -342,10 +342,14 @@ public class RachioZoneHandler extends AbstractRachioThingHandler {
             updateChannel(CHANNEL_ZONE_MAX_RUNTIME, RachioQuantityTypes.seconds(z.maxRuntime));
             updateChannel(CHANNEL_ZONE_RUNTIME_NO_MULTIPLIER, RachioQuantityTypes.seconds(z.runtimeNoMultiplier));
             updateChannel(CHANNEL_ZONE_SCHEDULE_DATA_MODIFIED, z.scheduleDataModified ? OnOffType.ON : OnOffType.OFF);
-            updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL, Double.isNaN(z.getMoistureLevel()) ? UnDefType.UNDEF
-                    : RachioQuantityTypes.millimetersOrUndef(z.getMoistureLevel()));
-            updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT, Double.isNaN(z.getMoisturePercent()) ? UnDefType.UNDEF
-                    : RachioQuantityTypes.fractionOrUndef(z.getMoisturePercent()));
+            if (!Double.isNaN(z.getMoistureLevel())) {
+                updateChannel(CHANNEL_ZONE_MOISTURE_LEVEL,
+                        RachioQuantityTypes.millimetersOrUndef(z.getMoistureLevel()));
+            }
+            if (!Double.isNaN(z.getMoisturePercent())) {
+                updateChannel(CHANNEL_ZONE_MOISTURE_PERCENT,
+                        RachioQuantityTypes.fractionOrUndef(z.getMoisturePercent()));
+            }
             updateChannel(CHANNEL_LAST_EVENT, new StringType(z.getEvent()));
             DateTimeType ts = z.getEventTime();
             updateChannel(RachioBindingConstants.CHANNEL_LAST_EVENTTS, ts != null ? ts : UnDefType.UNDEF);

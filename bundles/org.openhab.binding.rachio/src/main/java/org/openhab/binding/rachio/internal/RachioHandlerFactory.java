@@ -51,8 +51,7 @@ import org.slf4j.LoggerFactory;
  * @author Markus Michels - Initial contribution
  */
 @NonNullByDefault
-@Component(service = { ThingHandlerFactory.class,
-        RachioHandlerFactory.class }, immediate = true, configurationPid = "binding." + BINDING_ID)
+@Component(service = { ThingHandlerFactory.class, RachioHandlerFactory.class }, immediate = true)
 public class RachioHandlerFactory extends BaseThingHandlerFactory {
 
     public class RachioBridge {
@@ -64,7 +63,6 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
 
     private final Logger logger = LoggerFactory.getLogger(RachioHandlerFactory.class);
     private final Map<String, RachioBridge> bridgeList = new ConcurrentHashMap<>();
-    private final RachioConfiguration bindingConfig = new RachioConfiguration();
 
     RachioHandlerFactory() {
         logger.debug("RachioHandlerFactory: Initialized Rachio Thing handler.");
@@ -75,13 +73,9 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
      *
      */
     @Activate
-    public RachioHandlerFactory(ComponentContext componentContext,
-            @Nullable Map<String, @Nullable Object> configProperties) {
+    public RachioHandlerFactory(ComponentContext componentContext) {
         super.activate(componentContext);
         logger.debug("RachioHandlerFactory: Initialized Rachio Thing handler.");
-
-        logger.debug("RachioHandlerFactory: Activating with binding-level configuration");
-        bindingConfig.updateConfig(configProperties);
     }
 
     @Override
@@ -203,7 +197,6 @@ public class RachioHandlerFactory extends BaseThingHandlerFactory {
             RachioBridgeHandler cloudHandler = new RachioBridgeHandler(bridgeThing);
             bridge.uid = bridgeUID;
             bridge.cloudHandler = cloudHandler;
-            cloudHandler.setConfiguration(bindingConfig);
             bridgeList.put(bridgeUID.toString(), bridge);
             return cloudHandler;
         } catch (RuntimeException e) {

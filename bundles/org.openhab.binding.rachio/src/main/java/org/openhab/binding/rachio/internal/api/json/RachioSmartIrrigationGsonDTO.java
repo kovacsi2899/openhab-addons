@@ -262,9 +262,18 @@ public class RachioSmartIrrigationGsonDTO {
         public String name = "";
         public boolean enabled = false;
         public String type = "";
+        public String startDate = "";
         public String startTime = "";
         public String lastRun = "";
+        public String lastRunDate = "";
+        public String lastRunTime = "";
+        public String lastRunAt = "";
         public String nextRun = "";
+        public String nextRunDate = "";
+        public String nextRunTime = "";
+        public String nextRunAt = "";
+        public String nextScheduledRun = "";
+        public String nextScheduledStart = "";
         public double seasonalAdjustment = 0;
         public ArrayList<RachioScheduleRuleZone> zones = new ArrayList<>();
 

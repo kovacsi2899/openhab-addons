@@ -57,7 +57,7 @@ public class RachioBindingConstants {
             .concat(SUPPORTED_BRIDGE_THING_TYPES_UIDS.stream(), SUPPORTED_DEVICE_THING_TYPES_UIDS.stream())
             .collect(Collectors.toSet());
 
-    // Config opntions (e.g. rachio.cfg)
+    // Rachio Cloud Connector Thing configuration options
     public static final String PARAM_APIKEY = "apikey";
     public static final String PARAM_POLLING_INTERVAL = "pollingInterval";
     public static final String PARAM_DEF_RUNTIME = "defaultRuntime";

@@ -15,10 +15,6 @@ package org.openhab.binding.rachio.internal.handler;
 import static org.openhab.binding.rachio.internal.RachioBindingConstants.*;
 import static org.openhab.binding.rachio.internal.RachioUtils.getTimestamp;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.rachio.internal.api.RachioApiException;
@@ -26,7 +22,6 @@ import org.openhab.binding.rachio.internal.api.RachioApiThrottledException;
 import org.openhab.binding.rachio.internal.api.RachioDevice;
 import org.openhab.binding.rachio.internal.api.RachioZone;
 import org.openhab.binding.rachio.internal.api.json.RachioSmartIrrigationGsonDTO.RachioFlexScheduleRuleResponse;
-import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.ChannelUID;
@@ -163,9 +158,17 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
         updateChannel(CHANNEL_FLEX_SCHEDULE_NAME, stringOrUndef(scheduleRule.name));
         updateChannel(CHANNEL_FLEX_SCHEDULE_ENABLED, scheduleRule.enabled ? OnOffType.ON : OnOffType.OFF);
         updateChannel(CHANNEL_FLEX_SCHEDULE_TYPE, stringOrUndef(scheduleRule.type));
-        updateChannel(CHANNEL_FLEX_SCHEDULE_START_TIME, dateTimeOrUndef(scheduleRule.startTime));
-        updateChannel(CHANNEL_FLEX_SCHEDULE_LAST_RUN, dateTimeOrUndef(scheduleRule.lastRun));
-        updateChannel(CHANNEL_FLEX_SCHEDULE_NEXT_RUN, dateTimeOrUndef(scheduleRule.nextRun));
+        updateChannel(CHANNEL_FLEX_SCHEDULE_START_TIME, dateTimeOrUndef(CHANNEL_FLEX_SCHEDULE_START_TIME, "startDate",
+                scheduleRule.startDate, "startTime", scheduleRule.startTime));
+        updateChannel(CHANNEL_FLEX_SCHEDULE_LAST_RUN,
+                dateTimeOrUndef(CHANNEL_FLEX_SCHEDULE_LAST_RUN, "lastRun", scheduleRule.lastRun, "lastRunDate",
+                        scheduleRule.lastRunDate, "lastRunTime", scheduleRule.lastRunTime, "lastRunAt",
+                        scheduleRule.lastRunAt));
+        updateChannel(CHANNEL_FLEX_SCHEDULE_NEXT_RUN,
+                dateTimeOrUndef(CHANNEL_FLEX_SCHEDULE_NEXT_RUN, "nextRun", scheduleRule.nextRun, "nextRunDate",
+                        scheduleRule.nextRunDate, "nextRunTime", scheduleRule.nextRunTime, "nextRunAt",
+                        scheduleRule.nextRunAt, "nextScheduledRun", scheduleRule.nextScheduledRun, "nextScheduledStart",
+                        scheduleRule.nextScheduledStart));
         updateChannel(CHANNEL_FLEX_SCHEDULE_ZONES, stringOrUndef(scheduleRule.getZoneSummary()));
         updateChannel(CHANNEL_FLEX_SCHEDULE_SEASONAL_ADJUSTMENT,
                 RachioQuantityTypes.fractionOrUndef(scheduleRule.seasonalAdjustment));
@@ -200,21 +203,8 @@ public class RachioFlexScheduleHandler extends AbstractRachioThingHandler {
         return value.isBlank() ? UnDefType.UNDEF : new StringType(value);
     }
 
-    private State dateTimeOrUndef(String value) {
-        if (value.isBlank()) {
-            return UnDefType.UNDEF;
-        }
-        try {
-            if (value.chars().allMatch(Character::isDigit)) {
-                long epoch = Long.parseLong(value);
-                long epochMillis = value.length() > 10 ? epoch : epoch * 1000L;
-                return new DateTimeType(
-                        ZonedDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
-            }
-            return new DateTimeType(value);
-        } catch (RuntimeException e) {
-            logger.trace("{}: Unable to parse DateTime channel value '{}'", thingId, value);
-            return UnDefType.UNDEF;
-        }
+    private State dateTimeOrUndef(String channel, String... fieldNamesAndValues) {
+        return RachioScheduleDateTime.dateTimeOrUndef(thingId, logger, flexScheduleRuleId, channel,
+                fieldNamesAndValues);
     }
 }
