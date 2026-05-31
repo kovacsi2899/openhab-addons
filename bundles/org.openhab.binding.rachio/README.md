@@ -206,7 +206,10 @@ The bridge Thing does not have channels.
 | `callbackPassword`          | Optional HTTP Basic Auth password for the webhook endpoint. Enter the raw value; the binding percent-encodes it before registering the webhook with Rachio.                              |
 | `clearAllCallbacks`         | Cleanup switch for stale Rachio callback registrations. Leave `false` for normal operation.                                                                                              |
 
-Cloud Connector Thing configuration is the only user configuration source. No binding-level or add-on-level configuration is read; unset optional parameters use the built-in defaults.
+Cloud Connector Thing configuration is the only user configuration source.
+Built-in defaults are used for unset optional values.
+Configuration precedence is: `Cloud Connector Thing configuration > built-in defaults`.
+No binding-level or add-on-level configuration is read.
 
 ### openHAB Cloud / myopenHAB.org setup
 
