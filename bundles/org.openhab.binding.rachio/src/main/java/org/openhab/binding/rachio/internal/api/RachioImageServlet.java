@@ -144,23 +144,31 @@ public class RachioImageServlet extends HttpServlet {
             if (ipAddress == null) {
                 ipAddress = request.getRemoteAddr();
             }
-            String path = request.getRequestURI().substring(0, SERVLET_IMAGE_PATH.length());
-            logger.trace("RachioImage: Request from {}:{}{} ({}:{}, {})", ipAddress, request.getRemotePort(), path,
+            @Nullable
+            String requestUri = request.getRequestURI();
+            logger.trace("RachioImage: Request from {}:{} ({}:{}, {})", ipAddress, request.getRemotePort(),
                     request.getRemoteHost(), request.getServerPort(), request.getProtocol());
-            if (!request.getMethod().equalsIgnoreCase(HTTP_METHOD_GET)) {
-                logger.warn("RachioImage: Unexpected method='{}'", request.getMethod());
+            String method = request.getMethod();
+            if (!HTTP_METHOD_GET.equalsIgnoreCase(method)) {
+                logger.warn("RachioImage: Unexpected method='{}'", method);
             }
-            if (!path.equalsIgnoreCase(SERVLET_IMAGE_PATH)) {
-                logger.warn("RachioImage: Invalid request received - path = {}", path);
+            if (!isImageServletPath(requestUri)) {
+                logger.debug("RachioImage: Ignoring request outside image servlet path");
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
                 return;
             }
 
-            String uri = request.getRequestURI().substring(request.getRequestURI().lastIndexOf("/") + 1);
-            String imageUrl = SERVLET_IMAGE_URL_BASE + uri;
-            logger.debug("RachioImage: {} image '{}'", request.getMethod(), uri);
+            @Nullable
+            String imagePath = normalizeImagePath(request.getPathInfo());
+            if (imagePath == null) {
+                logger.debug("Ignoring Rachio image request without image path");
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+
+            logger.debug("RachioImage: Serving image request: method={}, pathLength={}", method, imagePath.length());
             setHeaders(resp);
-            URL url = new URL(imageUrl);
-            URLConnection conn = url.openConnection();
+            URLConnection conn = openImageConnection(imagePath);
             conn.setDoInput(true);
             conn.setDoOutput(true);
             reader = conn.getInputStream();
@@ -183,6 +191,41 @@ public class RachioImageServlet extends HttpServlet {
                 reader.close();
             }
         }
+    }
+
+    private boolean isImageServletPath(@Nullable String requestUri) {
+        if (requestUri == null) {
+            return false;
+        }
+        if (requestUri.length() == SERVLET_IMAGE_PATH.length()) {
+            return SERVLET_IMAGE_PATH.equalsIgnoreCase(requestUri);
+        }
+        return requestUri.length() > SERVLET_IMAGE_PATH.length()
+                && requestUri.regionMatches(true, 0, SERVLET_IMAGE_PATH, 0, SERVLET_IMAGE_PATH.length())
+                && requestUri.charAt(SERVLET_IMAGE_PATH.length()) == '/';
+    }
+
+    static @Nullable String normalizeImagePath(@Nullable String pathInfo) {
+        if (pathInfo == null) {
+            return null;
+        }
+        String normalized = pathInfo.trim();
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1).trim();
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+
+        int lastSeparator = normalized.lastIndexOf('/');
+        if (lastSeparator >= 0) {
+            normalized = normalized.substring(lastSeparator + 1).trim();
+        }
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    protected URLConnection openImageConnection(String imagePath) throws IOException {
+        return new URL(SERVLET_IMAGE_URL_BASE + imagePath).openConnection();
     }
 
     private void setHeaders(HttpServletResponse response) {
