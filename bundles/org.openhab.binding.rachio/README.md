@@ -637,4 +637,3 @@ then
     Rachio_Zone1_RunTime.sendCommand(1800)
     Rachio_Zone1_Run.sendCommand(ON)
 end
-```
