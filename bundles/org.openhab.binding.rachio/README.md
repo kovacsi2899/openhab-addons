@@ -127,6 +127,9 @@ Repeated failures increase the retry delay up to five minutes.
 Polling continues during recovery, and retries stop when Cloud webhooks are disabled or the bridge is removed.
 Polling also clears a zone's run indication if a completion webhook is missed.
 A newer webhook received during a current-schedule refresh takes precedence over that response.
+Overlapping current-schedule refreshes retain the newest successful response, and idle corrections cannot cross a zone lifecycle or model replacement.
+Transient bridge initialization failures retry automatically after 30 seconds, with backoff capped at five minutes.
+Authentication or configuration errors require correction; account rate-limit failures defer initialization for 24 hours, and local throttling honors its suggested delay.
 
 When modern mode is active, stale legacy callbacks may still arrive; they are acknowledged and ignored.
 Otherwise, configuring `callbackUrl` keeps legacy NotificationService support available.

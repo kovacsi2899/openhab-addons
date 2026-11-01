@@ -23,6 +23,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -78,6 +80,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
     private final Object runStateLock = new Object();
     private long runStateRevision;
     private int webhookRunUpdatesInProgress;
+    private long currentScheduleRequestSequence;
+    private long latestCurrentScheduleResponseSequence;
 
     protected volatile @Nullable RachioDevice dev;
     private long lastOptionalEnrichmentSuccessMillis = 0;
@@ -508,7 +512,8 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             return;
         }
 
-        long requestRunStateRevision = currentRunStateRevision();
+        CurrentScheduleRequest request = beginCurrentScheduleRequest();
+        List<RachioZoneHandler.RunStateContext> zoneContexts = captureZoneRunStateContexts(d);
         try {
             RachioCurrentScheduleResponse currentSchedule = handler.getCurrentSchedule(d.id, currentSchedulePurpose);
             if (!isCurrentDeviceContext(generation, handler, d)) {
@@ -516,27 +521,33 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
             }
             boolean idleAccepted = false;
             synchronized (runStateLock) {
-                if (!isRunStateRevisionCurrent(requestRunStateRevision)) {
-                    logger.debug("{}: Ignoring current schedule response superseded by a controller webhook", thingId);
-                } else if (currentSchedule.isRunning()
-                        || !shouldPreserveWebhookRunSummary(d, refreshReason, currentTimeMillis())) {
-                    d.applyCurrentSchedule(currentSchedule);
-                    if (d.currentScheduleRunning) {
-                        applyResolvedScheduleMetadata(d, d.currentScheduleId);
-                    } else {
-                        d.clearActiveZone();
-                        clearWebhookRunSummaryProtection();
-                        idleAccepted = true;
-                    }
+                if (!isRunStateRevisionCurrent(request.webhookRevision())
+                        || request.sequence() < latestCurrentScheduleResponseSequence) {
+                    logger.debug("{}: Ignoring current schedule response superseded by a newer response or webhook",
+                            thingId);
                 } else {
-                    logger.debug(
-                            "{}: Ignoring non-running REST current schedule for controller '{}' during {} because webhook-derived active run state is protected until {}",
-                            thingId, d.id, refreshReason,
-                            Instant.ofEpochMilli(webhookRunSummaryProtectUntilMillis).toString());
+                    // A failed newer request does not discard a still-valid successful older response.
+                    latestCurrentScheduleResponseSequence = request.sequence();
+                    if (currentSchedule.isRunning()
+                            || !shouldPreserveWebhookRunSummary(d, refreshReason, currentTimeMillis())) {
+                        d.applyCurrentSchedule(currentSchedule);
+                        if (d.currentScheduleRunning) {
+                            applyResolvedScheduleMetadata(d, d.currentScheduleId);
+                        } else {
+                            d.clearActiveZone();
+                            clearWebhookRunSummaryProtection();
+                            idleAccepted = true;
+                        }
+                    } else {
+                        logger.debug(
+                                "{}: Ignoring non-running REST current schedule for controller '{}' during {} because webhook-derived active run state is protected until {}",
+                                thingId, d.id, refreshReason,
+                                Instant.ofEpochMilli(webhookRunSummaryProtectUntilMillis).toString());
+                    }
                 }
             }
             if (idleAccepted) {
-                reconcileIdleZoneRunStates(handler, d, generation, requestRunStateRevision);
+                reconcileIdleZoneRunStates(handler, d, generation, request, zoneContexts);
             }
             logger.debug("{}: Loaded current schedule for controller '{}': running={}, id='{}'", thingId, d.id,
                     d.currentScheduleRunning, d.currentScheduleId);
@@ -558,22 +569,46 @@ public class RachioDeviceHandler extends AbstractRachioThingHandler {
         }
     }
 
-    private void reconcileIdleZoneRunStates(RachioBridgeHandler handler, RachioDevice device, long generation,
-            long requestRunStateRevision) {
+    private List<RachioZoneHandler.RunStateContext> captureZoneRunStateContexts(RachioDevice device) {
+        List<RachioZoneHandler.RunStateContext> contexts = new ArrayList<>();
         for (RachioZone currentZone : device.getZones().values()) {
             RachioZoneHandler zoneHandler = currentZone.getThingHandler();
             if (zoneHandler != null) {
-                zoneHandler.reconcileIdleRunState(device, () -> isCurrentDeviceContext(generation, handler, device)
-                        && isRunStateRevisionCurrent(requestRunStateRevision) && !device.currentScheduleRunning);
+                RachioZoneHandler.RunStateContext context = zoneHandler.captureRunStateContext(device, currentZone);
+                if (context != null) {
+                    contexts.add(context);
+                }
             }
+        }
+        return contexts;
+    }
+
+    private void reconcileIdleZoneRunStates(RachioBridgeHandler handler, RachioDevice device, long generation,
+            CurrentScheduleRequest request, List<RachioZoneHandler.RunStateContext> zoneContexts) {
+        for (RachioZoneHandler.RunStateContext context : zoneContexts) {
+            context.handler().reconcileIdleRunState(context,
+                    publisher -> publishIfHandlerLifecycleCurrent(generation, () -> {
+                        synchronized (runStateLock) {
+                            if (isSameInstance(cloudHandler, handler) && isSameInstance(dev, device)
+                                    && isRunStateRevisionCurrent(request.webhookRevision())
+                                    && request.sequence() == latestCurrentScheduleResponseSequence
+                                    && !device.currentScheduleRunning) {
+                                publisher.run();
+                            }
+                        }
+                    }));
         }
     }
 
-    private long currentRunStateRevision() {
+    private CurrentScheduleRequest beginCurrentScheduleRequest() {
         synchronized (runStateLock) {
             // A request begun during a webhook must not overwrite that event once it finishes.
-            return webhookRunUpdatesInProgress == 0 ? runStateRevision : -1;
+            return new CurrentScheduleRequest(++currentScheduleRequestSequence,
+                    webhookRunUpdatesInProgress == 0 ? runStateRevision : -1);
         }
+    }
+
+    private record CurrentScheduleRequest(long sequence, long webhookRevision) {
     }
 
     private boolean isRunStateRevisionCurrent(long revision) {

@@ -1226,7 +1226,7 @@ class RachioDeviceHandlerStatusTest {
                 idleAccepted.countDown();
                 assertThat(finishCorrection.await(5, TimeUnit.SECONDS), is(true));
                 return invocation.callRealMethod();
-            }).when(context.device).getZones();
+            }).when(context.zoneHandler).reconcileIdleRunState(any(), any());
             Future<?> refresh = worker.submit(() -> context.handler.refreshSmartIrrigationReadExtensions(false,
                     RequestPurpose.CORE_STATUS_POLL, RachioBridgeHandler.RefreshReason.SCHEDULED_POLL));
             assertThat(idleAccepted.await(5, TimeUnit.SECONDS), is(true));
@@ -1361,6 +1361,195 @@ class RachioDeviceHandlerStatusTest {
         }
     }
 
+    @Test
+    void olderIdleRestCannotOverwriteNewerGoOnlineResponse() throws Exception {
+        ZoneRunContext context = realZoneRunContext(new RachioCurrentScheduleResponse(), false);
+        CountDownLatch oldStarted = new CountDownLatch(1);
+        CountDownLatch releaseOld = new CountDownLatch(1);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        try {
+            assertThat(context.handler.webhookEvent(legacyZoneRunEvent("ZONE_STARTED")), is(true));
+            context.handler.advanceTime(600_000);
+            RachioCurrentScheduleResponse running = new RachioCurrentScheduleResponse();
+            running.running = true;
+            running.scheduleName = "Newer run";
+            Mockito.doAnswer(i -> {
+                if (calls.incrementAndGet() == 1) {
+                    oldStarted.countDown();
+                    assertThat(releaseOld.await(5, TimeUnit.SECONDS), is(true));
+                    return new RachioCurrentScheduleResponse();
+                }
+                return running;
+            }).when(context.handler.cloudHandler).getCurrentSchedule(eq(DEVICE_ID), any(RequestPurpose.class));
+            Future<?> old = worker.submit(() -> context.handler.refreshSmartIrrigationReadExtensions(false,
+                    RequestPurpose.CORE_STATUS_POLL, RachioBridgeHandler.RefreshReason.SCHEDULED_POLL));
+            assertThat(oldStarted.await(5, TimeUnit.SECONDS), is(true));
+            context.handler.goOnline();
+            assertThat(context.device.currentScheduleRunning, is(true));
+            releaseOld.countDown();
+            old.get(5, TimeUnit.SECONDS);
+            assertThat(context.device.currentScheduleRunning, is(true));
+            assertThat(lastPublishedZoneRun(context), is(OnOffType.ON));
+        } finally {
+            releaseOld.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(5, TimeUnit.SECONDS), is(true));
+            context.close();
+        }
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "true,false", "false,true", "true,true" })
+    void overlappingRestResponsesKeepNewestSuccessAndPermitFallbackAfterFailure(boolean olderRunning,
+            boolean newerFails) throws Exception {
+        ZoneRunContext context = realZoneRunContext(new RachioCurrentScheduleResponse(), false);
+        CountDownLatch oldStarted = new CountDownLatch(1);
+        CountDownLatch releaseOld = new CountDownLatch(1);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        try {
+            context.handler.webhookEvent(legacyZoneRunEvent("ZONE_STARTED"));
+            context.handler.advanceTime(600_000);
+            RachioCurrentScheduleResponse older = new RachioCurrentScheduleResponse();
+            older.running = olderRunning;
+            RachioCurrentScheduleResponse newer = new RachioCurrentScheduleResponse();
+            newer.running = !olderRunning;
+            Mockito.doAnswer(invocation -> {
+                if (calls.incrementAndGet() == 1) {
+                    oldStarted.countDown();
+                    assertThat(releaseOld.await(5, TimeUnit.SECONDS), is(true));
+                    return older;
+                }
+                if (newerFails) {
+                    throw new RachioApiException("Newer request failed");
+                }
+                return newer;
+            }).when(context.handler.cloudHandler).getCurrentSchedule(eq(DEVICE_ID), any(RequestPurpose.class));
+            Future<?> old = worker.submit(() -> context.handler.refreshSmartIrrigationReadExtensions(false,
+                    RequestPurpose.CORE_STATUS_POLL, RachioBridgeHandler.RefreshReason.SCHEDULED_POLL));
+            assertThat(oldStarted.await(5, TimeUnit.SECONDS), is(true));
+            context.handler.goOnline();
+            releaseOld.countDown();
+            old.get(5, TimeUnit.SECONDS);
+            boolean expectedRunning = newerFails ? olderRunning : !olderRunning;
+            assertThat(context.device.currentScheduleRunning, is(expectedRunning));
+            assertThat(lastPublishedZoneRun(context), is(expectedRunning ? OnOffType.ON : OnOffType.OFF));
+        } finally {
+            releaseOld.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(5, TimeUnit.SECONDS), is(true));
+            context.close();
+        }
+    }
+
+    @Test
+    void newerRunningRestResponseCancelsDelayedIdleZoneCorrection() throws Exception {
+        ZoneRunContext context = realZoneRunContext(new RachioCurrentScheduleResponse(), false);
+        CountDownLatch idleAccepted = new CountDownLatch(1);
+        CountDownLatch releaseCorrection = new CountDownLatch(1);
+        ExecutorService worker = Executors.newSingleThreadExecutor();
+        try {
+            context.handler.webhookEvent(legacyZoneRunEvent("ZONE_STARTED"));
+            context.handler.advanceTime(600_000);
+            RachioCurrentScheduleResponse running = new RachioCurrentScheduleResponse();
+            running.running = true;
+            when(context.handler.cloudHandler.getCurrentSchedule(eq(DEVICE_ID), any(RequestPurpose.class)))
+                    .thenReturn(new RachioCurrentScheduleResponse(), running);
+            Mockito.doAnswer(invocation -> {
+                idleAccepted.countDown();
+                assertThat(releaseCorrection.await(5, TimeUnit.SECONDS), is(true));
+                return invocation.callRealMethod();
+            }).when(context.zoneHandler).reconcileIdleRunState(any(), any());
+            Future<?> old = worker.submit(() -> context.handler.refreshSmartIrrigationReadExtensions(false,
+                    RequestPurpose.CORE_STATUS_POLL, RachioBridgeHandler.RefreshReason.SCHEDULED_POLL));
+            assertThat(idleAccepted.await(5, TimeUnit.SECONDS), is(true));
+            assertIdleRunSummary(context.device);
+            context.handler.goOnline();
+            releaseCorrection.countDown();
+            old.get(5, TimeUnit.SECONDS);
+            assertThat(context.device.currentScheduleRunning, is(true));
+            assertThat(lastPublishedZoneRun(context), is(OnOffType.ON));
+            verify(context.callback, never()).stateUpdated(
+                    new ChannelUID(context.zoneHandler.getThing().getUID(), CHANNEL_ZONE_RUN), OnOffType.OFF);
+        } finally {
+            releaseCorrection.countDown();
+            worker.shutdownNow();
+            assertThat(worker.awaitTermination(5, TimeUnit.SECONDS), is(true));
+            context.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void idleResponseCannotCrossZoneLifecycleOrModelChange(boolean lifecycleChange) throws Exception {
+        ZoneRunContext context = realZoneRunContext(new RachioCurrentScheduleResponse(), false);
+        try {
+            context.handler.webhookEvent(legacyZoneRunEvent("ZONE_STARTED"));
+            context.handler.advanceTime(600_000);
+            refreshWithBlockedResponse(new WebhookRunContext(context.device, context.handler), () -> {
+                if (lifecycleChange) {
+                    context.zoneHandler.startNewLifecycle();
+                } else {
+                    RachioZone replacement = Objects.requireNonNull(deviceWithZone().getZoneByNumber(7));
+                    context.zoneHandler.rebindToCurrentModel(context.device, replacement, "replacement during GET");
+                }
+            });
+            assertThat(lastPublishedZoneRun(context), is(OnOffType.ON));
+            verify(context.callback, never()).stateUpdated(
+                    new ChannelUID(context.zoneHandler.getThing().getUID(), CHANNEL_ZONE_RUN), OnOffType.OFF);
+        } finally {
+            context.close();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    @org.junit.jupiter.api.Timeout(15)
+    void lifecycleAndModelChangesSerializeWithIdlePublication(boolean lifecycleChange) throws Exception {
+        ZoneRunContext context = realZoneRunContext(new RachioCurrentScheduleResponse(), false);
+        List<String> order = new java.util.concurrent.CopyOnWriteArrayList<>();
+        CountDownLatch transitionStarted = new CountDownLatch(1);
+        RachioZone expectedZone = Objects.requireNonNull(context.device.getZoneByNumber(7));
+        RachioZone replacement = Objects.requireNonNull(deviceWithZone().getZoneByNumber(7));
+        Thread transition = new Thread(() -> {
+            transitionStarted.countDown();
+            if (lifecycleChange) {
+                context.zoneHandler.startNewLifecycle();
+            } else {
+                context.zoneHandler.rebindToCurrentModel(context.device, replacement, "publication race");
+            }
+            order.add("transition");
+        });
+        transition.setDaemon(true);
+        try {
+            context.handler.webhookEvent(legacyZoneRunEvent("ZONE_STARTED"));
+            RachioZoneHandler.RunStateContext captured = Objects
+                    .requireNonNull(context.zoneHandler.captureRunStateContext(context.device, expectedZone));
+            context.zoneHandler.reconcileIdleRunState(captured, publisher -> {
+                transition.start();
+                try {
+                    assertThat(transitionStarted.await(5, TimeUnit.SECONDS), is(true));
+                    long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                    while (transition.isAlive() && transition.getState() != Thread.State.BLOCKED) {
+                        assertThat(System.nanoTime() < deadline, is(true));
+                        transition.join(1);
+                    }
+                    publisher.run();
+                    order.add("publication");
+                } catch (InterruptedException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            transition.join(5000);
+            assertThat(transition.isAlive(), is(false));
+            assertThat(order, is(List.of("publication", "transition")));
+        } finally {
+            transition.join(5000);
+            context.close();
+        }
+    }
+
     private ZoneRunContext realZoneRunContext(RachioCurrentScheduleResponse currentSchedule, boolean spyDevice)
             throws Exception {
         RachioDevice device = spyDevice ? Mockito.spy(deviceWithZone()) : deviceWithZone();
@@ -1376,7 +1565,7 @@ class RachioDeviceHandlerStatusTest {
         when(zoneThing.getUID()).thenReturn(new ThingUID(THING_TYPE_ZONE, "bridge", "controller", "zone"));
         when(zoneThing.getConfiguration()).thenReturn(new Configuration(Map.of(PROPERTY_ZONE_ID, "zone-id")));
         when(zoneThing.getProperties()).thenReturn(new HashMap<>());
-        LifecycleZoneHandler zoneHandler = new LifecycleZoneHandler(zoneThing);
+        LifecycleZoneHandler zoneHandler = Mockito.spy(new LifecycleZoneHandler(zoneThing));
         ThingHandlerCallback callback = Mockito.mock(ThingHandlerCallback.class);
         zoneHandler.setCallback(callback);
         assertThat(zoneHandler.rebindToCurrentModel(device, Objects.requireNonNull(device.getZoneByNumber(7)), "test"),

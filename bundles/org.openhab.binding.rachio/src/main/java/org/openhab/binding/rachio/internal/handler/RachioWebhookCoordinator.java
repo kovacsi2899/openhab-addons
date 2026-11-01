@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -204,7 +205,8 @@ final class RachioWebhookCoordinator {
                     if (registrationAttempted) {
                         reconcileAfterStaleRegistration(bridgeHandler, context, attemptedWebhookUrl);
                     }
-                    if (pendingTarget != null && pendingCloudWebhookTargets.containsKey(pendingTarget.describe())) {
+                    if (pendingTarget != null
+                            && pendingCloudWebhookTargets.containsKey(webhookTargetKey(pendingTarget))) {
                         scheduleCloudWebhookRetry(bridgeHandler, context.lifecycle(), context.retryGeneration());
                     }
                 }
@@ -254,7 +256,7 @@ final class RachioWebhookCoordinator {
             return;
         }
         RachioWebhookTarget pendingTarget = beginCloudWebhookTarget(bridgeHandler, context, target);
-        CloudWebhookAttempt attempt = new CloudWebhookAttempt(target.describe(), context);
+        CloudWebhookAttempt attempt = new CloudWebhookAttempt(webhookTargetKey(target), context);
         if (pendingTarget != null && !activeCloudWebhookAttempts.add(attempt)) {
             scheduleCloudWebhookRetry(bridgeHandler, context.lifecycle(), context.retryGeneration());
             return;
@@ -291,7 +293,7 @@ final class RachioWebhookCoordinator {
             if (registrationAttempted) {
                 reconcileAfterStaleRegistration(bridgeHandler, context, attemptedWebhookUrl);
             }
-            if (pendingTarget != null && pendingCloudWebhookTargets.containsKey(pendingTarget.describe())) {
+            if (pendingTarget != null && pendingCloudWebhookTargets.containsKey(webhookTargetKey(pendingTarget))) {
                 scheduleCloudWebhookRetry(bridgeHandler, context.lifecycle(), context.retryGeneration());
             }
         }
@@ -394,11 +396,13 @@ final class RachioWebhookCoordinator {
     private void refreshCloudWebhook(RachioBridgeHandler bridgeHandler, WebhookRegistrationContext context,
             ResolvedWebhookState expectedState) {
         AtomicBoolean requested = new AtomicBoolean();
-        publishRegistrationState(bridgeHandler, context, () -> {
-            if (isSameInstance(getResolvedWebhookState(), expectedState)) {
-                cancelCloudWebhookRetry("cloud webhook URL refresh");
-                cloudWebhookInvalidationTarget.set(expectedState);
-                requested.set(true);
+        bridgeHandler.publishWebhookStateIfCurrent(context.lifecycle(), () -> {
+            synchronized (this) {
+                if (isSameInstance(getResolvedWebhookState(), expectedState)) {
+                    cancelCloudWebhookRetry("cloud webhook URL refresh");
+                    cloudWebhookInvalidationTarget.set(expectedState);
+                    requested.set(true);
+                }
             }
         });
         if (!requested.get()) {
@@ -535,6 +539,7 @@ final class RachioWebhookCoordinator {
         if (context != null) {
             try {
                 reconcileConfiguredWebhooks(bridgeHandler, requestPurpose, null, context);
+                reconcileSmartHoseTimerWebhooks(bridgeHandler, requestPurpose, null, context);
             } finally {
                 schedulePendingCloudWebhookRetry(bridgeHandler, context);
             }
@@ -891,7 +896,8 @@ final class RachioWebhookCoordinator {
         bridgeHandler.publishWebhookStateIfCurrent(lifecycle, () -> {
             synchronized (this) {
                 if (context.retryGeneration() == cloudWebhookRetryGeneration) {
-                    RachioWebhookTarget previous = pendingCloudWebhookTargets.putIfAbsent(target.describe(), target);
+                    RachioWebhookTarget previous = pendingCloudWebhookTargets.putIfAbsent(webhookTargetKey(target),
+                            target);
                     pendingTarget.set(previous != null ? previous : target);
                 }
             }
@@ -903,14 +909,21 @@ final class RachioWebhookCoordinator {
         if (target == null) {
             return;
         }
-        pendingCloudWebhookTargets.remove(target.describe(), target);
+        pendingCloudWebhookTargets.remove(webhookTargetKey(target), target);
         if (pendingCloudWebhookTargets.isEmpty() && getResolvedWebhookState().url() != null) {
             cancelCloudWebhookRetryJob("configured webhook targets reconciled");
         }
     }
 
     private String webhookTargetKey(RachioWebhookResourceType resourceType, String resourceId) {
-        return resourceType.getApiValue() + ":" + resourceId;
+        String keyId = resourceType == RachioWebhookResourceType.IRRIGATION_CONTROLLER
+                ? resourceId.toLowerCase(Locale.ROOT)
+                : resourceId;
+        return resourceType.getApiValue() + ":" + keyId;
+    }
+
+    private String webhookTargetKey(RachioWebhookTarget target) {
+        return webhookTargetKey(target.getResourceType(), target.getResourceId());
     }
 
     private Map<String, RachioWebhookTarget> getConfiguredWebhookTargets(RachioBridgeHandler bridgeHandler,
@@ -918,7 +931,7 @@ final class RachioWebhookCoordinator {
         Map<String, RachioWebhookTarget> configuredTargets = new LinkedHashMap<>();
         for (String controllerId : getConfiguredControllerThingIds(bridgeHandler)) {
             RachioWebhookTarget target = RachioWebhookTarget.irrigationController(controllerId, List.of());
-            configuredTargets.put(target.describe(), target);
+            configuredTargets.put(webhookTargetKey(target), target);
         }
         if (configuration.autoConfigureHoseTimerWebhooks) {
             for (RachioSmartHoseStatusListener listener : bridgeHandler.smartHoseStatusListeners) {
@@ -927,7 +940,7 @@ final class RachioWebhookCoordinator {
                     if (!valveId.isBlank()) {
                         RachioWebhookTarget target = new RachioWebhookTarget(valveId, RachioWebhookResourceType.VALVE,
                                 List.of(EVENT_VALVE_RUN_START, EVENT_VALVE_RUN_END));
-                        configuredTargets.put(target.describe(), target);
+                        configuredTargets.put(webhookTargetKey(target), target);
                     }
                 } else if (listener instanceof RachioValveProgramHandler programHandler) {
                     String programId = programHandler.getThingConfigurationOrPropertyString(PROPERTY_VALVE_PROGRAM_ID);
@@ -935,7 +948,7 @@ final class RachioWebhookCoordinator {
                         RachioWebhookTarget target = new RachioWebhookTarget(programId,
                                 RachioWebhookResourceType.PROGRAM,
                                 List.of(EVENT_PROGRAM_RAIN_SKIP_CREATED, EVENT_PROGRAM_RAIN_SKIP_CANCELED));
-                        configuredTargets.put(target.describe(), target);
+                        configuredTargets.put(webhookTargetKey(target), target);
                     }
                 }
             }

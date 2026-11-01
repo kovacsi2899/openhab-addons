@@ -185,7 +185,7 @@ public final class RachioCloudWebhookRegistry {
             operation.webhookService.requestWebhook(operation.localPath).whenComplete((webhook, error) -> {
                 boolean cleanupLateResult;
                 synchronized (this) {
-                    cleanupLateResult = error == null && operation.cleanupRequested;
+                    cleanupLateResult = operation.cleanupRequested;
                 }
                 if (error == null) {
                     operation.result.complete(webhook);
@@ -193,7 +193,7 @@ public final class RachioCloudWebhookRegistry {
                     operation.result.completeExceptionally(unwrapCompletionException(error));
                 }
                 if (cleanupLateResult) {
-                    // A create may finish after its eager cleanup. Its unique path cannot name a replacement.
+                    // An ACK failure does not exclude a remote create after eager cleanup of this unique path.
                     removeWebhook(operation);
                 }
             });

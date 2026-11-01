@@ -206,6 +206,51 @@ class RachioCloudWebhookRecoveryTest {
     }
 
     @Test
+    void controllerCaseVariantsShareOneInFlightRegistration() throws Exception {
+        WebhookService service = provider();
+        RachioCloudWebhookRegistry registry = new RachioCloudWebhookRegistry(() -> service);
+        CountDownLatch registrationStarted = new CountDownLatch(1);
+        CountDownLatch allowRegistration = new CountDownLatch(1);
+        AtomicInteger calls = new AtomicInteger();
+        AtomicBoolean remoteCallbackPresent = new AtomicBoolean();
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        try (Fixture fixture = new Fixture(registry)) {
+            fixture.config.clearAllCallbacks = true;
+            fixture.config.autoConfigureHoseTimerWebhooks = true;
+            org.mockito.stubbing.Answer<Void> register = invocation -> {
+                if (calls.incrementAndGet() > 1) {
+                    remoteCallbackPresent.set(false);
+                    throw new RachioApiException("create failed after duplicate cleanup");
+                }
+                remoteCallbackPresent.set(true);
+                registrationStarted.countDown();
+                await(allowRegistration);
+                return null;
+            };
+            doAnswer(register).when(fixture.api).registerWebHook(anyString(), anyString(), eq(""), eq(""),
+                    eq("recovery-test"), eq(true), any(RequestPurpose.class));
+            doAnswer(register).when(fixture.api).registerWebHookTarget(any(), anyString(), eq(""), eq(""),
+                    eq("recovery-test"), eq(true), any(RequestPurpose.class));
+            try {
+                Future<?> first = workers.submit(() -> fixture.registerController("target-ID"));
+                await(registrationStarted);
+                Future<?> overlapping = workers.submit(() -> fixture.registerController("target-id"));
+                overlapping.get(5, TimeUnit.SECONDS);
+                assertEquals(1, calls.get());
+                assertTrue(remoteCallbackPresent.get());
+                allowRegistration.countDown();
+                first.get(5, TimeUnit.SECONDS);
+                assertTrue(remoteCallbackPresent.get());
+                assertEquals(1, calls.get());
+            } finally {
+                allowRegistration.countDown();
+                workers.shutdownNow();
+                assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS));
+            }
+        }
+    }
+
+    @Test
     void configuredControllerKeepsItsRetryAcrossTemporaryCatalogueAbsence() throws Exception {
         AtomicReference<@Nullable WebhookService> provider = new AtomicReference<>();
         try (Fixture fixture = new Fixture(new RachioCloudWebhookRegistry(provider::get))) {
@@ -249,6 +294,111 @@ class RachioCloudWebhookRecoveryTest {
         }
     }
 
+    @Test
+    void exceptionalLateCreateStillCleansItsRetiredPath() throws Exception {
+        WebhookService service = mock(WebhookService.class);
+        CompletableFuture<Webhook> create = new CompletableFuture<>();
+        AtomicBoolean remotePresent = new AtomicBoolean();
+        AtomicInteger removals = new AtomicInteger();
+        when(service.requestWebhook(anyString())).thenReturn(create);
+        when(service.removeWebhook(anyString())).thenAnswer(invocation -> {
+            removals.incrementAndGet();
+            remotePresent.set(false);
+            return CompletableFuture.completedFuture(null);
+        });
+        RachioCloudWebhookRegistry registry = new RachioCloudWebhookRegistry(() -> service, 0, 1000);
+        assertThrows(RachioCloudWebhookRegistry.CloudWebhookException.class, () -> registry.acquire("test"));
+        assertEquals(1, removals.get());
+        remotePresent.set(true); // Remote create happens after eager remove; acknowledgement is lost.
+        create.completeExceptionally(new java.io.IOException("Webhook registration timed out"));
+        assertFalse(remotePresent.get(), "Exceptional acknowledgement must not skip final retired-path cleanup");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
+    void configuredControllerCaseDoesNotDropPendingTarget(boolean propertyOnly, boolean modelMissing) throws Exception {
+        AtomicReference<WebhookService> provider = new AtomicReference<>();
+        try (Fixture fixture = new Fixture(new RachioCloudWebhookRegistry(provider::get))) {
+            Thing thing = ThingBuilder
+                    .create(THING_TYPE_DEVICE,
+                            new ThingUID(THING_TYPE_DEVICE, fixture.bridge.getThing().getUID(), "controller"))
+                    .withBridge(fixture.bridge.getThing().getUID())
+                    .withConfiguration(
+                            new Configuration(propertyOnly ? Map.of() : Map.of(PROPERTY_DEV_ID, "controller-a")))
+                    .withProperties(Map.of(PROPERTY_DEV_ID, "controller-a")).build();
+            RachioDeviceHandler child = new RachioDeviceHandler(thing);
+            child.setCallback(mock(ThingHandlerCallback.class));
+            RachioCloudDevice dto = new RachioCloudDevice();
+            dto.id = "controller-A";
+            dto.name = "Controller";
+            child.rebindToCurrentModel(new RachioDevice(dto), "probe setup");
+            fixture.bridge.rachioStatusListeners.add(child);
+            try {
+                fixture.bridge.registerWebHook("controller-A", RequestPurpose.INITIALIZATION);
+                assertEquals(1, fixture.retries.size());
+                if (modelMissing) {
+                    setField(child, "dev", null);
+                }
+                provider.set(provider());
+                fixture.retries.getFirst().run();
+                long registrations = org.mockito.Mockito.mockingDetails(fixture.api).getInvocations().stream()
+                        .filter(i -> i.getMethod().getName().equals("registerWebHook")).count();
+                assertTrue(registrations > 0, "Case-insensitive configured controller must retain registration intent");
+            } finally {
+                child.dispose();
+            }
+        }
+    }
+
+    @Test
+    void preservedLeaseRenewsAfterLateProviderNotification() throws Exception {
+        WebhookService service = provider();
+        RachioCloudWebhookRegistry registry = new RachioCloudWebhookRegistry(() -> service);
+        try (Fixture fixture = new Fixture(registry)) {
+            List<Runnable> timers = new CopyOnWriteArrayList<>();
+            List<Runnable> drains = new CopyOnWriteArrayList<>();
+            ScheduledExecutorService scheduler = mock(ScheduledExecutorService.class);
+            when(scheduler.schedule(any(Runnable.class), anyLong(), eq(TimeUnit.SECONDS))).thenAnswer(i -> {
+                timers.add(i.getArgument(0));
+                return mock(ScheduledFuture.class);
+            });
+            doAnswer(i -> {
+                drains.add(i.getArgument(0));
+                return null;
+            }).when(scheduler).execute(any(Runnable.class));
+            setField(fixture.bridge, "webhookCoordinator", new RachioWebhookCoordinator(registry, scheduler));
+            RachioDeviceHandler controller = mock(RachioDeviceHandler.class);
+            when(controller.getConfiguredControllerId()).thenReturn("controller");
+            fixture.bridge.rachioStatusListeners.add(controller);
+            registry.onProviderChanged(null, service);
+            fixture.bridge.registerWebHook("controller", RequestPurpose.INITIALIZATION);
+            assertEquals(1, timers.size());
+            fixture.bridge.onCloudWebhookProviderChanged(); // Notification follows acquisition on the new provider.
+            assertEquals(1, drains.size());
+            drains.getFirst().run();
+            assertEquals(1, timers.size()); // Active lease kept; timer was not replaced.
+            clearInvocations(service);
+            timers.getFirst().run(); // Advance directly to the scheduled expiry refresh, no wall-clock wait.
+            for (int i = 1; i < drains.size(); i++) {
+                drains.get(i).run();
+            }
+            long requests = org.mockito.Mockito.mockingDetails(service).getInvocations().stream()
+                    .filter(i -> i.getMethod().getName().equals("requestWebhook")).count();
+            assertEquals(1, requests,
+                    "Preserved lease must still renew after provider notification changes retry generation");
+            assertEquals(2, timers.size());
+            clearInvocations(service);
+            timers.getFirst().run();
+            verify(service, never()).requestWebhook(anyString());
+            verify(service, never()).removeWebhook(anyString());
+            fixture.bridge.dispose();
+            clearInvocations(service);
+            timers.getLast().run();
+            verify(service, never()).requestWebhook(anyString());
+            verify(service, never()).removeWebhook(anyString());
+        }
+    }
+
     private static WebhookService provider() throws Exception {
         WebhookService service = mock(WebhookService.class);
         when(service.requestWebhook(startsWith(SERVLET_CLOUD_WEBHOOK_PATH_PREFIX))).thenReturn(
@@ -263,7 +413,8 @@ class RachioCloudWebhookRecoveryTest {
         assertTrue(latch.await(5, TimeUnit.SECONDS), "Timed out waiting for the test operation");
     }
 
-    private static void setField(Object target, String name, Object value) throws ReflectiveOperationException {
+    private static void setField(Object target, String name, @Nullable Object value)
+            throws ReflectiveOperationException {
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
             try {
                 Field field = type.getDeclaredField(name);
@@ -303,6 +454,14 @@ class RachioCloudWebhookRecoveryTest {
                 return mock(ScheduledFuture.class);
             }).when(scheduler).schedule(any(Runnable.class), anyLong(), eq(TimeUnit.SECONDS));
             setField(bridge, "webhookCoordinator", new RachioWebhookCoordinator(registry, scheduler));
+        }
+
+        void registerController(String id) {
+            try {
+                bridge.registerWebHook(id, RequestPurpose.INITIALIZATION);
+            } catch (RachioApiException e) {
+                throw new AssertionError(e);
+            }
         }
 
         void register(String resource) {
